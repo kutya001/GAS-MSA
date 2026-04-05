@@ -1,0 +1,128 @@
+<!-- ══ WALLETS ════════════════════════════════════════════════════════ -->
+<div class="page" id="page-wallets">
+  <div class="sh"><h2>Кошельки / Кассы</h2><p>Остатки по кассам — весь расчёт строго по кошелькам</p>
+    <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="openM('mWallet')">+ Кошелёк</button></div>
+  </div>
+  <div class="wgrid" id="walletsGrid"></div>
+  <div id="wdWrap" style="display:none">
+    <div class="sh" style="margin-top:4px">
+      <h2 id="wdTitle">История операций</h2>
+      <div class="sh-acts"><button class="btn btn-g btn-sm" onclick="closeWD()">✕ Закрыть</button></div>
+    </div>
+    <div class="fbar">
+      <label>От</label><input type="date" class="fi fi-sm" id="wd-from" onchange="loadWD()">
+      <label>До</label><input type="date" class="fi fi-sm" id="wd-to" onchange="loadWD()">
+    </div>
+    <div class="tw"><div class="tscr"><table>
+      <thead><tr><th>Дата</th><th>Тип</th><th>Категория</th><th>Статья</th><th>Контрагент</th><th>Комментарий</th><th>Сумма</th></tr></thead>
+      <tbody id="wdBody"></tbody>
+      <tfoot><tr><td colspan="5">Итого за период</td><td id="wdIn" class="tg">0</td><td id="wdOut" class="tr">0</td></tr></tfoot>
+    </table></div></div>
+  </div>
+</div>
+
+<!-- ══ CASHOPS ════════════════════════════════════════════════════ -->
+<div class="page" id="page-cashops">
+  <div class="sh"><h2>Движение денежных средств</h2></div>
+  <div class="fbar">
+    <label>Кошелёк</label><select class="fi fi-sm" id="cf-wallet" onchange="loadCash()"><option value="">Все</option></select>
+    <label>Тип</label><select class="fi fi-sm" id="cf-type" onchange="loadCash()"><option value="">Все</option><option>Приход</option><option>Расход</option></select>
+    <label>Категория</label><select class="fi fi-sm" id="cf-cat" onchange="loadCash()"><option value="">Все</option></select>
+    <label>От</label><input type="date" class="fi fi-sm" id="cf-from" onchange="loadCash()">
+    <label>До</label><input type="date" class="fi fi-sm" id="cf-to" onchange="loadCash()">
+    <button class="btn btn-g btn-sm" onclick="clearF('cf',loadCash)">✕</button>
+  </div>
+  <div id="cashTable"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  WALLETS
+// ════════════════════════════════════════════════════════════════
+async function loadWallets(){
+  const d=await api('getWallets'); if(!d) return; ST.wallets=d;
+  _setHTML(document.getElementById('walletsGrid'),d.map(w=>`<div class="wcard${ST.wdWalletId===w.id?' sel':''}" onclick="openWD(${w.id})">
+    <span class="wico">${esc(w.icon)}</span><div class="wname">${esc(w.name)}</div>
+    <div class="wcurr">${esc(w.currency)}</div>
+    <div class="wbal">${fmtN(w.balance)}</div>
+    <div class="wio"><span class="win">↑${fmtN(w.total_in)}</span><span class="wout">↓${fmtN(w.total_out)}</span></div>
+    <div style="margin-top:8px"><button class="btn btn-g btn-xs" onclick="event.stopPropagation();editWallet(${w.id})">✏️ Изм.</button></div>
+  </div>`).join(''));
+}
+function openWD(wid){
+  ST.wdWalletId=wid;
+  const w=ST.wallets.find(x=>x.id===wid);
+  document.getElementById('wdTitle').textContent=(w?.name||'Кошелёк')+': история';
+  document.getElementById('wdWrap').style.display='';
+  loadWD();
+}
+function closeWD(){document.getElementById('wdWrap').style.display='none';ST.wdWalletId=null;loadWallets()}
+async function loadWD(){
+  if(!ST.wdWalletId) return;
+  const d=await api('getWalletHistory',{wallet_id:ST.wdWalletId,dateFrom:g('wd-from'),dateTo:g('wd-to')});
+  const rows=(d&&d.rows)||[];
+  let tIn=0,tOut=0;
+  _setHTML(document.getElementById('wdBody'),rows.map(r=>{
+    const inc=r.op_type==='Приход';if(inc)tIn+=(+r.amount||0);else tOut+=(+r.amount||0);
+    return`<tr><td>${fmtD(r.op_date)}</td><td><span class="badge ${inc?'bg':'br'}">${inc?'↑':'↓'}${esc(r.op_type)}</span></td><td>${esc(r.cat_name||'')}</td><td>${esc(r.article_name||'')}</td><td>${esc(r.counterpart||'')}</td><td>${esc(r.comment||'')}</td><td class="mono ${inc?'tg':'tr'} fw7">${inc?'+':'-'}${fmtN(r.amount)}</td></tr>`;
+  }).join('')||eRow(7,'Нет операций'));
+  document.getElementById('wdIn').textContent='+'+fmtN(tIn);
+  document.getElementById('wdOut').textContent='-'+fmtN(tOut);
+}
+async function saveWallet(){
+  const name=g('w-name'),curr=g('w-curr');
+  if(!name||!curr){toast('Заполните обязательные поля','e');return}
+  const data={name,currency_id:+curr,icon:g('w-icon')||'💰',start_balance:parseFloat(g('w-start'))||0,note:g('w-note')};
+  if(ST.editId.wallet) await api('updateWallet',{id:ST.editId.wallet,...data});
+  else await api('addWallet',data);
+  toast('Кошелёк сохранён','s'); closeM('mWallet'); await loadMasterData(); loadWallets();
+}
+function editWallet(id){
+  const w=ST.wallets.find(x=>x.id===id); if(!w) return;
+  ST.editId.wallet=id;
+  document.getElementById('mWTitle').textContent='Редактировать кошелёк';
+  document.getElementById('w-name').value=w.name;
+  document.getElementById('w-icon').value=w.icon;
+  document.getElementById('w-note').value=w.note||'';
+  openM('mWallet');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CASHOPS
+// ════════════════════════════════════════════════════════════════
+var _cDT = null;
+function _cDTinit() {
+  if (_cDT) return _cDT;
+  _cDT = new DT({
+    id: 'cashops', containerId: 'cashTable',
+    addLabel: '+ Операция', onAdd: function(){ openM('mCashOp'); },
+    cols: [
+      {key:'op_date',      label:'Дата',         w:'84px',  render:function(v){return fmtD(v);}},
+      {key:'op_type',      label:'Тип',           sortable:false,
+        render:function(v){var inc=v==='Приход';return '<span class="badge '+(inc?'bg':'br')+'">'+(inc?'↑':'↓')+esc(v)+'</span>';}},
+      {key:'wallet_name',  label:'Кошелёк'},
+      {key:'cat_name',     label:'Категория',     sortable:false},
+      {key:'article_name', label:'Статья',        sortable:false},
+      {key:'counterpart',  label:'Контрагент',    sortable:false},
+      {key:'comment',      label:'Комментарий',   sortable:false},
+      {key:'amount',       label:'Сумма',         align:'right', mono:true,
+        render:function(v,r){var inc=r.op_type==='Приход';return '<span class="'+(inc?'tg':'tr')+' fw7">'+(inc?'+':'-')+fmtN(v)+'</span>';}}
+    ]
+  });
+  return _cDT;
+}
+
+async function loadCash(){
+  var d=await api('getCashOps',{wallet_id:g('cf-wallet'),op_type:g('cf-type'),cat_id:g('cf-cat'),dateFrom:g('cf-from'),dateTo:g('cf-to')}); if(!d) return;
+  _cDTinit().setData(d.rows||[]);
+}
+function onCoType(){var t=g('co-type');fillSel('co-cat',ST.cats.filter(function(c){return c.op_type===t;}),'id','name','—');fillSel('co-art',[],'id','name','Без статьи');}
+function onCoCat(){var cid=+g('co-cat');fillSel('co-art',ST.articles.filter(function(a){return a.cat_id===cid;}),'id','name','Без статьи');}
+async function saveCashOp(){
+  var wid=+g('co-wallet'),catId=+g('co-cat'),amt=parseFloat(g('co-amount'))||0,date=g('co-date'),type=g('co-type');
+  if(!wid||!catId||!amt||!date){toast('Заполните обязательные поля','e');return}
+  await api('addCashOp',{wallet_id:wid,op_type:type,cat_id:catId,article_id:+g('co-art')||null,amount:amt,op_date:date,counterpart:g('co-counter'),comment:g('co-comment')});
+  toast('Операция сохранена','s'); closeM('mCashOp'); loadCash(); loadWallets();
+}
+</script>
+

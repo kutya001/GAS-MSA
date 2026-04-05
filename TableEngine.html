@@ -1,0 +1,340 @@
+<script>
+'use strict';
+// ════════════════════════════════════════════════════════════════
+//  DATA TABLE ENGINE  — class DT
+//  Управляет таблицей: поиск, сортировка, пагинация / flat-вид,
+//  порядок и видимость колонок (drag-reorder), экспорт XLSX.
+//  Все экземпляры регистрируются в глобальном DT_INST[id].
+// ════════════════════════════════════════════════════════════════
+
+class DT {
+  constructor(cfg) {
+    // cfg.id          — уникальный строковый ключ таблицы
+    // cfg.containerId — id DOM-элемента, куда рендерить
+    // cfg.cols        — [{key,label,sortable?,vis?,render?,align?,mono?,w?}]
+    // cfg.addLabel    — подпись «+ добавить» (опционально)
+    // cfg.onAdd       — callback для кнопки добавления
+    this.cfg = cfg;
+    this.cols = (cfg.cols || []).map((c, i) => ({
+      key:      c.key,
+      label:    c.label,
+      w:        c.w        || '',
+      sortable: c.sortable !== false,
+      vis:      c.vis      !== false,
+      render:   c.render   || null,
+      align:    c.align    || '',
+      mono:     !!c.mono,
+      _i: i,   // неизменяемый индекс
+      ord: i,  // порядок отображения (меняется drag-and-drop'ом)
+    }));
+    this.data     = [];
+    this.filtered = [];
+    this.q        = '';
+    this.sortKey  = '';
+    this.sortDir  = 1;
+    this.pg       = 1;
+    this.PS       = 100;
+    this.flat     = false;
+    this._ready   = false;
+    this._drag    = null;
+    DT_INST[cfg.id] = this;
+  }
+
+  // видимые колонки в текущем порядке
+  get vc() {
+    return [...this.cols].filter(c => c.vis).sort((a, b) => a.ord - b.ord);
+  }
+
+  // ── загрузка данных ──────────────────────────────────────────
+  setData(rows) {
+    this.data = rows || [];
+    this._filter();
+    this.pg = 1;
+    if (this._ready) {
+      this._rBody(); this._rPgn(); this._rInfo();
+    } else {
+      this._render(); this._ready = true;
+    }
+  }
+
+  _filter() {
+    var q = this.q.toLowerCase().trim();
+    this.filtered = q
+      ? this.data.filter(function(r) {
+          return Object.values(r).some(function(v) {
+            return String(v == null ? '' : v).toLowerCase().indexOf(q) !== -1;
+          });
+        })
+      : this.data.slice();
+    if (this.sortKey) this._sort();
+  }
+
+  _sort() {
+    var k = this.sortKey, d = this.sortDir;
+    this.filtered.sort(function(a, b) {
+      var av = a[k] == null ? '' : a[k];
+      var bv = b[k] == null ? '' : b[k];
+      if (!isNaN(+av) && !isNaN(+bv)) return (+av - +bv) * d;
+      return String(av).localeCompare(String(bv), 'ru') * d;
+    });
+  }
+
+  // ── полный рендер в контейнер ────────────────────────────────
+  _render() {
+    var c = document.getElementById(this.cfg.containerId);
+    if (!c) return;
+    var tpl = document.createElement('template');
+    tpl.innerHTML = this._html();
+    c.textContent = '';
+    c.appendChild(tpl.content);
+    this._bind();
+  }
+
+  _html() {
+    var id = this.cfg.id;
+    return '<div class="dt-wrap">'
+      + '<div class="dt-tb">' + this._toolbarHtml() + '</div>'
+      + '<div class="dt-scr"><table class="dt-tbl" id="' + id + '-tbl">'
+      + '<thead>' + this._headHtml() + '</thead>'
+      + '<tbody id="' + id + '-body">' + this._bodyHtml() + '</tbody>'
+      + '</table></div>'
+      + '<div class="dt-foot" id="' + id + '-pgn">' + this._pgnHtml() + '</div>'
+      + '</div>';
+  }
+
+  _toolbarHtml() {
+    var id = this.cfg.id;
+    var addBtn = this.cfg.onAdd
+      ? '<button class="btn btn-p btn-sm" onclick="DT_INST[\'' + id + '\'].cfg.onAdd()">'
+          + esc(this.cfg.addLabel || '+ Добавить') + '</button>'
+      : '';
+    var colItems = this.cols.map(function(c) {
+      return '<label class="dt-ci">'
+        + '<input type="checkbox" ' + (c.vis ? 'checked' : '') + ' onchange="DT_INST[\'' + id + '\'].toggleCol(' + c._i + ')">'
+        + '<span>' + esc(c.label || '—') + '</span></label>';
+    }).join('');
+    return '<div class="dt-tb-l">'
+      + addBtn
+      + '<div class="dt-srchw"><span class="dt-srchi">⌕</span>'
+      + '<input class="dt-srch" id="' + id + '-srch" placeholder="Поиск по таблице…" value="' + esc(this.q) + '" oninput="DT_INST[\'' + id + '\'].onSearch(this.value)"></div>'
+      + '<span class="dt-inf" id="' + id + '-inf">' + this._infoTxt() + '</span>'
+      + '</div>'
+      + '<div class="dt-tb-r">'
+      + '<button class="btn btn-g btn-sm dt-flat' + (this.flat ? ' on' : '') + '" id="' + id + '-flat" onclick="DT_INST[\'' + id + '\'].toggleFlat()">'
+      + (this.flat ? '&#9776; Страницы' : '&#9776; Все строки') + '</button>'
+      + '<div class="dt-cvw" id="' + id + '-cvw">'
+      + '<button class="btn btn-g btn-sm" onclick="DT_INST[\'' + id + '\']._toggleCV(event)">&#9881; Столбцы</button>'
+      + '<div class="dt-cv" id="' + id + '-cv" hidden>' + colItems + '</div>'
+      + '</div>'
+      + '<button class="btn btn-g btn-sm" onclick="DT_INST[\'' + id + '\'].exportXLSX()" title="Скачать XLSX">&darr; XLSX</button>'
+      + '</div>';
+  }
+
+  _headHtml() {
+    var self = this;
+    return '<tr>' + this.vc.map(function(c) {
+      var on  = self.sortKey === c.key;
+      var ico = on ? (self.sortDir > 0 ? '↑' : '↓') : '';
+      var cls = (c.sortable ? 'srt' : 'ns') + (on ? ' s-on' : '');
+      var st  = c.w ? ' style="width:' + c.w + '"' : '';
+      return '<th draggable="true" data-key="' + c.key + '" data-ci="' + c._i + '" class="' + cls + '"' + st + '>'
+        + '<span class="th-in"><span class="th-lb">' + esc(c.label) + '</span>'
+        + (c.sortable ? '<span class="th-ico">' + (ico || '⇅') + '</span>' : '')
+        + '</span></th>';
+    }).join('') + '</tr>';
+  }
+
+  _bodyHtml() {
+    var vc = this.vc;
+    if (!this.filtered.length) {
+      return '<tr><td colspan="' + vc.length + '" class="dt-mt">Нет данных</td></tr>';
+    }
+    var sl = this.flat
+      ? this.filtered
+      : this.filtered.slice((this.pg - 1) * this.PS, this.pg * this.PS);
+    return sl.map(function(r) {
+      return '<tr>' + vc.map(function(c) {
+        var v    = r[c.key] == null ? '' : r[c.key];
+        var html = c.render ? c.render(v, r) : esc(String(v));
+        var cls  = (c.mono ? 'mono' : '') + (c.align === 'right' ? (c.mono ? ' tar' : 'tar') : '');
+        return '<td' + (cls.trim() ? ' class="' + cls.trim() + '"' : '') + '>' + html + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
+  }
+
+  _pgnHtml() {
+    var total = this.filtered.length;
+    var id    = this.cfg.id;
+    if (this.flat) return '<span class="dt-pi">Все ' + total + ' записей</span>';
+    var pages = Math.ceil(total / this.PS) || 1;
+    var from  = total ? (this.pg - 1) * this.PS + 1 : 0;
+    var to    = Math.min(this.pg * this.PS, total);
+    var pgBtn = '';
+    if (pages > 1) {
+      pgBtn = '<div class="dt-pgp">';
+      for (var i = 1; i <= pages; i++) {
+        if (i === 1 || i === pages || Math.abs(i - this.pg) <= 2)
+          pgBtn += '<button class="pgb' + (i === this.pg ? ' cur' : '') + '" onclick="DT_INST[\'' + id + '\'].goPage(' + i + ')">' + i + '</button>';
+        else if (Math.abs(i - this.pg) === 3)
+          pgBtn += '<span class="dt-ell">…</span>';
+      }
+      pgBtn += '</div>';
+    }
+    var ps = [25, 50, 100, 200].map(function(n) {
+      return '<option value="' + n + '"' + (n === this.PS ? ' selected' : '') + '>' + n + '</option>';
+    }, this).join('');
+    return '<span class="dt-pi">' + from + '–' + to + ' из ' + total + '</span>'
+      + pgBtn
+      + '<label class="dt-psl">Строк:&thinsp;<select onchange="DT_INST[\'' + id + '\'].setPS(+this.value)">' + ps + '</select></label>';
+  }
+
+  _infoTxt() { return this.filtered.length + ' / ' + this.data.length; }
+
+  // ── публичный API ────────────────────────────────────────────
+  onSearch(q) {
+    this.q = q; this._filter(); this.pg = 1;
+    this._rBody(); this._rPgn(); this._rInfo();
+  }
+
+  onSort(key) {
+    if (this.sortKey === key) this.sortDir *= -1;
+    else { this.sortKey = key; this.sortDir = 1; }
+    this.pg = 1;
+    this._sort();
+    this._rBody(); this._rHead(); this._rPgn();
+  }
+
+  toggleFlat() {
+    this.flat = !this.flat; this.pg = 1;
+    this._rBody(); this._rPgn();
+    var btn = document.getElementById(this.cfg.id + '-flat');
+    if (btn) {
+      btn.classList.toggle('on', this.flat);
+      btn.innerHTML = this.flat ? '&#9776; Страницы' : '&#9776; Все строки';
+    }
+  }
+
+  toggleCol(i) {
+    var c = this.cols.find(function(x) { return x._i === i; });
+    if (!c) return;
+    if (c.vis && this.cols.filter(function(x) { return x.vis; }).length <= 1) return;
+    c.vis = !c.vis;
+    this._rHead(); this._rBody(); this._rCV();
+  }
+
+  goPage(p) { this.pg = p; this._rBody(); this._rPgn(); }
+  setPS(n)  { this.PS = n; this.pg = 1; this._rBody(); this._rPgn(); }
+
+  exportXLSX() {
+    if (!this.filtered.length) { toast('Нет данных для экспорта', 'w'); return; }
+    if (typeof XLSX === 'undefined') { toast('XLSX-библиотека не загружена', 'e'); return; }
+    var vc = this.vc;
+    var rows = [vc.map(function(c) { return c.label; })].concat(
+      this.filtered.map(function(r) {
+        return vc.map(function(c) { return r[c.key] == null ? '' : r[c.key]; });
+      })
+    );
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Данные');
+    XLSX.writeFile(wb, this.cfg.id + '_' + today() + '.xlsx');
+  }
+
+  // ── частичный ре-рендер ──────────────────────────────────────
+  _rBody() {
+    var el = document.getElementById(this.cfg.id + '-body'); if (!el) return;
+    var tpl = document.createElement('template');
+    tpl.innerHTML = this._bodyHtml();
+    el.textContent = ''; el.appendChild(tpl.content);
+  }
+
+  _rHead() {
+    var tbl = document.getElementById(this.cfg.id + '-tbl'); if (!tbl) return;
+    var old = tbl.querySelector('thead'); if (!old) return;
+    var tpl = document.createElement('template');
+    tpl.innerHTML = '<thead>' + this._headHtml() + '</thead>';
+    old.replaceWith(tpl.content.firstChild);
+    this._bindDrag();
+  }
+
+  _rPgn() {
+    var el = document.getElementById(this.cfg.id + '-pgn'); if (!el) return;
+    var tpl = document.createElement('template');
+    tpl.innerHTML = this._pgnHtml();
+    el.textContent = ''; el.appendChild(tpl.content);
+  }
+
+  _rInfo() {
+    var el = document.getElementById(this.cfg.id + '-inf');
+    if (el) el.textContent = this._infoTxt();
+  }
+
+  _rCV() {
+    var menu = document.getElementById(this.cfg.id + '-cv'); if (!menu) return;
+    var id = this.cfg.id;
+    menu.innerHTML = this.cols.map(function(c) {
+      return '<label class="dt-ci">'
+        + '<input type="checkbox" ' + (c.vis ? 'checked' : '') + ' onchange="DT_INST[\'' + id + '\'].toggleCol(' + c._i + ')">'
+        + '<span>' + esc(c.label || '—') + '</span></label>';
+    }).join('');
+  }
+
+  _toggleCV(e) {
+    e.stopPropagation();
+    var m = document.getElementById(this.cfg.id + '-cv');
+    if (m) m.hidden = !m.hidden;
+  }
+
+  // ── drag-and-drop для перестановки колонок ───────────────────
+  _bindDrag() {
+    var self = this, id = this.cfg.id;
+    document.querySelectorAll('#' + id + '-tbl thead th').forEach(function(th) {
+      th.addEventListener('dragstart', function(e) {
+        self._drag = +th.dataset.ci;
+        th.classList.add('dt-drag');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      th.addEventListener('dragend', function() {
+        th.classList.remove('dt-drag');
+        document.querySelectorAll('#' + id + '-tbl thead th').forEach(function(x) { x.classList.remove('dt-over'); });
+      });
+      th.addEventListener('dragover', function(e) { e.preventDefault(); th.classList.add('dt-over'); });
+      th.addEventListener('dragleave', function() { th.classList.remove('dt-over'); });
+      th.addEventListener('drop', function(e) {
+        e.preventDefault();
+        th.classList.remove('dt-over');
+        var dst = +th.dataset.ci;
+        if (self._drag !== null && self._drag !== dst) {
+          var src = self.cols.find(function(c) { return c._i === self._drag; });
+          var dstC = self.cols.find(function(c) { return c._i === dst; });
+          if (src && dstC) { var t = src.ord; src.ord = dstC.ord; dstC.ord = t; }
+          self._rHead(); self._rBody();
+        }
+        self._drag = null;
+      });
+      // клик по label-спанy — сортировка
+      var lb = th.querySelector('.th-lb');
+      if (lb && th.dataset.key) {
+        lb.addEventListener('click', function() {
+          var c = self.cols.find(function(x) { return x.key === th.dataset.key; });
+          if (c && c.sortable) self.onSort(c.key);
+        });
+      }
+    });
+  }
+
+  _bind() {
+    this._bindDrag();
+    // закрываем меню колонок по клику вне
+    var id = this.cfg.id;
+    document.addEventListener('click', function(e) {
+      var w = document.getElementById(id + '-cvw');
+      var m = document.getElementById(id + '-cv');
+      if (w && m && !w.contains(e.target)) m.hidden = true;
+    });
+  }
+}
+
+// ── глобальный реестр экземпляров ────────────────────────────────
+const DT_INST = {};
+</script>

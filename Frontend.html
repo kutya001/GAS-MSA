@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>МобилТрек · Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<?!= include('Styles') ?>
+</head>
+<body>
+
+<!-- ════ SIDEBAR ════════════════════════════════════════════════ -->
+<div class="sb-ov" id="sbOv" onclick="closeSb()"></div>
+<aside class="sb" id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-mark">М</div>
+    <div class="sb-txt"><div class="sbn">МобилТрек</div><div class="sbs">Учёт продаж техники</div></div>
+  </div>
+  <nav class="sb-nav" id="sbNav">
+    <div class="sb-sec">Главное</div>
+    <button class="sb-item on" data-p="dashboard">
+      <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Дашборд</button>
+    <div class="sb-sec">Торговля</div>
+    <button class="sb-item" data-p="purchases">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.5A.5.5 0 01.5 1H2a.5.5 0 01.485.379L2.89 3H14.5a.5.5 0 01.49.598l-1 5a.5.5 0 01-.465.401l-9.397.472L4.415 11H13a.5.5 0 010 1H4a.5.5 0 01-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 01-.5-.5z"/><circle cx="6" cy="14" r="1"/><circle cx="11" cy="14" r="1"/></svg>Закупки</button>
+    <button class="sb-item" data-p="sales">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2.5 2.5 0 012.5 2.5V4h-5v-.5A2.5 2.5 0 018 1zm3.5 3v-.5a3.5 3.5 0 10-7 0V4H1v10a2 2 0 002 2h10a2 2 0 002-2V4h-3.5z"/></svg>Продажи</button>
+    <button class="sb-item" data-p="payments">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm2-1a1 1 0 00-1 1v1h14V4a1 1 0 00-1-1H2zm13 4H1v5a1 1 0 001 1h12a1 1 0 001-1V7zm-6 2h2a1 1 0 110 2h-2a1 1 0 110-2z"/></svg>Оплаты</button>
+    <div class="sb-sec">Финансы</div>
+    <button class="sb-item" data-p="wallets">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M12.136.326A1.5 1.5 0 0114 1.78V3h.5A1.5 1.5 0 0116 4.5v9a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 010 13.5v-9a1.5 1.5 0 011.432-1.499L12.136.326zM5.562 3H13V1.78a.5.5 0 00-.621-.484L5.562 3z"/></svg>Кошельки / Кассы</button>
+    <button class="sb-item" data-p="cashops">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 11.5a.5.5 0 00.5.5h11.793l-3.147 3.146a.5.5 0 00.708.708l4-4a.5.5 0 000-.708l-4-4a.5.5 0 00-.708.708L13.293 11H1.5a.5.5 0 00-.5.5zm14-7a.5.5 0 01-.5.5H2.707l3.147 3.146a.5.5 0 11-.708.708l-4-4a.5.5 0 010-.708l4-4a.5.5 0 11.708.708L2.707 4H14.5a.5.5 0 01.5.5z"/></svg>Движение средств</button>
+    <button class="sb-item" data-p="debts">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 118 1a7 7 0 010 14zm0 1A8 8 0 108 0a8 8 0 000 16z"/><path d="M7.002 11a1 1 0 112 0 1 1 0 01-2 0zM7.1 4.995a.905.905 0 111.8 0l-.35 3.507a.553.553 0 01-1.1 0L7.1 4.995z"/></svg>Долги</button>
+    <div class="sb-sec">Склад</div>
+    <button class="sb-item" data-p="warehouses">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8.354 1.146a.5.5 0 00-.708 0l-6 6-.896-.897a.5.5 0 10-.708.708L1 7.457V13.5A1.5 1.5 0 002.5 15h11a1.5 1.5 0 001.5-1.5V7.457l.958-.5a.5.5 0 00-.708-.708l-.25.25V13.5a.5.5 0 01-.5.5h-4v-3a.5.5 0 00-.5-.5h-3a.5.5 0 00-.5.5v3H2.5a.5.5 0 01-.5-.5V7.457l6-6z"/></svg>Склады</button>
+    <button class="sb-item" data-p="stock">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.5A.5.5 0 01.5 1h1a.5.5 0 01.5.5v13a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-13zm3 0A.5.5 0 013.5 1h9a.5.5 0 01.5.5v13a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-13zm10.5-.5a.5.5 0 01.5.5v13a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-13a.5.5 0 01.5-.5h1z"/></svg>Остатки</button>
+    <div class="sb-sec">Система</div>
+    <button class="sb-item" data-p="refs">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687z"/></svg>Справочники</button>
+    <button class="sb-item" data-p="cats">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5a.5.5 0 00-.5.5v1a.5.5 0 00.5.5h1a.5.5 0 00.5-.5V3a.5.5 0 00-.5-.5H2zM3 3H2v1h1V3zm2 0a.5.5 0 000 1h9a.5.5 0 000-1H5zm-3 4.5a.5.5 0 00-.5.5v1a.5.5 0 00.5.5h1a.5.5 0 00.5-.5V8a.5.5 0 00-.5-.5H2zM3 8H2v1h1V8zm2 0a.5.5 0 000 1h9a.5.5 0 000-1H5zm-3 4.5a.5.5 0 00-.5.5v1a.5.5 0 00.5.5h1a.5.5 0 00.5-.5v-1a.5.5 0 00-.5-.5H2zm1 .5H2v1h1v-1zm2 0a.5.5 0 000 1h9a.5.5 0 000-1H5z"/></svg>Категории/Статьи</button>
+    <button class="sb-item" data-p="analytics">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 00-1 1v12a1 1 0 001 1h2a1 1 0 001-1V2a1 1 0 00-1-1h-2zM6 7a1 1 0 011-1h2a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1V7zm-5 4a1 1 0 011-1h2a1 1 0 011 1v3a1 1 0 01-1 1H2a1 1 0 01-1-1v-3z"/></svg>Аналитика</button>
+  </nav>
+  <div class="sb-foot">
+    <button class="btn btn-g btn-sm" style="width:100%;font-size:.72rem" onclick="toggleTheme()"><span id="thIco">🌙</span> Тема</button>
+  </div>
+</aside>
+
+<!-- ════ MAIN ════════════════════════════════════════════════════ -->
+<div class="main">
+  <header class="topbar">
+    <button class="burger" onclick="openSb()">☰</button>
+    <span class="topbar-title" id="tbTitle">Дашборд</span>
+    <div class="topbar-right">
+      <span class="topbar-date" id="tbDate"></span>
+      <button class="sync-btn" id="syncBtn" onclick="syncAll()" title="Синхронизировать данные">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/>
+          <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+  <div class="content">
+    <?!= include('PageDashboard') ?>
+    <?!= include('PagePurchases') ?>
+    <?!= include('PageSales') ?>
+    <?!= include('PagePayments') ?>
+    <?!= include('PageWallets') ?>
+    <?!= include('PageDebts') ?>
+    <?!= include('PageWarehouses') ?>
+    <?!= include('PageRefs') ?>
+    <?!= include('PageAnalytics') ?>
+  </div>
+</div>
+
+<?!= include('Components') ?>
+<?!= include('TableEngine') ?>
+<?!= include('ScriptHelpers') ?>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<script>
+'use strict';
+// ════════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════════
+const ST = {
+  page:'dashboard', rtab:'general', refTab:'brands', catTab:'Приход',
+  editId:{purchase:null,sale:null,wallet:null,wh:null,cat:null,art:null,ref:null},
+  refs:{brands:[],models:[],suppliers:[],managers:[],currencies:[]},
+  wallets:[],warehouses:[],cats:[],articles:[],
+  charts:{},
+  payModalSaleId:null,
+  wdWalletId:null,
+};
+
+// ════════════════════════════════════════════════════════════════
+//  GAS BRIDGE
+// ════════════════════════════════════════════════════════════════
+const IS_GAS = typeof google !== 'undefined' && google.script;
+function gasCall(fn, params){
+  return new Promise((ok,fail)=>{
+    if(IS_GAS){ google.script.run.withSuccessHandler(ok).withFailureHandler(fail)[fn](params); }
+    else { const r=MOCK[fn]?MOCK[fn](params):{status:'ok',data:null}; setTimeout(()=>ok(r),40+Math.random()*60); }
+  });
+}
+async function api(fn, params={}){
+  showL();
+  try{
+    const r = await gasCall(fn,params);
+    if(r&&r.status==='error') throw new Error(r.message||'Ошибка');
+    return r&&r.data!==undefined?r.data:r;
+  } catch(e){ toast('Ошибка: '+e.message,'e'); throw e; }
+  finally{ hideL(); }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MOCK DATA
+// ════════════════════════════════════════════════════════════════
+const MOCK={
+  getRefData:()=>({status:'ok',data:{
+    brands:[{id:1,name:'Apple',info:'Премиум'},{id:2,name:'Samsung',info:'Средний+'},{id:3,name:'Xiaomi',info:'Бюджет'},{id:4,name:'Honor',info:'Средний'},{id:5,name:'Tecno',info:'Бюджет'}],
+    models:[{id:1,name:'iPhone 15 Pro Max',info:'',brand_id:1},{id:2,name:'iPhone 15 Pro',info:'',brand_id:1},{id:3,name:'iPhone 14',info:'',brand_id:1},{id:4,name:'Galaxy S24',info:'',brand_id:2},{id:5,name:'Galaxy A55',info:'',brand_id:2},{id:6,name:'Redmi Note 14',info:'',brand_id:3},{id:7,name:'POCO X6 Pro',info:'',brand_id:3}],
+    suppliers:[{id:1,name:'Ислам Сатуу',info:'+996 700 111'},{id:2,name:'Эрлис',info:'+996 555 222'},{id:3,name:'ТехИмпорт',info:'Оптовик'}],
+    managers:[{id:1,name:'Айдай',info:'Розница'},{id:2,name:'Нурлан',info:'Онлайн'},{id:3,name:'Бакыт',info:'Опт'}],
+    currencies:[{id:1,name:'KGS',info:'Кыргызский сом'},{id:2,name:'USD',info:'Доллар'},{id:3,name:'RUB',info:'Рубль'}],
+  }}),
+  getWallets:()=>({status:'ok',data:[
+    {id:1,name:'Основная касса',currency:'KGS',icon:'💰',balance:612000,total_in:950000,total_out:338000},
+    {id:2,name:'Валютная касса',currency:'USD',icon:'💵',balance:1614,total_in:4500,total_out:2886},
+    {id:3,name:'Карта Mbank',currency:'KGS',icon:'💳',balance:85000,total_in:200000,total_out:115000},
+  ]}),
+  getWarehouses:()=>({status:'ok',data:[
+    {id:1,name:'Основной склад',address:'Бишкек, Ошский рынок',responsible:'Айдай',note:'',items:12,cost_kgs:620000},
+    {id:2,name:'Онлайн-склад',address:'Бишкек, офис',responsible:'Нурлан',note:'Только онлайн',items:5,cost_kgs:240000},
+  ]}),
+  getCats:()=>({status:'ok',data:[
+    {id:1,name:'Выручка от продаж',op_type:'Приход'},{id:2,name:'Прочие доходы',op_type:'Приход'},
+    {id:3,name:'Закуп товара',op_type:'Расход'},{id:4,name:'Аренда',op_type:'Расход'},{id:5,name:'Зарплата',op_type:'Расход'},{id:6,name:'Прочие расходы',op_type:'Расход'},
+  ]}),
+  getArticles:()=>({status:'ok',data:[
+    {id:1,name:'Продажа телефонов',cat_id:1},{id:2,name:'Продажа аксессуаров',cat_id:1},
+    {id:3,name:'Закуп Apple',cat_id:3},{id:4,name:'Закуп Samsung',cat_id:3},{id:5,name:'Закуп Xiaomi',cat_id:3},
+    {id:6,name:'Аренда точки',cat_id:4},{id:7,name:'Аренда склада',cat_id:4},
+    {id:8,name:'Менеджер',cat_id:5},{id:9,name:'Прочее',cat_id:6},
+  ]}),
+  getPurchases:()=>({status:'ok',data:{rows:[
+    {id:1,brand_id:1,brand_name:'Apple',model_id:1,model_name:'iPhone 15 Pro Max',spec:'8/256',color:'Чёрный',wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',has_imei:true,imei:'352365010000001',qty:1,cost_usd:430,rate:88,cost_kgs:37840,status:'Продано',purchase_date:'2025-08-05',note:''},
+    {id:2,brand_id:1,brand_name:'Apple',model_id:2,model_name:'iPhone 15 Pro',spec:'6/128',color:'Белый',wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',has_imei:true,imei:'352365010000002',qty:1,cost_usd:380,rate:88,cost_kgs:33440,status:'В наличии',purchase_date:'2025-08-10',note:''},
+    {id:3,brand_id:3,brand_name:'Xiaomi',model_id:6,model_name:'Redmi Note 14',spec:'6/128',color:'Синий',wh_id:1,wh_name:'Основной склад',supplier_id:2,supplier_name:'Эрлис',has_imei:true,imei:'860000030000009',qty:1,cost_usd:82,rate:88,cost_kgs:7216,status:'В наличии',purchase_date:'2025-09-15',note:''},
+    {id:4,brand_id:2,brand_name:'Samsung',model_id:4,model_name:'Galaxy S24',spec:'8/256',color:'Серый',wh_id:2,wh_name:'Онлайн-склад',supplier_id:3,supplier_name:'ТехИмпорт',has_imei:false,imei:'',qty:3,cost_usd:320,rate:88,cost_kgs:28160,status:'В наличии',purchase_date:'2025-10-01',note:'Партия'},
+    {id:5,brand_id:1,brand_name:'Apple',model_id:3,model_name:'iPhone 14',spec:'256GB',color:'Фиолет.',wh_id:1,wh_name:'Основной склад',supplier_id:3,supplier_name:'ТехИмпорт',has_imei:true,imei:'352365010000019',qty:1,cost_usd:300,rate:88,cost_kgs:26400,status:'В наличии',purchase_date:'2025-10-15',note:''},
+  ],total:5}}),
+  getSales:()=>({status:'ok',data:{rows:[
+    {id:1,brand_name:'Apple',model_name:'iPhone 15 Pro Max',spec:'8/256',buyer:'Асель Токтогулова',total_kgs:145500,paid_kgs:145500,debt_kgs:0,sale_date:'2025-08-07',manager_name:'Айдай',wa:'+996700001001',wallet_id:1,wallet_name:'Основная касса',note:''},
+    {id:2,brand_name:'Apple',model_name:'iPhone 15 Pro',spec:'6/128',buyer:'Бакыт Осмонов',total_kgs:125000,paid_kgs:80000,debt_kgs:45000,sale_date:'2025-08-13',manager_name:'Нурлан',wa:'+996555002002',wallet_id:1,wallet_name:'Основная касса',note:'Рассрочка'},
+    {id:3,brand_name:'Samsung',model_name:'Galaxy S24',spec:'8/256',buyer:'Данияр Иманов',total_kgs:105000,paid_kgs:105000,debt_kgs:0,sale_date:'2025-09-10',manager_name:'Бакыт',wa:'',wallet_id:1,wallet_name:'Основная касса',note:''},
+    {id:4,brand_name:'Xiaomi',model_name:'Redmi Note 14',spec:'6/128',buyer:'Руслан Матисаков',total_kgs:28000,paid_kgs:20000,debt_kgs:8000,sale_date:'2025-11-05',manager_name:'Айдай',wa:'+996312015015',wallet_id:3,wallet_name:'Карта Mbank',note:''},
+  ],total:4}}),
+  getPayments:()=>({status:'ok',data:{rows:[
+    {id:1,sale_id:1,buyer:'Асель Токтогулова',amount:145500,wallet_name:'Основная касса',debt_after:0,pay_date:'2025-08-07',note:'Полная оплата'},
+    {id:2,sale_id:2,buyer:'Бакыт Осмонов',amount:80000,wallet_name:'Основная касса',debt_after:45000,pay_date:'2025-08-13',note:'Первый взнос'},
+    {id:3,sale_id:4,buyer:'Руслан Матисаков',amount:20000,wallet_name:'Карта Mbank',debt_after:8000,pay_date:'2025-11-05',note:''},
+  ],total:3}}),
+  getCashOps:()=>({status:'ok',data:{rows:[
+    {id:1,op_date:'2025-08-07',op_type:'Приход',wallet_id:1,wallet_name:'Основная касса',cat_id:1,cat_name:'Выручка от продаж',article_id:1,article_name:'Продажа телефонов',counterpart:'Асель Токтогулова',comment:'iPhone 15 PM',amount:145500},
+    {id:2,op_date:'2025-08-10',op_type:'Расход',wallet_id:2,wallet_name:'Валютная касса',cat_id:3,cat_name:'Закуп товара',article_id:3,article_name:'Закуп Apple',counterpart:'Ислам Сатуу',comment:'Apple x3',amount:1290},
+    {id:3,op_date:'2025-09-01',op_type:'Расход',wallet_id:1,wallet_name:'Основная касса',cat_id:4,cat_name:'Аренда',article_id:6,article_name:'Аренда точки',counterpart:'',comment:'Сентябрь',amount:35000},
+    {id:4,op_date:'2025-09-10',op_type:'Расход',wallet_id:1,wallet_name:'Основная касса',cat_id:5,cat_name:'Зарплата',article_id:8,article_name:'Менеджер',counterpart:'Айдай',comment:'Сент 2025',amount:20000},
+    {id:5,op_date:'2025-09-10',op_type:'Приход',wallet_id:1,wallet_name:'Основная касса',cat_id:1,cat_name:'Выручка от продаж',article_id:1,article_name:'Продажа телефонов',counterpart:'Данияр Иманов',comment:'Galaxy S24',amount:105000},
+  ],total:5}}),
+  getStock:()=>({status:'ok',data:{totalItems:6,totalCostKgs:861000,staleCount:1,groups:[
+    {wh_name:'Основной склад',brand:'Apple',count:3,cost_kgs:620000,items:[
+      {id:2,model_name:'iPhone 15 Pro',spec:'6/128',color:'Белый',cost_kgs:33440,imei:'352365010000002',purchase_date:'2025-08-10',stale:false,has_imei:true,qty:1},
+      {id:5,model_name:'iPhone 14',spec:'256GB',color:'Фиолет.',cost_kgs:26400,imei:'352365010000019',purchase_date:'2025-10-15',stale:false,has_imei:true,qty:1},
+    ]},
+    {wh_name:'Основной склад',brand:'Xiaomi',count:1,cost_kgs:7216,items:[
+      {id:3,model_name:'Redmi Note 14',spec:'6/128',color:'Синий',cost_kgs:7216,imei:'860000030000009',purchase_date:'2025-09-15',stale:true,has_imei:true,qty:1},
+    ]},
+    {wh_name:'Онлайн-склад',brand:'Samsung',count:3,cost_kgs:84480,items:[
+      {id:4,model_name:'Galaxy S24',spec:'8/256',color:'Серый',cost_kgs:84480,imei:'',purchase_date:'2025-10-01',stale:false,has_imei:false,qty:3},
+    ]},
+  ]}}),
+  getDashboard:()=>({status:'ok',data:{
+    kpi:{revenueToday:52000,revenueMonth:445500,soldMonth:8,profitTotal:312000,debtTotal:53000,staleItems:1},
+    monthly:[{m:'08/25',rev:350000,prof:120000},{m:'09/25',rev:420000,prof:145000},{m:'10/25',rev:380000,prof:128000},{m:'11/25',rev:510000,prof:182000},{m:'12/25',rev:445500,prof:160000}],
+    brands:[{b:'Apple',v:620000},{b:'Samsung',v:210000},{b:'Xiaomi',v:95000},{b:'Honor',v:60000}],
+  }}),
+  getDebts:()=>({status:'ok',data:{
+    buyers:[{buyer:'Бакыт Осмонов',debt_kgs:45000,last_pay:'2025-08-13',pay_count:1},{buyer:'Руслан Матисаков',debt_kgs:8000,last_pay:'2025-11-05',pay_count:1}],
+    suppliers:[{name:'Ислам Сатуу',total:830,paid:700,rest:130,currency:'USD',status:'Долг'},{name:'ТехИмпорт',total:500,paid:500,rest:0,currency:'USD',status:'Оплачено'}],
+  }}),
+  getAnalytics:()=>({status:'ok',data:{
+    monthly:[{m:'08/25',rev:350000,profit:120000},{m:'09/25',rev:420000,profit:145000},{m:'10/25',rev:380000,profit:128000}],
+    topByCount:[{model:'iPhone 15 Pro Max',cnt:5},{model:'Galaxy S24',cnt:4},{model:'Redmi Note 14',cnt:3}],
+    topByProfit:[{model:'iPhone 15 Pro Max',profit:540000},{model:'Galaxy S24',profit:120000}],
+    brandStats:[{brand:'Apple',sold:12,rev:720000,profit:380000,margin:53},{brand:'Samsung',sold:7,rev:310000,profit:120000,margin:39},{brand:'Xiaomi',sold:5,rev:140000,profit:48000,margin:34}],
+  }}),
+  getWalletHistory:()=>({status:'ok',data:{rows:[
+    {op_date:'2025-09-01',op_type:'Приход',cat_name:'Выручка',article_name:'Продажи',counterpart:'Данияр',comment:'Galaxy S24',amount:105000},
+    {op_date:'2025-09-10',op_type:'Расход',cat_name:'Зарплата',article_name:'Менеджер',counterpart:'Айдай',comment:'Сентябрь',amount:20000},
+  ]}}),
+  // write ops — mock success
+  addPurchase:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
+  updatePurchase:()=>({status:'ok',data:{}}),
+  deletePurchase:()=>({status:'ok',data:{}}),
+  addSale:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
+  addPayment:()=>({status:'ok',data:{newDebt:0}}),
+  addCashOp:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
+  addWallet:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
+  updateWallet:()=>({status:'ok',data:{}}),
+  addWarehouse:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
+  updateWarehouse:()=>({status:'ok',data:{}}),
+  addCat:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
+  updateCat:()=>({status:'ok',data:{}}),
+  deleteCat:()=>({status:'ok',data:{}}),
+  addArticle:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
+  updateArticle:()=>({status:'ok',data:{}}),
+  deleteArticle:()=>({status:'ok',data:{}}),
+  addRef:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
+  updateRef:()=>({status:'ok',data:{}}),
+  deleteRef:()=>({status:'ok',data:{}}),
+};
+
+// ════════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════════════════════
+const PAGE_TITLE={dashboard:'Дашборд',purchases:'Закупки',sales:'Продажи',payments:'Оплаты',wallets:'Кошельки / Кассы',cashops:'Движение средств',debts:'Долги',warehouses:'Склады',stock:'Остатки',refs:'Справочники',cats:'Категории / Статьи',analytics:'Аналитика'};
+
+function nav(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.sb-item,.bn').forEach(x=>x.classList.remove('on'));
+  const pg=document.getElementById('page-'+p);
+  if(pg) pg.classList.add('on');
+  document.querySelectorAll(`[data-p="${p}"]`).forEach(x=>x.classList.add('on'));
+  document.getElementById('tbTitle').textContent=PAGE_TITLE[p]||p;
+  ST.page=p; location.hash=p;
+  closeSb();
+  onNav(p);
+}
+
+function onNav(p){
+  const map={dashboard:loadDash,purchases:loadPurchases,sales:loadSales,payments:loadPayments,wallets:loadWallets,cashops:loadCash,debts:loadDebts,warehouses:loadWarehouses,stock:loadStock,refs:loadRefs,cats:loadCats,analytics:loadAnalytics};
+  if(map[p]) map[p]();
+}
+
+// Событие переключения отчётных вкладок дашборда (HTML уже разобран в PageDashboard.html)
+document.querySelector('.rtabs').addEventListener('click',e=>{
+  const b=e.target.closest('.rtab'); if(!b||!b.dataset.rt) return;
+  document.querySelectorAll('.rtab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('[id^="rt-"]').forEach(x=>x.classList.remove('on'));
+  const tp=document.getElementById('rt-'+b.dataset.rt);
+  if(tp) tp.classList.add('on');
+  ST.rtab=b.dataset.rt; loadRtab(b.dataset.rt);
+});
+
+document.getElementById('sbNav').addEventListener('click',e=>{const b=e.target.closest('.sb-item');if(b&&b.dataset.p) nav(b.dataset.p)});
+document.querySelectorAll('.bn').forEach(b=>{if(b.dataset.p) b.addEventListener('click',()=>nav(b.dataset.p))});
+
+// ════════════════════════════════════════════════════════════════
+//  SIDEBAR & MOBILE
+// ════════════════════════════════════════════════════════════════
+function openSb(){document.getElementById('sidebar').classList.add('open');document.getElementById('sbOv').classList.add('open');document.body.classList.add('locked')}
+function closeSb(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sbOv').classList.remove('open');document.body.classList.remove('locked')}
+
+// ════════════════════════════════════════════════════════════════
+//  MODALS
+// ════════════════════════════════════════════════════════════════
+function openM(id){document.getElementById(id).classList.add('open');document.body.classList.add('locked')}
+function closeM(id){document.getElementById(id).classList.remove('open');document.body.classList.remove('locked')}
+document.addEventListener('click',e=>{if(e.target.classList.contains('ov')) closeM(e.target.id)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape') document.querySelectorAll('.ov.open').forEach(o=>closeM(o.id))});
+
+// ════════════════════════════════════════════════════════════════
+//  THEME
+// ════════════════════════════════════════════════════════════════
+function toggleTheme(){const d=document.documentElement,dark=d.dataset.theme==='dark';d.dataset.theme=dark?'light':'dark';localStorage.setItem('theme',d.dataset.theme);document.getElementById('thIco').textContent=dark?'🌙':'☀️';redrawCharts()}
+function applyTheme(){const t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.dataset.theme=t;document.getElementById('thIco').textContent=t==='dark'?'☀️':'🌙'}
+
+// ════════════════════════════════════════════════════════════════
+//  LOADER & TOAST (неблокирующий — крутит кнопку синхронизации)
+// ════════════════════════════════════════════════════════════════
+let _ldrN=0;
+function showL(){if(++_ldrN===1)document.getElementById('syncBtn').classList.add('loading')}
+function hideL(){if(--_ldrN<=0){_ldrN=0;document.getElementById('syncBtn').classList.remove('loading')}}
+function toast(msg,type='i',ms=3100){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');t.className=`toast t${type}`;
+  const ico={s:'✅',e:'❌',i:'ℹ️',w:'⚠️'}[type]||'ℹ️';
+  t.innerHTML=`<span>${ico}</span><span>${esc(msg)}</span>`;
+  w.appendChild(t);setTimeout(()=>{t.style.transition='opacity .3s';t.style.opacity='0';setTimeout(()=>t.remove(),320)},ms);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════════════════════════
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const g=id=>document.getElementById(id)?.value||'';
+const fmtN=n=>isNaN(n)?'0':Math.round(+n).toLocaleString('ru-RU');
+const fmtD=d=>d?new Date(d).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+const today=()=>new Date().toISOString().slice(0,10);
+const eRow=(n,msg='Нет данных')=>`<tr><td colspan="${n}" class="empty">${msg}</td></tr>`;
+const isDark=()=>document.documentElement.dataset.theme==='dark';
+
+function clearF(prefix,fn){
+  document.querySelectorAll(`[id^="${prefix}-"]`).forEach(el=>{el.value=''});
+  fn();
+}
+
+function fillSel(id,arr,vk,lk,ph){
+  const el=document.getElementById(id); if(!el) return;
+  const cur=el.value;
+  el.innerHTML=`<option value="">${esc(ph||'—')}</option>`+(arr||[]).map(r=>`<option value="${r[vk]}">${esc(r[lk])}</option>`).join('');
+  if(cur) el.value=cur;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MISC HELPERS
+// ════════════════════════════════════════════════════════════════
+function _setHTML(el, html) {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  el.textContent = '';
+  el.appendChild(tpl.content);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MASTER DATA
+// ════════════════════════════════════════════════════════════════
+async function loadMasterData(){
+  const [refs,wallets,whs,cats,arts]=await Promise.all([api('getRefData'),api('getWallets'),api('getWarehouses'),api('getCats'),api('getArticles')]);
+  if(refs) ST.refs=refs;
+  if(wallets) ST.wallets=wallets;
+  if(whs) ST.warehouses=whs;
+  if(cats) ST.cats=cats;
+  if(arts) ST.articles=arts;
+  populateAllSelects();
+}
+
+function populateAllSelects(){
+  const R=ST.refs;
+  // Фильтры
+  fillSel('pf-wh',ST.warehouses,'id','name','Все');
+  fillSel('pf-brand',R.brands,'id','name','Все');
+  fillSel('sf-mgr',R.managers,'id','name','Все');
+  fillSel('sf-brand',R.brands,'id','name','Все');
+  fillSel('stf-wh',ST.warehouses,'id','name','Все');
+  fillSel('stf-brand',R.brands,'id','name','Все');
+  fillSel('cf-wallet',ST.wallets,'id','name','Все');
+  fillSel('cf-cat',ST.cats,'id','name','Все');
+  // Формы
+  fillSel('p-brand',R.brands,'id','name','—');
+  fillSel('p-wh',ST.warehouses,'id','name','—');
+  fillSel('p-supplier',R.suppliers,'id','name','—');
+  fillSel('p-payWallet',ST.wallets,'id','name','Не оплачено (долг поставщику)');
+  fillSel('s-mgr',R.managers,'id','name','—');
+  fillSel('s-wallet',ST.wallets,'id','name','—');
+  fillSel('pay-wallet',ST.wallets,'id','name','—');
+  fillSel('co-wallet',ST.wallets,'id','name','—');
+  fillSel('w-curr',R.currencies,'id','name','—');
+  fillSel('art-cat',ST.cats,'id','name','—');
+  refreshSaleItems();
+}
+
+function refreshSaleItems(){
+  const avail=(DT_INST['purchases']&&DT_INST['purchases'].data||[]).filter(r=>r.status==='В наличии');
+  const el=document.getElementById('s-item'); if(!el) return;
+  el.innerHTML='<option value="">Выбрать товар...</option>'+avail.map(r=>{
+    const label=`${r.brand_name} ${r.model_name} ${r.spec||''} [${r.wh_name}]${r.has_imei?' IMEI:'+r.imei:' ×'+r.qty+'шт'}`;
+    return `<option value="${r.id}">${esc(label)}</option>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  SYNC
+// ════════════════════════════════════════════════════════════════
+async function syncAll(){
+  try{ await loadMasterData(); onNav(ST.page); toast('Данные синхронизированы','s'); }
+  catch(e){ toast('Ошибка синхронизации','e'); }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CHARTS
+// ════════════════════════════════════════════════════════════════
+const CL=['#B83200','#1048A0','#1A6040','#A05000','#5828A0','#0A6E68'];
+const CA=['rgba(184,50,0,.72)','rgba(16,72,160,.72)','rgba(26,96,64,.72)','rgba(160,80,0,.72)','rgba(88,40,160,.72)'];
+function chartOpts(){const dark=isDark();return{responsive:true,maintainAspectRatio:false,scales:{x:{grid:{display:false},ticks:{color:dark?'#8C857A':'#524B41',font:{size:10,family:"'Geologica'"}}},y:{grid:{color:dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.05)'},ticks:{color:dark?'#8C857A':'#524B41',font:{size:10,family:"'Geologica'"},callback:v=>v>=1e6?fmtN(v/1e6)+'M':v>=1000?fmtN(v/1000)+'K':v}}}}}
+function mkBar(ctx,labels,datasets){return new Chart(ctx,{type:'bar',data:{labels,datasets:datasets.map((d,i)=>({...d,backgroundColor:CA[i%5],borderRadius:5,borderSkipped:false}))},options:{...chartOpts(),plugins:{legend:{display:datasets.length>1,labels:{color:isDark()?'#EDE8DF':'#1A1815',font:{size:10}}}}}});}
+function mkDoughnut(ctx,labels,data){return new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:CL,borderWidth:2,borderColor:isDark()?'#171512':'#F7F4EF'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:isDark()?'#EDE8DF':'#1A1815',font:{size:10},padding:7}}}}});}
+function killChart(k){if(ST.charts[k]){ST.charts[k].destroy();delete ST.charts[k]}}
+function redrawCharts(){if(ST.page==='dashboard') loadDashGeneral()}
+
+// ════════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════════
+function init(){
+  applyTheme();
+  document.getElementById('tbDate').textContent=new Date().toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'});
+  onCoType(); // инициализация типа кассовой операции
+  const h=(location.hash||'#dashboard').replace('#','');
+  nav(PAGE_TITLE[h]?h:'dashboard'); // сразу показываем страницу
+  loadMasterData(); // справочники — фоновая загрузка
+}
+init();
+</script>

@@ -1,0 +1,179 @@
+<!-- ══ REFS ═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-refs">
+  <div class="sh"><h2>Справочники</h2>
+    <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="openAddRef()">+ Добавить</button></div>
+  </div>
+  <div class="ptabs" id="refTabs">
+    <button class="ptab on" onclick="showRefTab('brands',this)">Бренды</button>
+    <button class="ptab" onclick="showRefTab('models',this)">Модели</button>
+    <button class="ptab" onclick="showRefTab('suppliers',this)">Поставщики</button>
+    <button class="ptab" onclick="showRefTab('managers',this)">Менеджеры</button>
+    <button class="ptab" onclick="showRefTab('currencies',this)">Валюты</button>
+  </div>
+  <div class="tw"><div class="tscr"><table>
+    <thead><tr><th>ID</th><th>Название</th><th>Доп. инфо</th><th class="ns">Действия</th></tr></thead>
+    <tbody id="refsBody"></tbody>
+  </table></div></div>
+</div>
+
+<!-- ══ CATS ══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-cats">
+  <div class="sh"><h2>Категории и статьи</h2><p>Структура статей для кассовых операций (Приход / Расход)</p>
+    <div class="sh-acts">
+      <button class="btn btn-g btn-sm" onclick="openM('mCat')">+ Категория</button>
+      <button class="btn btn-p btn-sm" onclick="openM('mArticle')">+ Статья</button>
+    </div>
+  </div>
+  <div class="ptabs">
+    <button class="ptab on" onclick="showCatTab('Приход',this)">↑ Приход</button>
+    <button class="ptab" onclick="showCatTab('Расход',this)">↓ Расход</button>
+  </div>
+  <div class="ct" id="catTree"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  REFS
+// ════════════════════════════════════════════════════════════════
+var _curRef='brands', _editRefId=null;
+
+async function loadRefs(){ renderRefTab(_curRef); }
+function showRefTab(tab,el){
+  _curRef=tab; _editRefId=null;
+  document.querySelectorAll('#refTabs .ptab').forEach(x=>x.classList.remove('on'));
+  if(el) el.classList.add('on');
+  renderRefTab(tab);
+}
+function renderRefTab(tab){
+  const data=ST.refs[tab]||[];
+  _setHTML(document.getElementById('refsBody'),data.map(r=>`<tr>
+    <td class="mono muted">#${r.id}</td>
+    <td class="fw7">${esc(r.name)}</td><td>${esc(r.info||'')}</td>
+    <td><div class="tdx">
+      <button class="btn-icon" onclick="openEditRef(${r.id},'${tab}')">✏️</button>
+      <button class="btn-icon" onclick="delRef(${r.id},'${tab}')">🗑️</button>
+    </div></td></tr>`).join('')||eRow(4,'Нет записей'));
+}
+function openAddRef(){
+  _editRefId=null;
+  const titles={brands:'Новый бренд',models:'Новая модель',suppliers:'Новый поставщик',managers:'Новый менеджер',currencies:'Новая валюта'};
+  document.getElementById('mRefTitle').textContent=titles[_curRef]||'Новая запись';
+  document.getElementById('mRefBody').innerHTML=buildRefForm(_curRef,null);
+  openM('mRef');
+}
+function openEditRef(id,tab){
+  const r=ST.refs[tab]?.find(x=>x.id===id); if(!r) return;
+  _editRefId=id;
+  const titles={brands:'Редактировать бренд',models:'Редактировать модель',suppliers:'Редактировать поставщика',managers:'Редактировать менеджера',currencies:'Редактировать валюту'};
+  document.getElementById('mRefTitle').textContent=titles[tab]||'Редактировать';
+  document.getElementById('mRefBody').innerHTML=buildRefForm(tab,r);
+  openM('mRef');
+}
+function buildRefForm(tab,r){
+  const v=x=>esc(r?.[x]||'');
+  var extra='';
+  if(tab==='models'){
+    const opts=ST.refs.brands.map(b=>`<option value="${b.id}"${r?.brand_id===b.id?' selected':''}>${esc(b.name)}</option>`).join('');
+    extra=`<div class="fgrp full"><label>Бренд</label><select id="rf-brand"><option value="">—</option>${opts}</select></div>`;
+  }
+  return `<div class="fg2 g1">${extra}<div class="fgrp"><label>Название <span style="color:var(--ac)">*</span></label><input id="rf-name" value="${v('name')}" placeholder="Название..."></div><div class="fgrp"><label>Доп. инфо</label><input id="rf-info" value="${v('info')}" placeholder="Описание, телефон..."></div></div>`;
+}
+async function saveRef(){
+  const name=g('rf-name'); if(!name){toast('Введите название','e');return}
+  const data={tab:_curRef,name,info:g('rf-info'),brand_id:+g('rf-brand')||undefined};
+  if(_editRefId) await api('updateRef',{id:_editRefId,...data});
+  else await api('addRef',data);
+  toast('Сохранено','s'); closeM('mRef');
+  const d=await api('getRefData'); if(d) ST.refs=d;
+  populateAllSelects(); renderRefTab(_curRef);
+}
+async function delRef(id,tab){
+  if(!confirm('Удалить запись?')) return;
+  await api('deleteRef',{id,tab}); toast('Удалено','s');
+  const d=await api('getRefData'); if(d) ST.refs=d;
+  populateAllSelects(); renderRefTab(tab);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CATEGORIES & ARTICLES
+// ════════════════════════════════════════════════════════════════
+var _curCatTab='Приход';
+
+async function loadCats(){ renderCatTree(); }
+function showCatTab(tab,el){
+  _curCatTab=tab;
+  document.querySelectorAll('#page-cats .ptab').forEach(x=>x.classList.remove('on'));
+  if(el) el.classList.add('on');
+  renderCatTree();
+}
+function renderCatTree(){
+  const cats=ST.cats.filter(c=>c.op_type===_curCatTab);
+  const tree=document.getElementById('catTree');
+  if(!cats.length){tree.innerHTML='<div style="padding:24px;text-align:center;color:var(--tx3)">Нет категорий</div>';return}
+  tree.innerHTML=cats.map(cat=>{
+    const arts=ST.articles.filter(a=>a.cat_id===cat.id);
+    return `<div class="ct-grp">
+      <div class="ct-hd">
+        <span>${_curCatTab==='Приход'?'↑':'↓'}</span>
+        <span>${esc(cat.name)}</span>
+        <span class="badge bgr" style="margin-left:auto">${arts.length}</span>
+        <button class="btn-icon" onclick="openEditCat(${cat.id})" style="margin-left:4px">✏️</button>
+        <button class="btn-icon" onclick="delCat(${cat.id})">🗑️</button>
+      </div>
+      <div class="ct-rows">${arts.map(a=>`<div class="ct-row">
+        <span class="ct-rn">• ${esc(a.name)}</span>
+        <button class="btn-icon" onclick="openEditArt(${a.id})">✏️</button>
+        <button class="btn-icon" onclick="delArt(${a.id})">🗑️</button>
+      </div>`).join('')||'<div style="color:var(--tx3);font-size:.7rem;padding:4px 0">Нет статей</div>'}</div>
+    </div>`;
+  }).join('');
+}
+async function saveCat(){
+  const type=g('cat-type'),name=g('cat-name'); if(!name){toast('Заполните поля','e');return}
+  if(ST.editId.cat) await api('updateCat',{id:ST.editId.cat,op_type:type,name,note:g('cat-note')});
+  else await api('addCat',{op_type:type,name,note:g('cat-note')});
+  toast('Категория сохранена','s'); closeM('mCat');
+  const c=await api('getCats'); if(c) ST.cats=c;
+  populateAllSelects(); renderCatTree();
+}
+function openEditCat(id){
+  const c=ST.cats.find(x=>x.id===id); if(!c) return;
+  ST.editId.cat=id;
+  document.getElementById('mCatTitle').textContent='Редактировать категорию';
+  document.getElementById('cat-type').value=c.op_type;
+  document.getElementById('cat-name').value=c.name;
+  document.getElementById('cat-note').value=c.note||'';
+  openM('mCat');
+}
+async function delCat(id){
+  if(!confirm('Удалить категорию и статьи?')) return;
+  await api('deleteCat',{id}); toast('Удалено','s');
+  const [c,a]=await Promise.all([api('getCats'),api('getArticles')]);
+  if(c) ST.cats=c; if(a) ST.articles=a;
+  populateAllSelects(); renderCatTree();
+}
+async function saveArticle(){
+  const catId=+g('art-cat'),name=g('art-name'); if(!catId||!name){toast('Заполните поля','e');return}
+  if(ST.editId.art) await api('updateArticle',{id:ST.editId.art,cat_id:catId,name,note:g('art-note')});
+  else await api('addArticle',{cat_id:catId,name,note:g('art-note')});
+  toast('Статья сохранена','s'); closeM('mArticle');
+  const a=await api('getArticles'); if(a) ST.articles=a;
+  populateAllSelects(); renderCatTree();
+}
+function openEditArt(id){
+  const a=ST.articles.find(x=>x.id===id); if(!a) return;
+  ST.editId.art=id;
+  document.getElementById('mArtTitle').textContent='Редактировать статью';
+  fillSel('art-cat',ST.cats,'id','name','—');
+  document.getElementById('art-cat').value=a.cat_id;
+  document.getElementById('art-name').value=a.name;
+  document.getElementById('art-note').value=a.note||'';
+  openM('mArticle');
+}
+async function delArt(id){
+  if(!confirm('Удалить статью?')) return;
+  await api('deleteArticle',{id}); toast('Удалено','s');
+  const a=await api('getArticles'); if(a) ST.articles=a;
+  populateAllSelects(); renderCatTree();
+}
+</script>

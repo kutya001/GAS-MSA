@@ -1,0 +1,62 @@
+<!-- ══ SALES ════════════════════════════════════════════════════════ -->
+<div class="page" id="page-sales">
+  <div class="sh"><h2>Продажи</h2></div>
+  <div class="fbar">
+    <label>Менеджер</label><select class="fi fi-sm" id="sf-mgr" onchange="loadSales()"><option value="">Все</option></select>
+    <label>Бренд</label><select class="fi fi-sm" id="sf-brand" onchange="loadSales()"><option value="">Все</option></select>
+    <label>Статус</label><select class="fi fi-sm" id="sf-status" onchange="loadSales()"><option value="">Все</option><option>Оплачено</option><option>Долг</option></select>
+    <label>От</label><input type="date" class="fi fi-sm" id="sf-from" onchange="loadSales()">
+    <label>До</label><input type="date" class="fi fi-sm" id="sf-to" onchange="loadSales()">
+    <button class="btn btn-g btn-sm" onclick="clearF('sf',loadSales)">✕</button>
+  </div>
+  <div id="sTable"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  SALES
+// ════════════════════════════════════════════════════════════════
+var _sDT = null;
+function _sDTinit() {
+  if (_sDT) return _sDT;
+  _sDT = new DT({
+    id: 'sales', containerId: 'sTable',
+    addLabel: '+ Продажа', onAdd: openSaleModal,
+    cols: [
+      {key:'sale_date',    label:'Дата',       w:'84px',  render:function(v){return fmtD(v);}},
+      {key:'brand_name',   label:'Бренд'},
+      {key:'model_name',   label:'Модель'},
+      {key:'buyer',        label:'Покупатель'},
+      {key:'total_kgs',    label:'Сумма ₸',    align:'right', mono:true,
+        render:function(v){return '<span class="fw7">'+fmtN(v)+'₸</span>';}},
+      {key:'paid_kgs',     label:'Оплачено',   align:'right', mono:true,
+        render:function(v){return '<span class="tg">'+fmtN(v)+'₸</span>';}},
+      {key:'debt_kgs',     label:'Долг ₸',     align:'right', mono:true,
+        render:function(v){return +v>0?'<span class="tr fw7">'+fmtN(v)+'₸</span>':'—';}},
+      {key:'wallet_name',  label:'Кошелёк'},
+      {key:'manager_name', label:'Менеджер'},
+      {key:'_act',         label:'',           sortable:false,
+        render:function(v,r){return +r.debt_kgs>0?'<button class="btn btn-gn btn-xs" onclick="openPayModal('+r.id+')">+ Оплата</button>':'<span class="badge bg">&#10003;</span>';}}
+    ]
+  });
+  return _sDT;
+}
+
+async function loadSales(){
+  var d=await api('getSales',{mgr_id:g('sf-mgr'),brand_id:g('sf-brand'),status:g('sf-status'),dateFrom:g('sf-from'),dateTo:g('sf-to')}); if(!d) return;
+  _sDTinit().setData(d.rows||[]);
+}
+
+function openSaleModal(){refreshSaleItems();document.getElementById('s-date').value=today();document.getElementById('s-paid').value='0';document.getElementById('sDebt').textContent='0 ₸';openM('mSale')}
+function onItemSelect(){}
+function calcSB(){var p=parseFloat(g('s-price'))||0,pd=parseFloat(g('s-paid'))||0;document.getElementById('sDebt').textContent=fmtN(Math.max(0,p-pd))+' ₸';}
+async function saveSale(){
+  var itemId=+g('s-item'),buyer=g('s-buyer'),date=g('s-date'),mgrId=+g('s-mgr');
+  var price=parseFloat(g('s-price'))||0,paid=parseFloat(g('s-paid'))||0,walletId=+g('s-wallet');
+  if(!itemId||!buyer||!date||!mgrId||!price||!walletId){toast('Заполните обязательные поля','e');return}
+  if(paid>price){toast('Оплата не может превышать цену','e');return}
+  await api('addSale',{purchase_id:itemId,buyer:buyer,wa:g('s-wa'),sale_date:date,manager_id:mgrId,total_kgs:price,paid_kgs:paid,debt_kgs:price-paid,wallet_id:walletId,note:g('s-note')});
+  toast('Продажа добавлена','s'); closeM('mSale'); loadSales(); loadPurchases();
+}
+</script>
+

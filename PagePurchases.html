@@ -1,0 +1,110 @@
+<!-- ══ PURCHASES ════════════════════════════════════════════════════ -->
+<div class="page" id="page-purchases">
+  <div class="sh"><h2>Закупки</h2></div>
+  <div class="fbar">
+    <label>Склад</label><select class="fi fi-sm" id="pf-wh" onchange="loadPurchases()"><option value="">Все</option></select>
+    <label>Бренд</label><select class="fi fi-sm" id="pf-brand" onchange="loadPurchases()"><option value="">Все</option></select>
+    <label>Статус</label><select class="fi fi-sm" id="pf-status" onchange="loadPurchases()"><option value="">Все</option><option>В наличии</option><option>Продано</option></select>
+    <label>От</label><input type="date" class="fi fi-sm" id="pf-from" onchange="loadPurchases()">
+    <label>До</label><input type="date" class="fi fi-sm" id="pf-to" onchange="loadPurchases()">
+    <button class="btn btn-g btn-sm" onclick="clearF('pf',loadPurchases)">✕</button>
+  </div>
+  <div id="pTable"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  PURCHASES
+// ════════════════════════════════════════════════════════════════
+var _pDT = null;
+function _pDTinit() {
+  if (_pDT) return _pDT;
+  _pDT = new DT({
+    id: 'purchases', containerId: 'pTable',
+    addLabel: '+ Закупка', onAdd: openPurchaseModal,
+    cols: [
+      {key:'brand_name',    label:'Бренд',       w:'88px'},
+      {key:'model_name',    label:'Модель'},
+      {key:'spec',          label:'Хар-ка',       w:'80px'},
+      {key:'wh_name',       label:'Склад'},
+      {key:'supplier_name', label:'Поставщик'},
+      {key:'_iq',           label:'IMEI / Шт.',   sortable:false,
+        render:function(v,r){return r.has_imei?'<span class="imeic">'+esc(r.imei||'')+'</span>':'<span class="badge bp">&times;'+r.qty+'</span>';}},
+      {key:'cost_usd',      label:'$ USD',        align:'right', mono:true,
+        render:function(v){return '$'+fmtN(v);}},
+      {key:'cost_kgs',      label:'₸ KGS',        align:'right', mono:true,
+        render:function(v){return fmtN(v)+'₸';}},
+      {key:'status',        label:'Статус',
+        render:function(v){return '<span class="badge '+(v==='В наличии'?'bb':v==='Продано'?'bg':'bgr')+'">'+esc(v)+'</span>';}},
+      {key:'purchase_date', label:'Дата',         w:'84px',
+        render:function(v){return fmtD(v);}},
+      {key:'_act',          label:'',             sortable:false,
+        render:function(v,r){return '<div class="tdx"><button class="btn-icon" onclick="editPurchase('+r.id+')" title="Редактировать">\u270F\uFE0F</button><button class="btn-icon" onclick="delPurchase('+r.id+')" title="\u0423\u0434\u0430\u043b\u0438\u0442\u044c">\uD83D\uDDD1\uFE0F</button></div>';}}
+    ]
+  });
+  return _pDT;
+}
+
+async function loadPurchases(){
+  var d=await api('getPurchases',{wh_id:g('pf-wh'),brand_id:g('pf-brand'),status:g('pf-status'),dateFrom:g('pf-from'),dateTo:g('pf-to')}); if(!d) return;
+  _pDTinit().setData(d.rows||[]);
+  refreshSaleItems();
+}
+
+function openPurchaseModal(){
+  ST.editId.purchase=null;
+  document.getElementById('mPTitle').textContent='Новая закупка';
+  document.getElementById('p-date').value=today();
+  document.getElementById('p-hasImei').checked=true;
+  document.getElementById('p-cusd').value='';document.getElementById('p-rate').value='88';
+  document.getElementById('pCostKgs').textContent='0 ₸';
+  toggleImei(); openM('mPurchase');
+}
+function toggleImei(){
+  var has=document.getElementById('p-hasImei').checked;
+  document.getElementById('imeiRow').style.display=has?'':'none';
+  document.getElementById('qtyRow').style.display=has?'none':'';
+}
+function filterModels(){
+  var bid=+g('p-brand');
+  fillSel('p-model',ST.refs.models.filter(function(m){return !bid||m.brand_id===bid;}),'id','name','—');
+}
+function calcPC(){
+  var usd=parseFloat(g('p-cusd'))||0,rate=parseFloat(g('p-rate'))||88;
+  document.getElementById('pCostKgs').textContent=fmtN(usd*rate)+' ₸';
+}
+async function savePurchase(){
+  var hasImei=document.getElementById('p-hasImei').checked;
+  var brandId=+g('p-brand'),modelId=+g('p-model'),whId=+g('p-wh');
+  var costUsd=parseFloat(g('p-cusd'))||0,rate=parseFloat(g('p-rate'))||88,date=g('p-date');
+  if(!brandId||!modelId||!whId||!costUsd||!date){toast('Заполните обязательные поля','e');return}
+  if(hasImei){var im=g('p-imei');if(im&&!/^\d{15}$/.test(im)){toast('IMEI должен быть 15 цифр','e');return}}
+  var data={brand_id:brandId,model_id:modelId,spec:g('p-spec'),color:g('p-color'),wh_id:whId,supplier_id:+g('p-supplier')||null,has_imei:hasImei,imei:hasImei?g('p-imei'):'',qty:hasImei?1:+g('p-qty')||1,condition:g('p-cond'),purchase_date:date,cost_usd:costUsd,rate:rate,cost_kgs:costUsd*rate,pay_wallet_id:+g('p-payWallet')||null,note:g('p-note')};
+  if(ST.editId.purchase) await api('updatePurchase',{id:ST.editId.purchase,...data});
+  else await api('addPurchase',data);
+  toast(ST.editId.purchase?'Закупка обновлена':'Закупка добавлена','s');
+  closeM('mPurchase'); loadPurchases();
+}
+function editPurchase(id){
+  var r=(DT_INST['purchases']&&DT_INST['purchases'].data||[]).find(function(x){return x.id===id;}); if(!r) return;
+  ST.editId.purchase=id;
+  document.getElementById('mPTitle').textContent='Редактировать закупку';
+  document.getElementById('p-brand').value=r.brand_id||''; filterModels();
+  document.getElementById('p-model').value=r.model_id||'';
+  ['spec','color','note'].forEach(function(f){var el=document.getElementById('p-'+f);if(el)el.value=r[f]||'';});
+  document.getElementById('p-wh').value=r.wh_id||'';
+  document.getElementById('p-supplier').value=r.supplier_id||'';
+  document.getElementById('p-date').value=r.purchase_date||today();
+  document.getElementById('p-cusd').value=r.cost_usd||0;
+  document.getElementById('p-rate').value=r.rate||88;
+  document.getElementById('p-hasImei').checked=r.has_imei;
+  if(r.has_imei) document.getElementById('p-imei').value=r.imei||'';
+  else document.getElementById('p-qty').value=r.qty||1;
+  calcPC(); toggleImei(); openM('mPurchase');
+}
+async function delPurchase(id){
+  if(!confirm('Удалить запись закупки?')) return;
+  await api('deletePurchase',{id:id}); toast('Удалено','s'); loadPurchases();
+}
+</script>
+
