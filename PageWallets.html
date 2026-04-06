@@ -1,7 +1,7 @@
-<!-- ══ WALLETS ════════════════════════════════════════════════════════ -->
+﻿<!-- ══ WALLETS ════════════════════════════════════════════════════════ -->
 <div class="page" id="page-wallets">
   <div class="sh"><h2>Кошельки / Кассы</h2><p>Остатки по кассам — весь расчёт строго по кошелькам</p>
-    <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="openM('mWallet')">+ Кошелёк</button></div>
+    <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="walletForm.openCreate()">+ Кошелёк</button></div>
   </div>
   <div class="wgrid" id="walletsGrid"></div>
   <div id="wdWrap" style="display:none">
@@ -24,105 +24,207 @@
 <!-- ══ CASHOPS ════════════════════════════════════════════════════ -->
 <div class="page" id="page-cashops">
   <div class="sh"><h2>Движение денежных средств</h2></div>
-  <div class="fbar">
-    <label>Кошелёк</label><select class="fi fi-sm" id="cf-wallet" onchange="loadCash()"><option value="">Все</option></select>
-    <label>Тип</label><select class="fi fi-sm" id="cf-type" onchange="loadCash()"><option value="">Все</option><option>Приход</option><option>Расход</option></select>
-    <label>Категория</label><select class="fi fi-sm" id="cf-cat" onchange="loadCash()"><option value="">Все</option></select>
-    <label>От</label><input type="date" class="fi fi-sm" id="cf-from" onchange="loadCash()">
-    <label>До</label><input type="date" class="fi fi-sm" id="cf-to" onchange="loadCash()">
-    <button class="btn btn-g btn-sm" onclick="clearF('cf',loadCash)">✕</button>
-  </div>
   <div id="cashTable"></div>
 </div>
 
 <script>
 // ════════════════════════════════════════════════════════════════
-//  WALLETS
+//  WALLET FORM
 // ════════════════════════════════════════════════════════════════
-async function loadWallets(){
-  const d=await api('getWallets'); if(!d) return; ST.wallets=d;
-  _setHTML(document.getElementById('walletsGrid'),d.map(w=>`<div class="wcard${ST.wdWalletId===w.id?' sel':''}" onclick="openWD(${w.id})">
-    <span class="wico">${esc(w.icon)}</span><div class="wname">${esc(w.name)}</div>
-    <div class="wcurr">${esc(w.currency)}</div>
-    <div class="wbal">${fmtN(w.balance)}</div>
-    <div class="wio"><span class="win">↑${fmtN(w.total_in)}</span><span class="wout">↓${fmtN(w.total_out)}</span></div>
-    <div style="margin-top:8px"><button class="btn btn-g btn-xs" onclick="event.stopPropagation();editWallet(${w.id})">✏️ Изм.</button></div>
-  </div>`).join(''));
+var walletForm = new MainForm({
+  id: 'mfWallet', title: 'Кошелёк',
+  fields: [
+    { key: 'name',          label: 'Название',         type: 'text',   required: true, span: 2 },
+    { key: 'currency_id',   label: 'Валюта',           type: 'select', required: true,
+      getOptions: function() { return ST.currencies || []; }
+    },
+    { key: 'icon',          label: 'Иконка',           type: 'text',   placeholder: '💰', default: '💰' },
+    { key: 'start_balance', label: 'Начальный баланс', type: 'number', default: 0, step: 0.01 },
+    { key: 'note',          label: 'Примечание',       type: 'text',   span: 2 }
+  ],
+  onSave: async function(values, editId) {
+    var data = { name: values.name, currency_id: +values.currency_id, icon: values.icon || '💰',
+                 start_balance: parseFloat(values.start_balance) || 0, note: values.note };
+    if (editId) await api('updateWallet', Object.assign({ id: editId }, data));
+    else        await api('addWallet', data);
+    toast('Кошелёк сохранён', 's');
+    await loadMasterData(); loadWallets();
+  },
+  onDelete: async function(id) {
+    await api('deleteWallet', { id: id });
+    toast('Кошелёк удалён', 's');
+    await loadMasterData(); loadWallets();
+  },
+  afterMount: function(mode, rec, form) {
+    form.fillField('currency_id', ST.currencies || [], 'id', 'code', '—');
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+//  CASHOP FORM
+// ════════════════════════════════════════════════════════════════
+function _coFillCats(form) {
+  var t = form.getVal('op_type');
+  form.fillField('cat_id',     ST.cats.filter(function(c) { return c.op_type === t; }), 'id', 'name', '—');
+  form.fillField('article_id', [], 'id', 'name', 'Без статьи');
 }
-function openWD(wid){
-  ST.wdWalletId=wid;
-  const w=ST.wallets.find(x=>x.id===wid);
-  document.getElementById('wdTitle').textContent=(w?.name||'Кошелёк')+': история';
-  document.getElementById('wdWrap').style.display='';
+function _coFillArts(form) {
+  var cid = +form.getVal('cat_id');
+  form.fillField('article_id', ST.articles.filter(function(a) { return a.cat_id === cid; }), 'id', 'name', 'Без статьи');
+}
+
+var cashOpForm = new MainForm({
+  id: 'mfCashOp', title: 'Операция', size: 'md',
+  canEdit: function() { return false; },
+  fields: [
+    { key: 'op_type',     label: 'Тип',          type: 'select', required: true, span: 2,
+      options: ['Приход', 'Расход'], emptyLabel: '— Тип —',
+      onChange: function(v, form) { _coFillCats(form); },
+      renderView: function(v) {
+        return '<span class="badge ' + (v === 'Приход' ? 'bg' : 'br') + '">' + (v === 'Приход' ? '↑' : '↓') + esc(v) + '</span>';
+      }
+    },
+    { key: 'wallet_id',   label: 'Кошелёк',      type: 'select', required: true,
+      getOptions: function() { return ST.wallets; },
+      renderView: function(v, r) { return esc(r.wallet_name || v); }
+    },
+    { key: 'cat_id',      label: 'Категория',     type: 'select', required: true,
+      getOptions: function() { return ST.cats; },
+      onChange: function(v, form) { _coFillArts(form); },
+      renderView: function(v, r) { return esc(r.cat_name || v); }
+    },
+    { key: 'article_id',  label: 'Статья',        type: 'select',
+      getOptions: function() { return ST.articles; }, emptyLabel: 'Без статьи',
+      renderView: function(v, r) { return esc(r.article_name || '—'); }
+    },
+    { key: 'amount',      label: 'Сумма',         type: 'number', required: true, min: 0.01, step: 0.01,
+      renderView: function(v, r) {
+        var inc = r.op_type === 'Приход';
+        return '<span class="' + (inc ? 'tg' : 'tr') + ' fw7 mono">' + (inc ? '+' : '-') + fmtN(v) + '</span>';
+      }
+    },
+    { key: 'op_date',     label: 'Дата',          type: 'date',   required: true,
+      renderView: function(v) { return fmtD(v); }
+    },
+    { key: 'counterpart', label: 'Контрагент',    type: 'text',   span: 2 },
+    { key: 'comment',     label: 'Комментарий',   type: 'textarea', span: 2 }
+  ],
+  onSave: async function(values) {
+    await api('addCashOp', {
+      wallet_id:   +values.wallet_id,  op_type:    values.op_type,
+      cat_id:      +values.cat_id,     article_id: +values.article_id || null,
+      amount:      parseFloat(values.amount) || 0, op_date: values.op_date,
+      counterpart: values.counterpart, comment: values.comment
+    });
+    toast('Операция сохранена', 's');
+    loadCash(); loadWallets();
+  },
+  afterMount: function(mode, rec, form) {
+    if (mode === 'view') return;
+    form.fillField('wallet_id', ST.wallets, 'id', 'name', '—');
+    var initType = (rec && rec.op_type) || '';
+    if (initType) {
+      form.fillField('cat_id', ST.cats.filter(function(c) { return c.op_type === initType; }), 'id', 'name', '—');
+      var cid = rec && +rec.cat_id;
+      if (cid) form.fillField('article_id', ST.articles.filter(function(a) { return a.cat_id === cid; }), 'id', 'name', 'Без статьи');
+    }
+    var d = document.getElementById(form.id + '-op_date');
+    if (d && mode === 'create') d.value = today();
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+//  WALLETS PAGE
+// ════════════════════════════════════════════════════════════════
+function _walletById(id) { return (ST.wallets || []).find(function(x) { return x.id === id; }); }
+
+async function loadWallets() {
+  var d = await api('getWallets'); if (!d) return; ST.wallets = d;
+  _setHTML(document.getElementById('walletsGrid'), d.map(function(w) {
+    return '<div class="wcard' + (ST.wdWalletId === w.id ? ' sel' : '') + '" onclick="openWD(' + w.id + ')">' +
+      '<span class="wico">' + esc(w.icon) + '</span>' +
+      '<div class="wname">' + esc(w.name) + '</div>' +
+      '<div class="wcurr">' + esc(w.currency) + '</div>' +
+      '<div class="wbal">' + fmtN(w.balance) + '</div>' +
+      '<div class="wio"><span class="win">↑' + fmtN(w.total_in) + '</span><span class="wout">↓' + fmtN(w.total_out) + '</span></div>' +
+      '<div style="margin-top:8px">' +
+        '<button class="btn btn-g btn-xs" onclick="event.stopPropagation();walletForm.openEdit(_walletById(' + w.id + '))">✏️ Изм.</button>' +
+      '</div></div>';
+  }).join(''));
+}
+
+function openWD(wid) {
+  ST.wdWalletId = wid;
+  var w = (ST.wallets || []).find(function(x) { return x.id === wid; });
+  document.getElementById('wdTitle').textContent = (w && w.name ? w.name : 'Кошелёк') + ': история';
+  document.getElementById('wdWrap').style.display = '';
   loadWD();
 }
-function closeWD(){document.getElementById('wdWrap').style.display='none';ST.wdWalletId=null;loadWallets()}
-async function loadWD(){
-  if(!ST.wdWalletId) return;
-  const d=await api('getWalletHistory',{wallet_id:ST.wdWalletId,dateFrom:g('wd-from'),dateTo:g('wd-to')});
-  const rows=(d&&d.rows)||[];
-  let tIn=0,tOut=0;
-  _setHTML(document.getElementById('wdBody'),rows.map(r=>{
-    const inc=r.op_type==='Приход';if(inc)tIn+=(+r.amount||0);else tOut+=(+r.amount||0);
-    return`<tr><td>${fmtD(r.op_date)}</td><td><span class="badge ${inc?'bg':'br'}">${inc?'↑':'↓'}${esc(r.op_type)}</span></td><td>${esc(r.cat_name||'')}</td><td>${esc(r.article_name||'')}</td><td>${esc(r.counterpart||'')}</td><td>${esc(r.comment||'')}</td><td class="mono ${inc?'tg':'tr'} fw7">${inc?'+':'-'}${fmtN(r.amount)}</td></tr>`;
-  }).join('')||eRow(7,'Нет операций'));
-  document.getElementById('wdIn').textContent='+'+fmtN(tIn);
-  document.getElementById('wdOut').textContent='-'+fmtN(tOut);
-}
-async function saveWallet(){
-  const name=g('w-name'),curr=g('w-curr');
-  if(!name||!curr){toast('Заполните обязательные поля','e');return}
-  const data={name,currency_id:+curr,icon:g('w-icon')||'💰',start_balance:parseFloat(g('w-start'))||0,note:g('w-note')};
-  if(ST.editId.wallet) await api('updateWallet',{id:ST.editId.wallet,...data});
-  else await api('addWallet',data);
-  toast('Кошелёк сохранён','s'); closeM('mWallet'); await loadMasterData(); loadWallets();
-}
-function editWallet(id){
-  const w=ST.wallets.find(x=>x.id===id); if(!w) return;
-  ST.editId.wallet=id;
-  document.getElementById('mWTitle').textContent='Редактировать кошелёк';
-  document.getElementById('w-name').value=w.name;
-  document.getElementById('w-icon').value=w.icon;
-  document.getElementById('w-note').value=w.note||'';
-  openM('mWallet');
+function closeWD() { document.getElementById('wdWrap').style.display = 'none'; ST.wdWalletId = null; loadWallets(); }
+
+async function loadWD() {
+  if (!ST.wdWalletId) return;
+  var d = await api('getWalletHistory', { wallet_id: ST.wdWalletId, dateFrom: g('wd-from'), dateTo: g('wd-to') });
+  var rows = (d && d.rows) || [];
+  var tIn = 0, tOut = 0;
+  _setHTML(document.getElementById('wdBody'), rows.map(function(r) {
+    var inc = r.op_type === 'Приход';
+    if (inc) tIn += (+r.amount || 0); else tOut += (+r.amount || 0);
+    return '<tr><td>' + fmtD(r.op_date) + '</td><td><span class="badge ' + (inc ? 'bg' : 'br') + '">' + (inc ? '↑' : '↓') + esc(r.op_type) + '</span></td>' +
+      '<td>' + esc(r.cat_name || '') + '</td><td>' + esc(r.article_name || '') + '</td>' +
+      '<td>' + esc(r.counterpart || '') + '</td><td>' + esc(r.comment || '') + '</td>' +
+      '<td class="mono ' + (inc ? 'tg' : 'tr') + ' fw7">' + (inc ? '+' : '-') + fmtN(r.amount) + '</td></tr>';
+  }).join('') || eRow(7, 'Нет операций'));
+  document.getElementById('wdIn').textContent  = '+' + fmtN(tIn);
+  document.getElementById('wdOut').textContent = '-' + fmtN(tOut);
 }
 
 // ════════════════════════════════════════════════════════════════
-//  CASHOPS
+//  CASHOPS DT
 // ════════════════════════════════════════════════════════════════
 var _cDT = null;
 function _cDTinit() {
   if (_cDT) return _cDT;
   _cDT = new DT({
     id: 'cashops', containerId: 'cashTable',
-    addLabel: '+ Операция', onAdd: function(){ openM('mCashOp'); },
+    addLabel: '+ Операция', onAdd: function() { cashOpForm.openCreate(); },
+    onRowClick: function(r) { cashOpForm.openView(r); },
+    filters: [
+      { key: 'wallet_id', label: 'Кошелёк',  type: 'select', getOptions: function() { return ST.wallets; }, vk: 'id', lk: 'name' },
+      { key: 'op_type',   label: 'Тип',       type: 'select', options: ['Приход', 'Расход'] },
+      { key: 'cat_id',    label: 'Категория', type: 'select', getOptions: function() { return ST.cats; }, vk: 'id', lk: 'name' },
+      { key: 'dateFrom',  label: 'От',        type: 'date' },
+      { key: 'dateTo',    label: 'До',        type: 'date' }
+    ],
+    onFilter: loadCash,
     cols: [
-      {key:'op_date',      label:'Дата',         w:'84px',  render:function(v){return fmtD(v);}},
-      {key:'op_type',      label:'Тип',           sortable:false,
-        render:function(v){var inc=v==='Приход';return '<span class="badge '+(inc?'bg':'br')+'">'+(inc?'↑':'↓')+esc(v)+'</span>';}},
-      {key:'wallet_name',  label:'Кошелёк'},
-      {key:'cat_name',     label:'Категория',     sortable:false},
-      {key:'article_name', label:'Статья',        sortable:false},
-      {key:'counterpart',  label:'Контрагент',    sortable:false},
-      {key:'comment',      label:'Комментарий',   sortable:false},
-      {key:'amount',       label:'Сумма',         align:'right', mono:true,
-        render:function(v,r){var inc=r.op_type==='Приход';return '<span class="'+(inc?'tg':'tr')+' fw7">'+(inc?'+':'-')+fmtN(v)+'</span>';}}
+      { key: 'op_date',      label: 'Дата',        w: '84px',  render: function(v) { return fmtD(v); } },
+      { key: 'op_type',      label: 'Тип',         sortable: false,
+        render: function(v) { var inc = v === 'Приход'; return '<span class="badge ' + (inc ? 'bg' : 'br') + '">' + (inc ? '↑' : '↓') + esc(v) + '</span>'; }
+      },
+      { key: 'wallet_name',  label: 'Кошелёк' },
+      { key: 'cat_name',     label: 'Категория',   sortable: false },
+      { key: 'article_name', label: 'Статья',      sortable: false },
+      { key: 'counterpart',  label: 'Контрагент',  sortable: false },
+      { key: 'comment',      label: 'Комментарий', sortable: false },
+      { key: 'amount',       label: 'Сумма',       align: 'right', mono: true,
+        render: function(v, r) { var inc = r.op_type === 'Приход'; return '<span class="' + (inc ? 'tg' : 'tr') + ' fw7">' + (inc ? '+' : '-') + fmtN(v) + '</span>'; }
+      }
     ]
   });
   return _cDT;
 }
 
-async function loadCash(){
-  var d=await api('getCashOps',{wallet_id:g('cf-wallet'),op_type:g('cf-type'),cat_id:g('cf-cat'),dateFrom:g('cf-from'),dateTo:g('cf-to')}); if(!d) return;
-  _cDTinit().setData(d.rows||[]);
-}
-function onCoType(){var t=g('co-type');fillSel('co-cat',ST.cats.filter(function(c){return c.op_type===t;}),'id','name','—');fillSel('co-art',[],'id','name','Без статьи');}
-function onCoCat(){var cid=+g('co-cat');fillSel('co-art',ST.articles.filter(function(a){return a.cat_id===cid;}),'id','name','Без статьи');}
-async function saveCashOp(){
-  var wid=+g('co-wallet'),catId=+g('co-cat'),amt=parseFloat(g('co-amount'))||0,date=g('co-date'),type=g('co-type');
-  if(!wid||!catId||!amt||!date){toast('Заполните обязательные поля','e');return}
-  await api('addCashOp',{wallet_id:wid,op_type:type,cat_id:catId,article_id:+g('co-art')||null,amount:amt,op_date:date,counterpart:g('co-counter'),comment:g('co-comment')});
-  toast('Операция сохранена','s'); closeM('mCashOp'); loadCash(); loadWallets();
+async function loadCash() {
+  var fp = _cDT ? (_cDT._fpValues || {}) : {};
+  var d = await api('getCashOps', {
+    wallet_id: fp.wallet_id || '',
+    op_type:   fp.op_type   || '',
+    cat_id:    fp.cat_id    || '',
+    dateFrom:  fp.dateFrom  || '',
+    dateTo:    fp.dateTo    || ''
+  });
+  if (!d) return;
+  _cDTinit().setData(d.rows || []);
 }
 </script>
-

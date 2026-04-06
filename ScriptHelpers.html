@@ -4,12 +4,10 @@
 //  STATE
 // ════════════════════════════════════════════════════════════════
 const ST = {
-  page:'dashboard', rtab:'general', refTab:'brands', catTab:'Приход',
-  editId:{purchase:null,sale:null,wallet:null,wh:null,cat:null,art:null,ref:null},
+  page:'dashboard', rtab:'general',
   refs:{brands:[],models:[],suppliers:[],managers:[],currencies:[]},
   wallets:[],warehouses:[],cats:[],articles:[],
   charts:{},
-  payModalSaleId:null,
   wdWalletId:null,
 };
 
@@ -257,38 +255,13 @@ async function loadMasterData(){
   populateAllSelects();
 }
 
-function populateAllSelects(){
-  const R=ST.refs;
-  // Фильтры
-  fillSel('pf-wh',ST.warehouses,'id','name','Все');
-  fillSel('pf-brand',R.brands,'id','name','Все');
-  fillSel('sf-mgr',R.managers,'id','name','Все');
-  fillSel('sf-brand',R.brands,'id','name','Все');
-  fillSel('stf-wh',ST.warehouses,'id','name','Все');
-  fillSel('stf-brand',R.brands,'id','name','Все');
-  fillSel('cf-wallet',ST.wallets,'id','name','Все');
-  fillSel('cf-cat',ST.cats,'id','name','Все');
-  // Формы
-  fillSel('p-brand',R.brands,'id','name','—');
-  fillSel('p-wh',ST.warehouses,'id','name','—');
-  fillSel('p-supplier',R.suppliers,'id','name','—');
-  fillSel('p-payWallet',ST.wallets,'id','name','Не оплачено (долг поставщику)');
-  fillSel('s-mgr',R.managers,'id','name','—');
-  fillSel('s-wallet',ST.wallets,'id','name','—');
-  fillSel('pay-wallet',ST.wallets,'id','name','—');
-  fillSel('co-wallet',ST.wallets,'id','name','—');
-  fillSel('w-curr',R.currencies,'id','name','—');
-  fillSel('art-cat',ST.cats,'id','name','—');
-  refreshSaleItems();
+function populateAllSelects() {
+  // Form selects are now populated via MainForm.afterMount on each open.
+  // Stock page filters are populated in loadStock().
 }
 
-function refreshSaleItems(){
-  const avail=(DT_INST['purchases']&&DT_INST['purchases'].data||[]).filter(r=>r.status==='В наличии');
-  const el=document.getElementById('s-item'); if(!el) return;
-  el.innerHTML='<option value="">Выбрать товар...</option>'+avail.map(r=>{
-    const label=`${r.brand_name} ${r.model_name} ${r.spec||''} [${r.wh_name}]${r.has_imei?' IMEI:'+r.imei:' ×'+r.qty+'шт'}`;
-    return `<option value="${r.id}">${esc(label)}</option>`;
-  }).join('');
+function refreshSaleItems() {
+  // No-op: purchase options are populated by saleForm.afterMount when the form opens.
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -316,7 +289,6 @@ function redrawCharts(){if(ST.page==='dashboard') loadDashGeneral()}
 function init(){
   applyTheme();
   document.getElementById('tbDate').textContent=new Date().toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'});
-  onCoType(); // инициализация типа кассовой операции
   const h=(location.hash||'#dashboard').replace('#','');
   nav(PAGE_TITLE[h]?h:'dashboard'); // сразу показываем страницу
   loadMasterData(); // справочники — фоновая загрузка

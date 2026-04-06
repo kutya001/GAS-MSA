@@ -1,110 +1,217 @@
-<!-- ══ PURCHASES ════════════════════════════════════════════════════ -->
+﻿<!-- в•ђв•ђ PURCHASES в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ -->
 <div class="page" id="page-purchases">
-  <div class="sh"><h2>Закупки</h2></div>
-  <div class="fbar">
-    <label>Склад</label><select class="fi fi-sm" id="pf-wh" onchange="loadPurchases()"><option value="">Все</option></select>
-    <label>Бренд</label><select class="fi fi-sm" id="pf-brand" onchange="loadPurchases()"><option value="">Все</option></select>
-    <label>Статус</label><select class="fi fi-sm" id="pf-status" onchange="loadPurchases()"><option value="">Все</option><option>В наличии</option><option>Продано</option></select>
-    <label>От</label><input type="date" class="fi fi-sm" id="pf-from" onchange="loadPurchases()">
-    <label>До</label><input type="date" class="fi fi-sm" id="pf-to" onchange="loadPurchases()">
-    <button class="btn btn-g btn-sm" onclick="clearF('pf',loadPurchases)">✕</button>
-  </div>
+  <div class="sh"><h2>Р—Р°РєСѓРїРєРё</h2></div>
   <div id="pTable"></div>
 </div>
 
 <script>
-// ════════════════════════════════════════════════════════════════
-//  PURCHASES
-// ════════════════════════════════════════════════════════════════
+// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+//  PURCHASES вЂ” С„РѕСЂРјР° Рё С‚Р°Р±Р»РёС†Р°
+// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+// в”Ђв”Ђ С…РµР»РїРµСЂ СЂР°СЃС‡С‘С‚Р° СЃРµР±РµСЃС‚РѕРёРјРѕСЃС‚Рё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+function _pCalcKgs(form) {
+  var usd  = parseFloat(form.getVal('cost_usd')) || 0;
+  var rate = parseFloat(form.getVal('rate'))     || 88;
+  form.setCalc('cost_kgs', fmtN(usd * rate) + ' в‚ё');
+}
+
+// в”Ђв”Ђ С„РѕСЂРјР° Р·Р°РєСѓРїРєРё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+var purchaseForm = new MainForm({
+  id:    'mfPurchase',
+  title: 'Р—Р°РєСѓРїРєР°',
+  size:  'lg',
+  fields: [
+    { key: 'has_imei', label: 'рџ“± РўРѕРІР°СЂ СЃ IMEI РєРѕРґРѕРј (РїРѕС€С‚СѓС‡РЅС‹Р№ СѓС‡С‘С‚)', type: 'checkbox', span: 2,
+      default: true,
+      onChange: function(v, f) { f.refreshVis(); },
+      renderView: function(v) {
+        return v ? '<span class="badge bb">IMEI (РїРѕС€С‚СѓС‡РЅРѕ)</span>' : '<span class="badge bp">РџР°СЂС‚РёСЏ</span>';
+      }
+    },
+    { key: 'brand_id', label: 'Р‘СЂРµРЅРґ', type: 'select', required: true,
+      getOptions: function() { return ST.refs.brands; },
+      onChange: function(v, f) {
+        var m = ST.refs.models.filter(function(x) { return !v || x.brand_id === +v; });
+        f.fillField('model_id', m, 'id', 'name', 'вЂ”');
+      },
+      renderView: function(v, r) { return esc(r.brand_name || 'вЂ”'); }
+    },
+    { key: 'model_id', label: 'РњРѕРґРµР»СЊ', type: 'select', required: true,
+      getOptions: function() { return ST.refs.models; },
+      renderView: function(v, r) { return '<span class="fw7">' + esc(r.model_name || 'вЂ”') + '</span>'; }
+    },
+    { key: 'spec',  label: 'РҐР°СЂР°РєС‚РµСЂРёСЃС‚РёРєР°', type: 'text', placeholder: '8/256, 128GB...' },
+    { key: 'color', label: 'Р¦РІРµС‚',           type: 'text', placeholder: 'Р§С‘СЂРЅС‹Р№, Р‘РµР»С‹Р№...' },
+    { key: 'wh_id', label: 'РЎРєР»Р°Рґ', type: 'select', required: true,
+      getOptions: function() { return ST.warehouses; },
+      renderView: function(v, r) { return esc(r.wh_name || 'вЂ”'); }
+    },
+    { key: 'supplier_id', label: 'РџРѕСЃС‚Р°РІС‰РёРє', type: 'select',
+      getOptions: function() { return ST.refs.suppliers; },
+      renderView: function(v, r) { return esc(r.supplier_name || 'вЂ”'); }
+    },
+    { key: 'imei', label: 'IMEI (15 С†РёС„СЂ)', type: 'text', maxlength: 15, mono: true,
+      placeholder: '352365010000001',
+      showIf: function(f) { return !!f.getVal('has_imei'); },
+      renderView: function(v, r) {
+        return r.has_imei ? '<span class="imeic">' + esc(v || 'вЂ”') + '</span>' : '<span class="muted">вЂ”</span>';
+      }
+    },
+    { key: 'qty', label: 'РљРѕР»РёС‡РµСЃС‚РІРѕ (РїР°СЂС‚РёСЏ)', type: 'number', min: 1, default: 1,
+      showIf: function(f) { return !f.getVal('has_imei'); },
+      renderView: function(v, r) {
+        return !r.has_imei ? '<span class="badge bp">Г—' + esc(String(v || 1)) + '</span>' : '<span class="muted">вЂ”</span>';
+      }
+    },
+    { key: 'condition', label: 'РЎРѕСЃС‚РѕСЏРЅРёРµ', type: 'select',
+      options: ['РќРѕРІС‹Р№', 'Р‘/РЈ'], emptyLabel: false
+    },
+    { key: 'purchase_date', label: 'Р”Р°С‚Р° Р·Р°РєСѓРїРєРё', type: 'date', required: true,
+      renderView: function(v) { return fmtD(v); }
+    },
+    { key: 'cost_usd', label: 'РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ USD', type: 'number', min: 0, step: 0.01, required: true,
+      onChange: function(v, f) { _pCalcKgs(f); },
+      renderView: function(v) { return '<span class="mono fw7">$' + fmtN(v) + '</span>'; }
+    },
+    { key: 'rate', label: 'РљСѓСЂСЃ KGS/USD', type: 'number', min: 1, default: 88,
+      onChange: function(v, f) { _pCalcKgs(f); },
+      renderView: function(v) { return esc(String(v || 88)); }
+    },
+    { key: 'cost_kgs', label: 'РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ KGS (Р°РІС‚РѕСЂР°СЃС‡С‘С‚)', type: 'calc', span: 2,
+      calcInit: '0 в‚ё',
+      renderView: function(v) { return '<span class="mono fw7 tg">' + fmtN(v) + ' в‚ё</span>'; }
+    },
+    { key: 'pay_wallet_id', label: 'РћРїР»Р°С‚Р° РїРѕСЃС‚Р°РІС‰РёРєСѓ (РєРѕС€РµР»С‘Рє)', type: 'select', span: 2,
+      getOptions: function() { return ST.wallets; },
+      emptyLabel: 'РќРµ РѕРїР»Р°С‡РµРЅРѕ вЂ” РґРѕР»Рі РїРѕСЃС‚Р°РІС‰РёРєСѓ',
+      renderView: function(v) {
+        var w = v ? ST.wallets.find(function(x) { return x.id === +v; }) : null;
+        return w ? esc(w.name) : '<span class="badge ba">Р”РѕР»Рі РїРѕСЃС‚Р°РІС‰РёРєСѓ</span>';
+      }
+    },
+    { key: 'status', label: 'РЎС‚Р°С‚СѓСЃ', viewOnly: true,
+      renderView: function(v) {
+        var c = v === 'Р’ РЅР°Р»РёС‡РёРё' ? 'bb' : v === 'РџСЂРѕРґР°РЅРѕ' ? 'bg' : 'bgr';
+        return '<span class="badge ' + c + '">' + esc(v || 'вЂ”') + '</span>';
+      }
+    },
+    { key: 'note', label: 'РџСЂРёРјРµС‡Р°РЅРёРµ', type: 'text', span: 2, placeholder: 'РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ' }
+  ],
+  validate: function(values) {
+    if (values.has_imei && values.imei && !/^\d{15}$/.test(values.imei)) {
+      return 'IMEI РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ 15 С†РёС„СЂ';
+    }
+    return null;
+  },
+  onSave: async function(values, editId) {
+    var data = {
+      brand_id: +values.brand_id, model_id: +values.model_id,
+      spec: values.spec, color: values.color,
+      wh_id: +values.wh_id, supplier_id: +values.supplier_id || null,
+      has_imei: values.has_imei,
+      imei: values.has_imei ? (values.imei || '') : '',
+      qty:  values.has_imei ? 1 : (+values.qty || 1),
+      condition: values.condition || 'РќРѕРІС‹Р№',
+      purchase_date: values.purchase_date,
+      cost_usd: +values.cost_usd, rate: +values.rate || 88,
+      cost_kgs: (+values.cost_usd) * (+values.rate || 88),
+      pay_wallet_id: +values.pay_wallet_id || null,
+      note: values.note
+    };
+    if (editId) await api('updatePurchase', Object.assign({ id: editId }, data));
+    else        await api('addPurchase', data);
+    toast(editId ? 'Р—Р°РєСѓРїРєР° РѕР±РЅРѕРІР»РµРЅР°' : 'Р—Р°РєСѓРїРєР° РґРѕР±Р°РІР»РµРЅР°', 's');
+    loadPurchases();
+  },
+  onDelete: async function(id) {
+    await api('deletePurchase', { id: id });
+    toast('Р—Р°РєСѓРїРєР° СѓРґР°Р»РµРЅР°', 's');
+    loadPurchases();
+  },
+  afterMount: function(mode, rec, form) {
+    if (mode === 'view') return;
+    // РќР°РїРѕР»РЅСЏРµРј СЃРїСЂР°РІРѕС‡РЅРёРєРё
+    form.fillField('brand_id', ST.refs.brands, 'id', 'name', 'вЂ”');
+    if (rec) document.getElementById(form.id + '-brand_id').value = rec.brand_id || '';
+    var bid = +(form.getVal('brand_id'));
+    form.fillField('model_id', ST.refs.models.filter(function(m) { return !bid || m.brand_id === bid; }), 'id', 'name', 'вЂ”');
+    if (rec) document.getElementById(form.id + '-model_id').value = rec.model_id || '';
+    form.fillField('wh_id', ST.warehouses, 'id', 'name', 'вЂ”');
+    if (rec) document.getElementById(form.id + '-wh_id').value = rec.wh_id || '';
+    form.fillField('supplier_id', ST.refs.suppliers, 'id', 'name', 'вЂ”');
+    if (rec) document.getElementById(form.id + '-supplier_id').value = rec.supplier_id || '';
+    form.fillField('pay_wallet_id', ST.wallets, 'id', 'name', 'РќРµ РѕРїР»Р°С‡РµРЅРѕ вЂ” РґРѕР»Рі РїРѕСЃС‚Р°РІС‰РёРєСѓ');
+    if (rec) document.getElementById(form.id + '-pay_wallet_id').value = rec.pay_wallet_id || '';
+    // РРЅРёС‚
+    if (mode === 'create') {
+      var d = document.getElementById(form.id + '-purchase_date');
+      if (d) d.value = today();
+    }
+    _pCalcKgs(form);
+    form.refreshVis();
+  }
+});
+
+// в”Ђв”Ђ DT С‚Р°Р±Р»РёС†Р° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 var _pDT = null;
 function _pDTinit() {
   if (_pDT) return _pDT;
   _pDT = new DT({
     id: 'purchases', containerId: 'pTable',
-    addLabel: '+ Закупка', onAdd: openPurchaseModal,
+    addLabel: '+ Р—Р°РєСѓРїРєР°', onAdd: function() { purchaseForm.openCreate(); },
+    onRowClick: function(r) { purchaseForm.openView(r); },
+    filters: [
+      { key: 'wh_id',    label: 'РЎРєР»Р°Рґ',  type: 'select', getOptions: function() { return ST.warehouses; } },
+      { key: 'brand_id', label: 'Р‘СЂРµРЅРґ',  type: 'select', getOptions: function() { return ST.refs.brands; } },
+      { key: 'status',   label: 'РЎС‚Р°С‚СѓСЃ', type: 'select',
+        options: ['Р’ РЅР°Р»РёС‡РёРё', 'РџСЂРѕРґР°РЅРѕ'], emptyLabel: 'Р’СЃРµ' },
+      { key: 'dateFrom', label: 'Р”Р°С‚Р° РѕС‚', type: 'date' },
+      { key: 'dateTo',   label: 'Р”Р°С‚Р° РґРѕ', type: 'date' }
+    ],
+    onFilter: function() { loadPurchases(); },
     cols: [
-      {key:'brand_name',    label:'Бренд',       w:'88px'},
-      {key:'model_name',    label:'Модель'},
-      {key:'spec',          label:'Хар-ка',       w:'80px'},
-      {key:'wh_name',       label:'Склад'},
-      {key:'supplier_name', label:'Поставщик'},
-      {key:'_iq',           label:'IMEI / Шт.',   sortable:false,
-        render:function(v,r){return r.has_imei?'<span class="imeic">'+esc(r.imei||'')+'</span>':'<span class="badge bp">&times;'+r.qty+'</span>';}},
-      {key:'cost_usd',      label:'$ USD',        align:'right', mono:true,
-        render:function(v){return '$'+fmtN(v);}},
-      {key:'cost_kgs',      label:'₸ KGS',        align:'right', mono:true,
-        render:function(v){return fmtN(v)+'₸';}},
-      {key:'status',        label:'Статус',
-        render:function(v){return '<span class="badge '+(v==='В наличии'?'bb':v==='Продано'?'bg':'bgr')+'">'+esc(v)+'</span>';}},
-      {key:'purchase_date', label:'Дата',         w:'84px',
-        render:function(v){return fmtD(v);}},
-      {key:'_act',          label:'',             sortable:false,
-        render:function(v,r){return '<div class="tdx"><button class="btn-icon" onclick="editPurchase('+r.id+')" title="Редактировать">\u270F\uFE0F</button><button class="btn-icon" onclick="delPurchase('+r.id+')" title="\u0423\u0434\u0430\u043b\u0438\u0442\u044c">\uD83D\uDDD1\uFE0F</button></div>';}}
+      { key: 'brand_name',    label: 'Р‘СЂРµРЅРґ',      w: '88px' },
+      { key: 'model_name',    label: 'РњРѕРґРµР»СЊ' },
+      { key: 'spec',          label: 'РҐР°СЂ-РєР°',      w: '80px' },
+      { key: 'wh_name',       label: 'РЎРєР»Р°Рґ' },
+      { key: 'supplier_name', label: 'РџРѕСЃС‚Р°РІС‰РёРє' },
+      { key: '_iq', label: 'IMEI / РЁС‚.', sortable: false,
+        render: function(v, r) {
+          return r.has_imei ? '<span class="imeic">' + esc(r.imei || '') + '</span>'
+                            : '<span class="badge bp">&times;' + r.qty + '</span>';
+        }
+      },
+      { key: 'cost_usd', label: '$ USD', align: 'right', mono: true,
+        render: function(v) { return '$' + fmtN(v); }
+      },
+      { key: 'cost_kgs', label: 'в‚ё KGS', align: 'right', mono: true,
+        render: function(v) { return fmtN(v) + 'в‚ё'; }
+      },
+      { key: 'status', label: 'РЎС‚Р°С‚СѓСЃ',
+        render: function(v) {
+          return '<span class="badge ' + (v === 'Р’ РЅР°Р»РёС‡РёРё' ? 'bb' : v === 'РџСЂРѕРґР°РЅРѕ' ? 'bg' : 'bgr') + '">' + esc(v) + '</span>';
+        }
+      },
+      { key: 'purchase_date', label: 'Р”Р°С‚Р°', w: '84px',
+        render: function(v) { return fmtD(v); }
+      }
     ]
   });
   return _pDT;
 }
 
-async function loadPurchases(){
-  var d=await api('getPurchases',{wh_id:g('pf-wh'),brand_id:g('pf-brand'),status:g('pf-status'),dateFrom:g('pf-from'),dateTo:g('pf-to')}); if(!d) return;
-  _pDTinit().setData(d.rows||[]);
+async function loadPurchases() {
+  var fp = _pDT ? (_pDT._fpValues || {}) : {};
+  var d  = await api('getPurchases', {
+    wh_id:    fp.wh_id    || '',
+    brand_id: fp.brand_id || '',
+    status:   fp.status   || '',
+    dateFrom: fp.dateFrom || '',
+    dateTo:   fp.dateTo   || ''
+  });
+  if (!d) return;
+  _pDTinit().setData(d.rows || []);
   refreshSaleItems();
 }
-
-function openPurchaseModal(){
-  ST.editId.purchase=null;
-  document.getElementById('mPTitle').textContent='Новая закупка';
-  document.getElementById('p-date').value=today();
-  document.getElementById('p-hasImei').checked=true;
-  document.getElementById('p-cusd').value='';document.getElementById('p-rate').value='88';
-  document.getElementById('pCostKgs').textContent='0 ₸';
-  toggleImei(); openM('mPurchase');
-}
-function toggleImei(){
-  var has=document.getElementById('p-hasImei').checked;
-  document.getElementById('imeiRow').style.display=has?'':'none';
-  document.getElementById('qtyRow').style.display=has?'none':'';
-}
-function filterModels(){
-  var bid=+g('p-brand');
-  fillSel('p-model',ST.refs.models.filter(function(m){return !bid||m.brand_id===bid;}),'id','name','—');
-}
-function calcPC(){
-  var usd=parseFloat(g('p-cusd'))||0,rate=parseFloat(g('p-rate'))||88;
-  document.getElementById('pCostKgs').textContent=fmtN(usd*rate)+' ₸';
-}
-async function savePurchase(){
-  var hasImei=document.getElementById('p-hasImei').checked;
-  var brandId=+g('p-brand'),modelId=+g('p-model'),whId=+g('p-wh');
-  var costUsd=parseFloat(g('p-cusd'))||0,rate=parseFloat(g('p-rate'))||88,date=g('p-date');
-  if(!brandId||!modelId||!whId||!costUsd||!date){toast('Заполните обязательные поля','e');return}
-  if(hasImei){var im=g('p-imei');if(im&&!/^\d{15}$/.test(im)){toast('IMEI должен быть 15 цифр','e');return}}
-  var data={brand_id:brandId,model_id:modelId,spec:g('p-spec'),color:g('p-color'),wh_id:whId,supplier_id:+g('p-supplier')||null,has_imei:hasImei,imei:hasImei?g('p-imei'):'',qty:hasImei?1:+g('p-qty')||1,condition:g('p-cond'),purchase_date:date,cost_usd:costUsd,rate:rate,cost_kgs:costUsd*rate,pay_wallet_id:+g('p-payWallet')||null,note:g('p-note')};
-  if(ST.editId.purchase) await api('updatePurchase',{id:ST.editId.purchase,...data});
-  else await api('addPurchase',data);
-  toast(ST.editId.purchase?'Закупка обновлена':'Закупка добавлена','s');
-  closeM('mPurchase'); loadPurchases();
-}
-function editPurchase(id){
-  var r=(DT_INST['purchases']&&DT_INST['purchases'].data||[]).find(function(x){return x.id===id;}); if(!r) return;
-  ST.editId.purchase=id;
-  document.getElementById('mPTitle').textContent='Редактировать закупку';
-  document.getElementById('p-brand').value=r.brand_id||''; filterModels();
-  document.getElementById('p-model').value=r.model_id||'';
-  ['spec','color','note'].forEach(function(f){var el=document.getElementById('p-'+f);if(el)el.value=r[f]||'';});
-  document.getElementById('p-wh').value=r.wh_id||'';
-  document.getElementById('p-supplier').value=r.supplier_id||'';
-  document.getElementById('p-date').value=r.purchase_date||today();
-  document.getElementById('p-cusd').value=r.cost_usd||0;
-  document.getElementById('p-rate').value=r.rate||88;
-  document.getElementById('p-hasImei').checked=r.has_imei;
-  if(r.has_imei) document.getElementById('p-imei').value=r.imei||'';
-  else document.getElementById('p-qty').value=r.qty||1;
-  calcPC(); toggleImei(); openM('mPurchase');
-}
-async function delPurchase(id){
-  if(!confirm('Удалить запись закупки?')) return;
-  await api('deletePurchase',{id:id}); toast('Удалено','s'); loadPurchases();
-}
 </script>
-

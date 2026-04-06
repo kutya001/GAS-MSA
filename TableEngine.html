@@ -14,6 +14,10 @@ class DT {
     // cfg.cols        — [{key,label,sortable?,vis?,render?,align?,mono?,w?}]
     // cfg.addLabel    — подпись «+ добавить» (опционально)
     // cfg.onAdd       — callback для кнопки добавления
+    // cfg.onRowClick  — function(record) — клик по строке
+    // cfg.filters     — [{key,label,type:'select'|'date'|'text',
+    //                     getOptions?,options?,vk?,lk?,emptyLabel?,placeholder?}]
+    // cfg.onFilter    — function(filterValues) — применение фильтров
     this.cfg = cfg;
     this.cols = (cfg.cols || []).map((c, i) => ({
       key:      c.key,
@@ -37,6 +41,7 @@ class DT {
     this.flat     = false;
     this._ready   = false;
     this._drag    = null;
+    this._fpValues = {}; // текущие значения фильтров
     DT_INST[cfg.id] = this;
   }
 
@@ -113,6 +118,15 @@ class DT {
         + '<input type="checkbox" ' + (c.vis ? 'checked' : '') + ' onchange="DT_INST[\'' + id + '\'].toggleCol(' + c._i + ')">'
         + '<span>' + esc(c.label || '—') + '</span></label>';
     }).join('');
+    // Кнопка панели фильтров
+    var filterBtn = '';
+    if (this.cfg.filters && this.cfg.filters.length) {
+      var active = Object.values(this._fpValues || {}).filter(Boolean).length;
+      filterBtn = '<button class="btn btn-g btn-sm dt-fpb' + (active ? ' dt-fpb-on' : '') + '" id="' + id + '-fpb"'
+        + ' onclick="fpOpen(\'' + id + '\')">'
+        + '⚡ Фильтры' + (active ? '<span class="fp-cnt">' + active + '</span>' : '')
+        + '</button>';
+    }
     return '<div class="dt-tb-l">'
       + addBtn
       + '<div class="dt-srchw"><span class="dt-srchi">⌕</span>'
@@ -120,6 +134,7 @@ class DT {
       + '<span class="dt-inf" id="' + id + '-inf">' + this._infoTxt() + '</span>'
       + '</div>'
       + '<div class="dt-tb-r">'
+      + filterBtn
       + '<button class="btn btn-g btn-sm dt-flat' + (this.flat ? ' on' : '') + '" id="' + id + '-flat" onclick="DT_INST[\'' + id + '\'].toggleFlat()">'
       + (this.flat ? '&#9776; Страницы' : '&#9776; Все строки') + '</button>'
       + '<div class="dt-cvw" id="' + id + '-cvw">'
@@ -146,14 +161,20 @@ class DT {
 
   _bodyHtml() {
     var vc = this.vc;
+    var id = this.cfg.id;
+    var self = this;
     if (!this.filtered.length) {
       return '<tr><td colspan="' + vc.length + '" class="dt-mt">Нет данных</td></tr>';
     }
+    var offset = this.flat ? 0 : (this.pg - 1) * this.PS;
     var sl = this.flat
       ? this.filtered
-      : this.filtered.slice((this.pg - 1) * this.PS, this.pg * this.PS);
-    return sl.map(function(r) {
-      return '<tr>' + vc.map(function(c) {
+      : this.filtered.slice(offset, offset + this.PS);
+    return sl.map(function(r, i) {
+      var trOpen = self.cfg.onRowClick
+        ? '<tr class="dt-rc" onclick="DT_INST[\'' + id + '\']._rowClick(' + (offset + i) + ')">'
+        : '<tr>';
+      return trOpen + vc.map(function(c) {
         var v    = r[c.key] == null ? '' : r[c.key];
         var html = c.render ? c.render(v, r) : esc(String(v));
         var cls  = (c.mono ? 'mono' : '') + (c.align === 'right' ? (c.mono ? ' tar' : 'tar') : '');
@@ -333,8 +354,129 @@ class DT {
       if (w && m && !w.contains(e.target)) m.hidden = true;
     });
   }
+
+  // ── дополнительный API ───────────────────────────────────────
+
+  // Программное управление видимостью колонки (для рефов и др.)
+  setColVis(key, vis) {
+    var c = this.cols.find(function(x) { return x.key === key; });
+    if (!c) return;
+    if (!vis && this.cols.filter(function(x) { return x.vis; }).length <= 1) return;
+    c.vis = vis;
+    this._rHead(); this._rBody(); this._rCV();
+  }
+
+  // Обclick строки
+  _rowClick(idx) {
+    var record = this.filtered[idx];
+    if (record && this.cfg.onRowClick) this.cfg.onRowClick(record);
+  }
+
+  // Обновить кнопку фильтров (значок с числом активных)
+  _rFilterBtn() {
+    var btn = document.getElementById(this.cfg.id + '-fpb');
+    if (!btn) return;
+    var active = Object.values(this._fpValues || {}).filter(Boolean).length;
+    btn.className = 'btn btn-g btn-sm dt-fpb' + (active ? ' dt-fpb-on' : '');
+    btn.innerHTML = '⚡ Фильтры' + (active ? '<span class="fp-cnt">' + active + '</span>' : '');
+  }
 }
 
 // ── глобальный реестр экземпляров ────────────────────────────────
 const DT_INST = {};
+
+// ════════════════════════════════════════════════════════════════
+//  ГЛОБАЛЬНАЯ ПАНЕЛЬ ФИЛЬТРОВ
+//  Единая панель для всех таблиц — открывается справа.
+// ════════════════════════════════════════════════════════════════
+
+var _fpDtId = null; // id текущей таблицы, чью панель открыли
+
+// Ленивое создание панели
+function _fpBuild() {
+  if (document.getElementById('fpPanel')) return;
+  var el = document.createElement('div');
+  el.id        = 'fpPanel';
+  el.className = 'fp-ov';
+  el.innerHTML =
+    '<div class="fp-bg" onclick="fpClose()"></div>' +
+    '<div class="fp">' +
+    '<div class="fp-hd"><h3>Фильтры</h3>' +
+    '<button class="mclose" onclick="fpClose()">✕</button></div>' +
+    '<div class="fp-body" id="fpBody"></div>' +
+    '<div class="fp-foot">' +
+    '<button class="btn btn-g" onclick="fpClear()">✕ Сбросить</button>' +
+    '<button class="btn btn-p" onclick="fpApply()">Применить</button>' +
+    '</div></div>';
+  document.body.appendChild(el);
+}
+
+function fpOpen(dtId) {
+  _fpBuild();
+  _fpDtId = dtId;
+  var dt = DT_INST[dtId];
+  if (!dt || !dt.cfg.filters || !dt.cfg.filters.length) return;
+  // Генерируем поля
+  var html = '';
+  dt.cfg.filters.forEach(function(f) {
+    html += '<div class="fp-fgrp">';
+    html += '<label>' + esc(f.label) + '</label>';
+    var cur = (dt._fpValues && dt._fpValues[f.key]) || '';
+    if (f.type === 'select') {
+      var opts = '<option value="">' + esc(f.emptyLabel || 'Все') + '</option>';
+      var arr  = f.getOptions ? f.getOptions() : (f.options || []);
+      var vk   = f.vk || 'id'; var lk = f.lk || 'name';
+      arr.forEach(function(o) {
+        var ov = typeof o === 'string' ? o : o[vk];
+        var ol = typeof o === 'string' ? o : o[lk];
+        opts += '<option value="' + esc(String(ov)) + '"'
+              + (String(cur) === String(ov) ? ' selected' : '') + '>'
+              + esc(String(ol)) + '</option>';
+      });
+      html += '<select id="fp-' + esc(f.key) + '">' + opts + '</select>';
+    } else if (f.type === 'date') {
+      html += '<input type="date" id="fp-' + esc(f.key) + '" value="' + esc(cur) + '">';
+    } else {
+      html += '<input type="text" id="fp-' + esc(f.key) + '" value="' + esc(cur)
+            + '" placeholder="' + esc(f.placeholder || '') + '">';
+    }
+    html += '</div>';
+  });
+  document.getElementById('fpBody').innerHTML = html;
+  document.getElementById('fpPanel').classList.add('open');
+  document.body.classList.add('locked');
+}
+
+function fpClose() {
+  var p = document.getElementById('fpPanel');
+  if (p) p.classList.remove('open');
+  document.body.classList.remove('locked');
+}
+
+function fpClear() {
+  var dt = DT_INST[_fpDtId];
+  if (!dt) return;
+  dt._fpValues = {};
+  (dt.cfg.filters || []).forEach(function(f) {
+    var el = document.getElementById('fp-' + f.key);
+    if (el) el.value = '';
+  });
+  if (dt.cfg.onFilter) dt.cfg.onFilter({});
+  dt._rFilterBtn();
+  fpClose();
+}
+
+function fpApply() {
+  var dt = DT_INST[_fpDtId];
+  if (!dt) return;
+  var values = {};
+  (dt.cfg.filters || []).forEach(function(f) {
+    var el = document.getElementById('fp-' + f.key);
+    if (el) values[f.key] = el.value;
+  });
+  dt._fpValues = values;
+  if (dt.cfg.onFilter) dt.cfg.onFilter(values);
+  dt._rFilterBtn();
+  fpClose();
+}
 </script>

@@ -1,7 +1,7 @@
-<!-- ══ WAREHOUSES ═══════════════════════════════════════════════════════ -->
+﻿<!-- ══ WAREHOUSES ═══════════════════════════════════════════════════════ -->
 <div class="page" id="page-warehouses">
   <div class="sh"><h2>Склады</h2>
-    <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="openM('mWarehouse')">+ Склад</button></div>
+    <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="warehouseForm.openCreate()">+ Склад</button></div>
   </div>
   <div class="wgrid" id="whGrid"></div>
 </div>
@@ -12,7 +12,7 @@
   <div class="fbar">
     <label>Склад</label><select class="fi fi-sm" id="stf-wh" onchange="loadStock()"><option value="">Все</option></select>
     <label>Бренд</label><select class="fi fi-sm" id="stf-brand" onchange="loadStock()"><option value="">Все</option></select>
-    <button class="btn btn-g btn-sm" onclick="clearF('stf',loadStock)">✕</button>
+    <button class="btn btn-g btn-sm" onclick="document.getElementById('stf-wh').value='';document.getElementById('stf-brand').value='';loadStock()">✕</button>
   </div>
   <div id="stockAlerts"></div>
   <div id="stockGroups"></div>
@@ -20,62 +20,91 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════
-//  WAREHOUSES
+//  WAREHOUSE FORM
 // ════════════════════════════════════════════════════════════════
-async function loadWarehouses(){
-  const d=await api('getWarehouses'); if(!d) return; ST.warehouses=d;
-  _setHTML(document.getElementById('whGrid'),d.map(w=>`<div class="wcard">
-    <span class="wico">🏭</span><div class="wname">${esc(w.name)}</div>
-    <div class="wcurr">${esc(w.address||'Адрес не указан')}</div>
-    <div style="font-size:.67rem;color:var(--tx3);margin-bottom:6px">Отв: ${esc(w.responsible||'—')}</div>
-    <div class="wbal">${w.items||0}<span style="font-size:.7rem;font-weight:500"> тов.</span></div>
-    <div class="wio"><span class="win">${fmtN(w.cost_kgs||0)} ₸</span></div>
-    <div style="margin-top:8px"><button class="btn btn-g btn-xs" onclick="editWarehouse(${w.id})">✏️ Изм.</button></div>
-  </div>`).join(''));
-}
-async function saveWarehouse(){
-  const name=g('wh-name'); if(!name){toast('Введите название','e');return}
-  const data={name,address:g('wh-addr'),responsible:g('wh-resp'),note:g('wh-note')};
-  if(ST.editId.wh) await api('updateWarehouse',{id:ST.editId.wh,...data});
-  else await api('addWarehouse',data);
-  toast('Склад сохранён','s'); closeM('mWarehouse'); await loadMasterData(); loadWarehouses();
-}
-function editWarehouse(id){
-  const w=ST.warehouses.find(x=>x.id===id); if(!w) return;
-  ST.editId.wh=id;
-  document.getElementById('mWhTitle').textContent='Редактировать склад';
-  document.getElementById('wh-name').value=w.name;
-  document.getElementById('wh-addr').value=w.address||'';
-  document.getElementById('wh-resp').value=w.responsible||'';
-  document.getElementById('wh-note').value=w.note||'';
-  openM('mWarehouse');
+var warehouseForm = new MainForm({
+  id: 'mfWarehouse', title: 'Склад',
+  fields: [
+    { key: 'name',        label: 'Название',      type: 'text', required: true, span: 2 },
+    { key: 'address',     label: 'Адрес',         type: 'text', span: 2 },
+    { key: 'responsible', label: 'Ответственный', type: 'text' },
+    { key: 'note',        label: 'Примечание',    type: 'text', span: 2 }
+  ],
+  onSave: async function(values, editId) {
+    var data = { name: values.name, address: values.address,
+                 responsible: values.responsible, note: values.note };
+    if (editId) await api('updateWarehouse', Object.assign({ id: editId }, data));
+    else        await api('addWarehouse', data);
+    toast('Склад сохранён', 's');
+    await loadMasterData(); loadWarehouses();
+  },
+  onDelete: async function(id) {
+    await api('deleteWarehouse', { id: id });
+    toast('Склад удалён', 's');
+    await loadMasterData(); loadWarehouses();
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+//  WAREHOUSES PAGE
+// ════════════════════════════════════════════════════════════════
+function _whById(id) { return (ST.warehouses || []).find(function(x) { return x.id === id; }); }
+
+async function loadWarehouses() {
+  var d = await api('getWarehouses'); if (!d) return; ST.warehouses = d;
+  _setHTML(document.getElementById('whGrid'), d.map(function(w) {
+    return '<div class="wcard">' +
+      '<span class="wico">🏭</span>' +
+      '<div class="wname">' + esc(w.name) + '</div>' +
+      '<div class="wcurr">' + esc(w.address || 'Адрес не указан') + '</div>' +
+      '<div style="font-size:.67rem;color:var(--tx3);margin-bottom:6px">Отв: ' + esc(w.responsible || '—') + '</div>' +
+      '<div class="wbal">' + (w.items || 0) + '<span style="font-size:.7rem;font-weight:500"> тов.</span></div>' +
+      '<div class="wio"><span class="win">' + fmtN(w.cost_kgs || 0) + ' ₸</span></div>' +
+      '<div style="margin-top:8px">' +
+        '<button class="btn btn-g btn-xs" onclick="event.stopPropagation();warehouseForm.openEdit(_whById(' + w.id + '))">✏️ Изм.</button>' +
+      '</div></div>';
+  }).join(''));
 }
 
 // ════════════════════════════════════════════════════════════════
-//  STOCK
+//  STOCK PAGE
 // ════════════════════════════════════════════════════════════════
-async function loadStock(){
-  const d=await api('getStock',{wh_id:g('stf-wh'),brand_id:g('stf-brand')}); if(!d) return;
-  document.getElementById('stockSub').textContent=`${d.totalItems} товаров • Себестоимость: ${fmtN(d.totalCostKgs)} ₸`;
-  _setHTML(document.getElementById('stockAlerts'), d.staleCount>0
-    ? `<div class="alert al-w">⚠️ ${d.staleCount} товар(ов) на складе более 30 дней</div>` : '');
-  _setHTML(document.getElementById('stockGroups'),(d.groups||[]).map(g_=>`
-    <div class="sg">
-      <div class="sg-hd" onclick="this.parentElement.classList.toggle('col')">
-        <h3>${esc(g_.wh_name)} — ${esc(g_.brand)}</h3>
-        <span class="badge bb">${g_.count} шт.</span>
-        <span class="badge bgr">${fmtN(g_.cost_kgs)} ₸</span>
-        <span class="chev">▾</span>
-      </div>
-      <div class="sg-bd"><div class="tscr"><table>
-        <thead><tr><th>Модель</th><th>Хар-ка</th><th>Цвет</th><th>IMEI/Кол-во</th><th>Себес ₸</th><th>Закупка</th><th>Статус</th></tr></thead>
-        <tbody>${(g_.items||[]).map(it=>`<tr>
-          <td>${esc(it.model_name)}</td><td>${esc(it.spec||'')}</td><td>${esc(it.color||'')}</td>
-          <td>${it.has_imei?`<span class="imeic">${esc(it.imei)}</span>`:`<span class="badge bp">×${it.qty}</span>`}</td>
-          <td class="mono">${fmtN(it.cost_kgs)}₸</td><td>${fmtD(it.purchase_date)}</td>
-          <td>${it.stale?'<span class="stale">30д+</span>':'<span class="badge bg">OK</span>'}</td>
-        </tr>`).join('')}</tbody>
-      </table></div></div>
-    </div>`).join(''));
+async function loadStock() {
+  fillSel('stf-wh',    ST.warehouses,                         'id', 'name', '— Все склады —');
+  fillSel('stf-brand', (ST.refs && ST.refs.brands) ? ST.refs.brands : [], 'id', 'name', '— Все бренды —');
+  var d = await api('getStock', { wh_id: g('stf-wh'), brand_id: g('stf-brand') });
+  if (!d) return;
+  document.getElementById('stockSub').textContent =
+    d.totalItems + ' товаров • Себестоимость: ' + fmtN(d.totalCostKgs) + ' ₸';
+  _setHTML(document.getElementById('stockAlerts'), d.staleCount > 0
+    ? '<div class="alert al-w"><b>⚠️ ' + d.staleCount + ' товар(ов) на складе более 30 дней</b></div>' : '');
+  _setHTML(document.getElementById('stockGroups'), (d.groups || []).map(function(gr) {
+    return '<div class="sg">' +
+      '<div class="sg-hd" onclick="this.parentElement.classList.toggle(\'col\')">' +
+        '<h3>' + esc(gr.wh_name) + ' — ' + esc(gr.brand) + '</h3>' +
+        '<span class="badge bb">' + gr.count + ' шт.</span>' +
+        '<span class="badge bgr">' + fmtN(gr.cost_kgs) + ' ₸</span>' +
+        '<span class="chev">▾</span>' +
+      '</div>' +
+      '<div class="sg-bd"><div class="tscr"><table>' +
+        '<thead><tr><th>Модель</th><th>Хар-ка</th><th>Цвет</th><th>IMEI/Кол-во</th>' +
+        '<th>Себес ₸</th><th>Закупка</th><th>Статус</th></tr></thead>' +
+        '<tbody>' + (gr.items || []).map(function(it) {
+          return '<tr>' +
+            '<td>' + esc(it.model_name) + '</td>' +
+            '<td>' + esc(it.spec || '') + '</td>' +
+            '<td>' + esc(it.color || '') + '</td>' +
+            '<td>' + (it.has_imei
+              ? '<span class="imeic">' + esc(it.imei) + '</span>'
+              : '<span class="badge bp">\xd7' + it.qty + '</span>') + '</td>' +
+            '<td class="mono">' + fmtN(it.cost_kgs) + '₸</td>' +
+            '<td>' + fmtD(it.purchase_date) + '</td>' +
+            '<td>' + (it.stale
+              ? '<span class="stale">30д+</span>'
+              : '<span class="badge bg">OK</span>') + '</td>' +
+          '</tr>';
+        }).join('') +
+      '</tbody></table></div></div></div>';
+  }).join(''));
 }
 </script>

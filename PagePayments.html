@@ -8,47 +8,89 @@
 // ════════════════════════════════════════════════════════════════
 //  PAYMENTS
 // ════════════════════════════════════════════════════════════════
+
+// ── форма оплаты (открывается из просмотра продажи) ──────────────
+var paymentForm = new MainForm({
+  id:    'mfPayment',
+  title: 'Внести оплату',
+  canEdit: function() { return false; },
+  fields: [
+    { key: '_buyer', label: 'Покупатель', type: 'display', span: 2 },
+    { key: '_debt',  label: 'Остаток долга', type: 'display', span: 2 },
+    { key: 'amount',    label: 'Сумма',    type: 'number', min: 1, required: true },
+    { key: 'pay_date',  label: 'Дата',     type: 'date',   required: true },
+    { key: 'wallet_id', label: 'Кошелёк', type: 'select', required: true,
+      getOptions: function() { return ST.wallets; }
+    },
+    { key: 'note', label: 'Примечание', type: 'text', span: 2, placeholder: 'Необязательно' }
+  ],
+  validate: function(values, form) {
+    var ctx = form._rec;
+    if (ctx && +values.amount > (+ctx._debt + 0.01)) {
+      return 'Сумма превышает остаток долга (' + fmtN(ctx._debt) + ' ₸)';
+    }
+    return null;
+  },
+  onSave: async function(values, editId) {
+    var ctx = paymentForm._rec;
+    if (!ctx || !ctx.sale_id) { toast('Нет ID продажи', 'e'); throw new Error(''); }
+    await api('addPayment', {
+      sale_id:   ctx.sale_id,
+      amount:    +values.amount,
+      wallet_id: +values.wallet_id,
+      pay_date:  values.pay_date,
+      note:      values.note
+    });
+    toast('Оплата внесена', 's');
+    saleForm.close();
+    loadSales(); loadPayments();
+  },
+  afterMount: function(mode, rec, form) {
+    if (mode === 'view') return;
+    // Отображаем контекст
+    var bEl = document.getElementById(form.id + '-_buyer');
+    var dEl = document.getElementById(form.id + '-_debt');
+    if (bEl && rec) bEl.textContent = rec._buyer || '—';
+    if (dEl && rec) dEl.textContent = fmtN(rec._debt || 0) + ' ₸';
+    form.fillField('wallet_id', ST.wallets, 'id', 'name', '—');
+    var d = document.getElementById(form.id + '-pay_date');
+    if (d && mode === 'create') d.value = today();
+  }
+});
+
+// ── DT таблица ───────────────────────────────────────────────────
 var _payDT = null;
 function _payDTinit() {
   if (_payDT) return _payDT;
   _payDT = new DT({
     id: 'payments', containerId: 'payTable',
+    onRowClick: function(r) { _payViewDetail(r); },
     cols: [
-      {key:'pay_date',   label:'Дата',        w:'84px',  render:function(v){return fmtD(v);}},
-      {key:'buyer',      label:'Покупатель'},
-      {key:'amount',     label:'Сумма',       align:'right', mono:true,
-        render:function(v){return '<span class="tg fw7">'+fmtN(v)+'₸</span>';}},
-      {key:'wallet_name',label:'Кошелёк'},
-      {key:'debt_after', label:'Ост. долга',  align:'right', mono:true,
-        render:function(v){return +v>0?'<span class="tr">'+fmtN(v)+'₸</span>':'<span class="tg">0₸</span>';}},
-      {key:'note',       label:'Примечание',  sortable:false}
+      { key: 'pay_date',    label: 'Дата',       w: '84px', render: function(v) { return fmtD(v); } },
+      { key: 'buyer',       label: 'Покупатель' },
+      { key: 'amount',      label: 'Сумма',      align: 'right', mono: true,
+        render: function(v) { return '<span class="tg fw7">' + fmtN(v) + '₸</span>'; }
+      },
+      { key: 'wallet_name', label: 'Кошелёк' },
+      { key: 'debt_after',  label: 'Ост. долга', align: 'right', mono: true,
+        render: function(v) { return +v > 0 ? '<span class="tr">' + fmtN(v) + '₸</span>' : '<span class="tg">0₸</span>'; }
+      },
+      { key: 'note', label: 'Примечание', sortable: false }
     ]
   });
   return _payDT;
 }
 
-async function loadPayments(){
-  var d=await api('getPayments',{}); if(!d) return;
-  _payDTinit().setData(d.rows||[]);
+// Мини-тост при клике на строку оплаты
+function _payViewDetail(r) {
+  toast('Оплата от ' + esc(r.buyer) + ': ' + fmtN(r.amount) + ' ₸ — ' + fmtD(r.pay_date), 'i');
 }
 
-function openPayModal(saleId){
-  var s=(DT_INST['sales']&&DT_INST['sales'].data||[]).find(function(x){return x.id===saleId;}); if(!s) return;
-  ST.payModalSaleId=saleId;
-  document.getElementById('payBuyer').textContent=s.buyer;
-  document.getElementById('payDebt').textContent=fmtN(s.debt_kgs)+' ₸';
-  document.getElementById('pay-date').value=today();
-  document.getElementById('pay-amt').value='';
-  fillSel('pay-wallet',ST.wallets,'id','name','—');
-  openM('mPayment');
-}
-async function savePayment(){
-  var amt=parseFloat(g('pay-amt'))||0,wid=+g('pay-wallet'),date=g('pay-date');
-  if(!ST.payModalSaleId||!amt||!wid||!date){toast('Заполните все поля','e');return}
-  var s=(DT_INST['sales']&&DT_INST['sales'].data||[]).find(function(x){return x.id===ST.payModalSaleId;});
-  if(s&&amt>s.debt_kgs+0.01){toast('Сумма превышает долг','e');return}
-  await api('addPayment',{sale_id:ST.payModalSaleId,amount:amt,wallet_id:wid,pay_date:date,note:g('pay-note')});
-  toast('Оплата внесена','s'); closeM('mPayment'); loadSales(); loadPayments();
+async function loadPayments() {
+  var d = await api('getPayments', {});
+  if (!d) return;
+  _payDTinit().setData(d.rows || []);
 }
 </script>
+
 

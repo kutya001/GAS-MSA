@@ -1,0 +1,386 @@
+<script>
+'use strict';
+// ════════════════════════════════════════════════════════════════
+//  FORM ENGINE — class MainForm
+//  Базовый класс форм: просмотр / редактирование / создание.
+//  Каждый экземпляр регистрируется в MF_INST[id].
+//
+//  Конфигурация (cfg):
+//   id          — уникальный строковый ключ (=id DOM-оверлея)
+//   title       — строка или function(rec, mode) -> string
+//   size        — 'lg' | '' (размер модала)
+//   fields      — массив описаний полей (см. ниже)
+//   onSave      — async function(values, editId)  хук сохранения
+//   onDelete    — optional async function(id)     хук удаления
+//   canEdit     — optional function(rec) -> bool  показывать ли кнопку Ред.
+//   canDelete   — optional function(rec) -> bool
+//   viewActions — optional [{label,show(rec),onClick(rec)}] кнопки просмотра
+//   validate    — optional function(values, form) -> string|null
+//   afterMount  — optional function(mode, rec, form)
+//
+//  Описание поля:
+//   key         — ключ в объекте данных
+//   label       — подпись
+//   type        — 'text'|'number'|'date'|'select'|'textarea'|
+//                 'checkbox'|'calc'|'display'|'group'
+//   required    — bool (валидация + метка *)
+//   span        — 1 (полуширина) | 2 (полная ширина)
+//   placeholder, min, max, step, maxlength, mono — для input/textarea
+//   default     — значение по умолчанию при создании
+//   editOnly    — bool: скрыть в режиме просмотра
+//   viewOnly    — bool: скрыть в режиме ред./создания
+//   getOptions  — function() -> [{id,name,...}|'строка']
+//   options     — статический массив строк или объектов
+//   vk, lk      — ключи value/label для объектов options
+//   emptyLabel  — заголовок пустой опции (false = скрыть пустую)
+//   calcInit    — начальное значение для calc-отображения
+//   renderView  — function(value, rec) -> html (просмотр)
+//   onChange    — function(value, form) вызывается при изменении поля
+//   showIf      — function(form) -> bool (скрываем строку если false)
+// ════════════════════════════════════════════════════════════════
+
+class MainForm {
+  constructor(cfg) {
+    this.cfg    = cfg;
+    this.id     = cfg.id;
+    this._mode  = null;   // 'view' | 'edit' | 'create'
+    this._rec   = null;   // текущая запись
+    this._built = false;
+    MF_INST[cfg.id] = this;
+  }
+
+  // ── публичный API ────────────────────────────────────────────
+
+  openView(rec) {
+    this._rec  = rec;
+    this._mode = 'view';
+    this._ensureBuilt();
+    this._render();
+    openM(this.id);
+  }
+
+  openEdit(rec) {
+    this._rec  = rec;
+    this._mode = 'edit';
+    this._ensureBuilt();
+    this._render();
+    openM(this.id);
+  }
+
+  // ctx — дополнительный контекст (например {sale_id, _buyer, _debt} для платёжки)
+  openCreate(ctx) {
+    this._rec  = ctx || null;
+    this._mode = 'create';
+    this._ensureBuilt();
+    this._render();
+    openM(this.id);
+  }
+
+  close() { closeM(this.id); }
+
+  // Получить значение поля (из DOM в режиме edit/create)
+  getVal(key) {
+    var el = document.getElementById(this.id + '-' + key);
+    if (!el) return '';
+    return el.type === 'checkbox' ? el.checked : (el.value || '');
+  }
+
+  // Обновить отображение calc-поля
+  setCalc(key, html) {
+    var el = document.getElementById(this.id + '-' + key);
+    if (el) el.textContent = html;
+  }
+
+  // Переполнить select-поле
+  fillField(key, arr, vk, lk, ph) {
+    fillSel(this.id + '-' + key, arr, vk, lk, ph);
+  }
+
+  // Обновить видимость полей с showIf
+  refreshVis() {
+    var self = this;
+    this.cfg.fields.forEach(function(f) {
+      if (!f.showIf) return;
+      var row = document.getElementById(self.id + '-row-' + f.key);
+      if (!row) return;
+      row.style.display = f.showIf(self) ? '' : 'none';
+    });
+  }
+
+  // ── построение DOM ───────────────────────────────────────────
+
+  _ensureBuilt() {
+    if (this._built) return;
+    var el = document.createElement('div');
+    el.className = 'ov';
+    el.id        = this.id;
+    el.innerHTML =
+      '<div class="modal' + (this.cfg.size === 'lg' ? ' modal-lg' : '') + '">' +
+      '<div class="mh"><h2 class="mf-t"></h2>' +
+      '<button class="mclose" onclick="MF_INST[\'' + this.id + '\'].close()">✕</button></div>' +
+      '<div class="mf-vb mbody" style="display:none"></div>' +
+      '<div class="mf-eb mbody" style="display:none"></div>' +
+      '<div class="mf-foot mfoot"></div>' +
+      '</div>';
+    var self = this;
+    el.addEventListener('click', function(e) { if (e.target === el) self.close(); });
+    document.body.appendChild(el);
+    this._built = true;
+  }
+
+  _render() {
+    var el = document.getElementById(this.id);
+    if (!el) return;
+    // Заголовок
+    el.querySelector('.mf-t').textContent = this._title();
+    // Тело
+    if (this._mode === 'view') {
+      el.querySelector('.mf-vb').innerHTML      = this._viewHtml();
+      el.querySelector('.mf-vb').style.display  = '';
+      el.querySelector('.mf-eb').style.display  = 'none';
+    } else {
+      el.querySelector('.mf-eb').innerHTML      = this._editHtml();
+      el.querySelector('.mf-eb').style.display  = '';
+      el.querySelector('.mf-vb').style.display  = 'none';
+    }
+    // Подвал
+    el.querySelector('.mf-foot').innerHTML = this._footHtml();
+    // Видимость полей (showIf)
+    if (this._mode !== 'view') this.refreshVis();
+    // Внешний хук
+    if (this.cfg.afterMount) this.cfg.afterMount(this._mode, this._rec, this);
+  }
+
+  _title() {
+    var base = this.cfg.title || '';
+    if (typeof base === 'function') return base(this._rec, this._mode);
+    if (this._mode === 'create') return 'Новая запись: ' + base;
+    if (this._mode === 'edit')   return 'Редактировать: ' + base;
+    return base;
+  }
+
+  // ── view mode ────────────────────────────────────────────────
+
+  _viewHtml() {
+    var self = this;
+    var html = '<div class="fg2 mf-vg">';
+    this.cfg.fields.forEach(function(f) {
+      if (f.editOnly) return;
+      if (f.type === 'group') {
+        html += '<div class="full mf-gh">' + esc(f.label) + '</div>';
+        return;
+      }
+      // calc-поле показываем в просмотре только если есть renderView
+      if (f.type === 'calc' && !f.renderView) return;
+      // display-поля скрываем в просмотре (служат только для create-контекста)
+      if (f.type === 'display') return;
+      var cls  = 'mf-vf' + (f.span === 2 ? ' full' : '');
+      var val  = self._rec ? (self._rec[f.key] != null ? self._rec[f.key] : '') : '';
+      var valHtml = f.renderView
+        ? f.renderView(val, self._rec)
+        : '<span>' + esc(String(val === '' || val == null ? '—' : val)) + '</span>';
+      html += '<div class="' + cls + '"><span class="mf-vl">' + esc(f.label) + '</span>' +
+              '<div class="mf-vv">' + valHtml + '</div></div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  // ── edit mode ────────────────────────────────────────────────
+
+  _editHtml() {
+    var self = this;
+    var html = '<div class="fg2">';
+    this.cfg.fields.forEach(function(f) {
+      if (f.viewOnly) return;
+      html += self._fieldHtml(f);
+    });
+    html += '</div>';
+    return html;
+  }
+
+  _fieldHtml(f) {
+    if (f.type === 'group') {
+      return '<div class="full mf-gh">' + esc(f.label) + '</div>';
+    }
+    var fid   = this.id + '-' + f.key;
+    var rowId = 'id="' + this.id + '-row-' + f.key + '"';
+    var val   = this._rec
+      ? (this._rec[f.key] != null ? this._rec[f.key] : (f.default != null ? f.default : ''))
+      : (f.default != null ? f.default : '');
+    var cls   = 'fgrp' + (f.span === 2 ? ' full' : '');
+    var inp   = this._inputHtml(f, fid, val);
+
+    if (f.type === 'checkbox') {
+      // checkbox: label встроен внутрь
+      return '<div class="' + cls + '" ' + rowId + '>' + inp + '</div>';
+    }
+    if (f.type === 'calc' || f.type === 'display') {
+      var lbl = '<label>' + esc(f.label) + '</label>';
+      return '<div class="' + cls + '" ' + rowId + '>' + lbl + inp + '</div>';
+    }
+    var lbl = f.required
+      ? '<label><span class="req">' + esc(f.label) + '</span></label>'
+      : '<label>' + esc(f.label) + '</label>';
+    return '<div class="' + cls + '" ' + rowId + '>' + lbl + inp + '</div>';
+  }
+
+  _inputHtml(f, fid, val) {
+    var id   = this.id;
+    var chCb = f.onChange
+      ? 'MF_INST[\'' + id + '\']._onFldChange(\'' + f.key + '\',this)'
+      : '';
+
+    switch (f.type) {
+      case 'textarea':
+        return '<textarea id="' + fid + '" placeholder="' + esc(f.placeholder || '') + '"' +
+               (chCb ? ' oninput="' + chCb + '"' : '') + '>' +
+               esc(String(val)) + '</textarea>';
+
+      case 'select': {
+        var arr  = f.getOptions ? f.getOptions() : (f.options || []);
+        var vk   = f.vk || 'id';
+        var lk_  = f.lk || 'name';
+        var opts = '';
+        if (f.emptyLabel !== false) {
+          opts += '<option value="">' + esc(f.emptyLabel != null ? f.emptyLabel : '—') + '</option>';
+        }
+        opts += arr.map(function(o) {
+          var ov = typeof o === 'string' ? o : o[vk];
+          var ol = typeof o === 'string' ? o : o[lk_];
+          var sel = String(val) === String(ov) ? ' selected' : '';
+          return '<option value="' + esc(String(ov)) + '"' + sel + '>' + esc(String(ol)) + '</option>';
+        }).join('');
+        return '<select id="' + fid + '"' + (chCb ? ' onchange="' + chCb + '"' : '') + '>' + opts + '</select>';
+      }
+
+      case 'checkbox':
+        return '<label class="chkrow"><input type="checkbox" id="' + fid + '"' +
+               (val ? ' checked' : '') + (chCb ? ' onchange="' + chCb + '"' : '') +
+               '><span>' + esc(f.label) + '</span></label>';
+
+      case 'calc':
+        return '<div class="calc-f" id="' + fid + '">' + esc(String(f.calcInit || '0')) + '</div>';
+
+      case 'display': {
+        // Только-для-чтения информационное поле (контекст: покупатель, долг и т.д.)
+        var dv = val !== '' ? val : (f.placeholder || '—');
+        return '<div class="calc-f mf-di" id="' + fid + '">' + esc(String(dv)) + '</div>';
+      }
+
+      default: { // text, number, date
+        var type  = f.type || 'text';
+        var attrs = ' type="' + type + '"';
+        if (f.min  != null) attrs += ' min="'       + f.min  + '"';
+        if (f.max  != null) attrs += ' max="'       + f.max  + '"';
+        if (f.step != null) attrs += ' step="'      + f.step + '"';
+        if (f.maxlength != null) attrs += ' maxlength="' + f.maxlength + '"';
+        var cls = f.mono ? ' class="mono"' : '';
+        return '<input id="' + fid + '"' + attrs + cls +
+               ' placeholder="' + esc(f.placeholder || '') + '"' +
+               ' value="' + esc(String(val)) + '"' +
+               (chCb ? ' oninput="' + chCb + '"' : '') + '>';
+      }
+    }
+  }
+
+  _onFldChange(key, el) {
+    var f = this.cfg.fields.find(function(x) { return x.key === key; });
+    if (f && f.onChange) {
+      var v = el.type === 'checkbox' ? el.checked : el.value;
+      f.onChange(v, this);
+    }
+    this.refreshVis();
+  }
+
+  // ── footer ───────────────────────────────────────────────────
+
+  _footHtml() {
+    var id = this.id;
+
+    if (this._mode === 'view') {
+      // Кнопка удаления
+      var delBtn = '';
+      if (this.cfg.onDelete) {
+        var canDel = !this.cfg.canDelete || (this._rec && this.cfg.canDelete(this._rec));
+        if (canDel) {
+          delBtn = '<button class="btn btn-rd btn-sm" onclick="MF_INST[\'' + id + '\']._delete()">🗑 Удалить</button>';
+        }
+      }
+      // Дополнительные действия
+      var extraBtns = '';
+      if (this.cfg.viewActions) {
+        this.cfg.viewActions.forEach(function(a) {
+          if (!a.show || a.show(MF_INST[id]._rec)) {
+            extraBtns += '<button class="btn btn-gn btn-sm" onclick="MF_INST[\'' + id + '\'].cfg.viewActions.find(function(x){return x.label===\'' + esc(a.label) + '\'}).onClick(MF_INST[\'' + id + '\']._rec)">' + esc(a.label) + '</button>';
+          }
+        });
+      }
+      // Кнопка редактирования
+      var editBtn = '';
+      if (!this.cfg.canEdit || this.cfg.canEdit(this._rec)) {
+        editBtn = '<button class="btn btn-p" onclick="MF_INST[\'' + id + '\'].openEdit(MF_INST[\'' + id + '\']._rec)">✏️ Редактировать</button>';
+      }
+      return delBtn + '<div style="flex:1"></div>' + extraBtns +
+             '<button class="btn btn-g" onclick="MF_INST[\'' + id + '\'].close()">Закрыть</button>' +
+             editBtn;
+    }
+
+    // edit / create
+    var backFn = this._mode === 'edit'
+      ? 'MF_INST[\'' + id + '\'].openView(MF_INST[\'' + id + '\']._rec)'
+      : 'MF_INST[\'' + id + '\'].close()';
+    return '<button class="btn btn-g" onclick="' + backFn + '">Отмена</button>' +
+           '<button class="btn btn-p" onclick="MF_INST[\'' + id + '\']._save()">💾 Сохранить</button>';
+  }
+
+  // ── gather & save ────────────────────────────────────────────
+
+  _gatherValues() {
+    var values = {};
+    var self   = this;
+    this.cfg.fields.forEach(function(f) {
+      if (f.type === 'calc' || f.type === 'group' || f.viewOnly) return;
+      var el = document.getElementById(self.id + '-' + f.key);
+      if (!el) return;
+      if (el.type === 'checkbox')    values[f.key] = el.checked;
+      else if (f.type === 'number')  values[f.key] = el.value !== '' ? +el.value : null;
+      else                           values[f.key] = el.value;
+    });
+    return values;
+  }
+
+  async _save() {
+    var values  = this._gatherValues();
+    // Валидация обязательных полей
+    var missing = this.cfg.fields.filter(function(f) {
+      return f.required && !f.viewOnly && !values[f.key] && values[f.key] !== 0;
+    });
+    if (missing.length) {
+      toast('Заполните поля: ' + missing.map(function(f) { return f.label; }).join(', '), 'e');
+      return;
+    }
+    // Кастомная валидация
+    if (this.cfg.validate) {
+      var err = this.cfg.validate(values, this);
+      if (err) { toast(err, 'e'); return; }
+    }
+    try {
+      var editId = this._mode === 'edit' ? (this._rec && this._rec.id) : null;
+      await this.cfg.onSave(values, editId);
+    } catch(e) { return; }
+    this.close();
+  }
+
+  async _delete() {
+    if (!confirm('Удалить запись?')) return;
+    try {
+      await this.cfg.onDelete(this._rec.id);
+    } catch(e) { return; }
+    this.close();
+  }
+}
+
+// ── глобальный реестр форм ───────────────────────────────────────
+const MF_INST = {};
+</script>
