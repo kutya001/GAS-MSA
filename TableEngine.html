@@ -3,9 +3,30 @@
 // ════════════════════════════════════════════════════════════════
 //  DATA TABLE ENGINE  — class DT
 //  Управляет таблицей: поиск, сортировка, пагинация / flat-вид,
-//  порядок и видимость колонок (drag-reorder), экспорт XLSX.
+//  порядок и видимость колонок (drag-reorder), экспорт XLSX,
+//  умная фильтрация (rule-builder).
 //  Все экземпляры регистрируются в глобальном DT_INST[id].
 // ════════════════════════════════════════════════════════════════
+
+// ── Операторы фильтрации ───────────────────────────────────────
+var SF_OPS = {
+  eq:        { label: '= равно',              fn: function(v, f) { return String(v).toLowerCase() === String(f).toLowerCase(); } },
+  neq:       { label: '\u2260 не равно',       fn: function(v, f) { return String(v).toLowerCase() !== String(f).toLowerCase(); } },
+  contains:  { label: '\u220b содержит',       fn: function(v, f) { return String(v).toLowerCase().indexOf(String(f).toLowerCase()) !== -1; } },
+  ncontains: { label: '\u220c не содержит',    fn: function(v, f) { return String(v).toLowerCase().indexOf(String(f).toLowerCase()) === -1; } },
+  starts:    { label: 'A\u2026 начинается с',  fn: function(v, f) { return String(v).toLowerCase().indexOf(String(f).toLowerCase()) === 0; } },
+  ends:      { label: '\u2026Z заканчивается', fn: function(v, f) { var s = String(v).toLowerCase(), e = String(f).toLowerCase(); return s.length >= e.length && s.slice(-e.length) === e; } },
+  gt:        { label: '> больше',              fn: function(v, f) { return +v > +f; } },
+  gte:       { label: '\u2265 больше/равно',   fn: function(v, f) { return +v >= +f; } },
+  lt:        { label: '< меньше',              fn: function(v, f) { return +v < +f; } },
+  lte:       { label: '\u2264 меньше/равно',   fn: function(v, f) { return +v <= +f; } },
+  empty:     { label: '\u2205 пусто',          fn: function(v)    { return v == null || String(v).trim() === ''; }, noVal: true },
+  nempty:    { label: '\u2731 не пусто',       fn: function(v)    { return v != null && String(v).trim() !== ''; }, noVal: true },
+  inlist:    { label: '\u2208 в списке',       fn: function(v, f) { var items = String(f).split(',').map(function(x){ return x.trim().toLowerCase(); }); return items.indexOf(String(v).toLowerCase()) !== -1; } }
+};
+var SF_OPS_TEXT = ['contains','ncontains','eq','neq','starts','ends','inlist','empty','nempty'];
+var SF_OPS_NUM  = ['eq','neq','gt','gte','lt','lte','empty','nempty'];
+var SF_OPS_DATE = ['eq','neq','gt','lt','empty','nempty'];
 
 class DT {
   constructor(cfg) {
@@ -41,7 +62,8 @@ class DT {
     this.flat     = false;
     this._ready   = false;
     this._drag    = null;
-    this._fpValues = {}; // текущие значения фильтров
+    this._fpValues = {};
+    this._sf      = []; // правила умного фильтра
     DT_INST[cfg.id] = this;
   }
 
@@ -56,7 +78,7 @@ class DT {
     this._filter();
     this.pg = 1;
     if (this._ready) {
-      this._rBody(); this._rPgn(); this._rInfo();
+      this._rBody(); this._rPgn(); this._rInfo(); this._rFilterBtn();
     } else {
       this._render(); this._ready = true;
     }
@@ -64,13 +86,33 @@ class DT {
 
   _filter() {
     var q = this.q.toLowerCase().trim();
-    this.filtered = q
+    var arr = q
       ? this.data.filter(function(r) {
           return Object.values(r).some(function(v) {
             return String(v == null ? '' : v).toLowerCase().indexOf(q) !== -1;
           });
         })
       : this.data.slice();
+    // Умный фильтр — применяем правила
+    var sf = this._sf;
+    if (sf.length) {
+      arr = arr.filter(function(r) {
+        var result = null;
+        for (var i = 0; i < sf.length; i++) {
+          var rule = sf[i];
+          if (!rule.field || !rule.op) continue;
+          var opDef = SF_OPS[rule.op];
+          if (!opDef) continue;
+          var rv = r[rule.field];
+          var match = opDef.noVal ? opDef.fn(rv) : opDef.fn(rv, rule.value || '');
+          if (result === null) { result = match; }
+          else if (rule.logic === 'or') { result = result || match; }
+          else { result = result && match; }
+        }
+        return result === null ? true : result;
+      });
+    }
+    this.filtered = arr;
     if (this.sortKey) this._sort();
   }
 
@@ -118,15 +160,11 @@ class DT {
         + '<input type="checkbox" ' + (c.vis ? 'checked' : '') + ' onchange="DT_INST[\'' + id + '\'].toggleCol(' + c._i + ')">'
         + '<span>' + esc(c.label || '—') + '</span></label>';
     }).join('');
-    // Кнопка панели фильтров
-    var filterBtn = '';
-    if (this.cfg.filters && this.cfg.filters.length) {
-      var active = Object.values(this._fpValues || {}).filter(Boolean).length;
-      filterBtn = '<button class="btn btn-g btn-sm dt-fpb' + (active ? ' dt-fpb-on' : '') + '" id="' + id + '-fpb"'
-        + ' onclick="fpOpen(\'' + id + '\')">'
-        + '⚡ Фильтры' + (active ? '<span class="fp-cnt">' + active + '</span>' : '')
-        + '</button>';
-    }
+    var sfCnt = this._sf.filter(function(r) { return r.field && r.op; }).length;
+    var filterBtn = '<button class="btn btn-g btn-sm dt-fpb' + (sfCnt ? ' dt-fpb-on' : '') + '" id="' + id + '-fpb"'
+      + ' onclick="sfOpen(\'' + id + '\')">'
+      + '\u26a1 Фильтры' + (sfCnt ? '<span class="fp-cnt">' + sfCnt + '</span>' : '')
+      + '</button>';
     return '<div class="dt-tb-l">'
       + addBtn
       + '<div class="dt-srchw"><span class="dt-srchi">⌕</span>'
@@ -376,107 +414,220 @@ class DT {
   _rFilterBtn() {
     var btn = document.getElementById(this.cfg.id + '-fpb');
     if (!btn) return;
-    var active = Object.values(this._fpValues || {}).filter(Boolean).length;
-    btn.className = 'btn btn-g btn-sm dt-fpb' + (active ? ' dt-fpb-on' : '');
-    btn.innerHTML = '⚡ Фильтры' + (active ? '<span class="fp-cnt">' + active + '</span>' : '');
+    var cnt = this._sf.filter(function(r) { return r.field && r.op; }).length;
+    btn.className = 'btn btn-g btn-sm dt-fpb' + (cnt ? ' dt-fpb-on' : '');
+    btn.innerHTML = '\u26a1 Фильтры' + (cnt ? '<span class="fp-cnt">' + cnt + '</span>' : '');
+  }
+
+  // Определить тип колонки анализируя данные
+  _guessType(key) {
+    var nums = 0, dates = 0, total = 0;
+    var dateRe = /^\d{4}-\d{2}-\d{2}/;
+    for (var i = 0; i < Math.min(this.data.length, 100); i++) {
+      var v = this.data[i][key];
+      if (v == null || String(v).trim() === '') continue;
+      total++;
+      if (!isNaN(+v)) nums++;
+      else if (dateRe.test(String(v))) dates++;
+    }
+    if (!total) return 'text';
+    if (dates / total > 0.6) return 'date';
+    if (nums / total > 0.6) return 'num';
+    return 'text';
+  }
+
+  // Уникальные значения колонки (для datalist)
+  _uniqVals(key) {
+    var seen = {}, arr = [];
+    for (var i = 0; i < this.data.length; i++) {
+      var v = this.data[i][key];
+      if (v == null || String(v).trim() === '') continue;
+      var s = String(v);
+      if (!seen[s]) { seen[s] = true; arr.push(s); }
+      if (arr.length >= 200) break;
+    }
+    return arr.sort();
   }
 }
 
 // ── глобальный реестр экземпляров ────────────────────────────────
-const DT_INST = {};
+var DT_INST = {};
 
 // ════════════════════════════════════════════════════════════════
-//  ГЛОБАЛЬНАЯ ПАНЕЛЬ ФИЛЬТРОВ
+//  УМНАЯ ПАНЕЛЬ ФИЛЬТРОВ (rule-builder)
 //  Единая панель для всех таблиц — открывается справа.
+//  Каждое правило: [Поле] [Оператор] [Значение] с AND/OR логикой.
 // ════════════════════════════════════════════════════════════════
 
-var _fpDtId = null; // id текущей таблицы, чью панель открыли
+var _sfDtId = null; // текущая таблица
 
-// Ленивое создание панели
-function _fpBuild() {
-  if (document.getElementById('fpPanel')) return;
+function _sfBuild() {
+  if (document.getElementById('sfPanel')) return;
   var el = document.createElement('div');
-  el.id        = 'fpPanel';
+  el.id = 'sfPanel';
   el.className = 'fp-ov';
   el.innerHTML =
-    '<div class="fp-bg" onclick="fpClose()"></div>' +
-    '<div class="fp">' +
-    '<div class="fp-hd"><h3>Фильтры</h3>' +
-    '<button class="mclose" onclick="fpClose()">✕</button></div>' +
-    '<div class="fp-body" id="fpBody"></div>' +
+    '<div class="fp-bg" onclick="sfClose()"></div>' +
+    '<div class="fp sf-panel">' +
+    '<div class="fp-hd"><h3>\u26a1 \u0423\u043c\u043d\u044b\u0435 \u0444\u0438\u043b\u044c\u0442\u0440\u044b</h3>' +
+    '<button class="mclose" onclick="sfClose()">\u2715</button></div>' +
+    '<div class="fp-body" id="sfBody"></div>' +
     '<div class="fp-foot">' +
-    '<button class="btn btn-g" onclick="fpClear()">✕ Сбросить</button>' +
-    '<button class="btn btn-p" onclick="fpApply()">Применить</button>' +
+    '<span class="sf-status" id="sfStatus"></span>' +
+    '<button class="btn btn-g" onclick="sfClear()">\u2715 \u0421\u0431\u0440\u043e\u0441\u0438\u0442\u044c</button>' +
+    '<button class="btn btn-p" onclick="sfClose()">\u0413\u043e\u0442\u043e\u0432\u043e</button>' +
     '</div></div>';
   document.body.appendChild(el);
 }
 
-function fpOpen(dtId) {
-  _fpBuild();
-  _fpDtId = dtId;
+function sfOpen(dtId) {
+  _sfBuild();
+  _sfDtId = dtId;
   var dt = DT_INST[dtId];
-  if (!dt || !dt.cfg.filters || !dt.cfg.filters.length) return;
-  // Генерируем поля
-  var html = '';
-  dt.cfg.filters.forEach(function(f) {
-    html += '<div class="fp-fgrp">';
-    html += '<label>' + esc(f.label) + '</label>';
-    var cur = (dt._fpValues && dt._fpValues[f.key]) || '';
-    if (f.type === 'select') {
-      var opts = '<option value="">' + esc(f.emptyLabel || 'Все') + '</option>';
-      var arr  = f.getOptions ? f.getOptions() : (f.options || []);
-      var vk   = f.vk || 'id'; var lk = f.lk || 'name';
-      arr.forEach(function(o) {
-        var ov = typeof o === 'string' ? o : o[vk];
-        var ol = typeof o === 'string' ? o : o[lk];
-        opts += '<option value="' + esc(String(ov)) + '"'
-              + (String(cur) === String(ov) ? ' selected' : '') + '>'
-              + esc(String(ol)) + '</option>';
-      });
-      html += '<select id="fp-' + esc(f.key) + '">' + opts + '</select>';
-    } else if (f.type === 'date') {
-      html += '<input type="date" id="fp-' + esc(f.key) + '" value="' + esc(cur) + '">';
-    } else {
-      html += '<input type="text" id="fp-' + esc(f.key) + '" value="' + esc(cur)
-            + '" placeholder="' + esc(f.placeholder || '') + '">';
-    }
-    html += '</div>';
-  });
-  document.getElementById('fpBody').innerHTML = html;
-  document.getElementById('fpPanel').classList.add('open');
+  if (!dt) return;
+  if (!dt._sf.length) dt._sf.push({ field: '', op: '', value: '', logic: 'and' });
+  _sfRender();
+  document.getElementById('sfPanel').classList.add('open');
   document.body.classList.add('locked');
 }
 
-function fpClose() {
-  var p = document.getElementById('fpPanel');
+function sfClose() {
+  var p = document.getElementById('sfPanel');
   if (p) p.classList.remove('open');
   document.body.classList.remove('locked');
 }
 
-function fpClear() {
-  var dt = DT_INST[_fpDtId];
+function sfAddRule() {
+  var dt = DT_INST[_sfDtId];
   if (!dt) return;
-  dt._fpValues = {};
-  (dt.cfg.filters || []).forEach(function(f) {
-    var el = document.getElementById('fp-' + f.key);
-    if (el) el.value = '';
-  });
-  if (dt.cfg.onFilter) dt.cfg.onFilter({});
-  dt._rFilterBtn();
-  fpClose();
+  dt._sf.push({ field: '', op: '', value: '', logic: 'and' });
+  _sfRender();
 }
 
-function fpApply() {
-  var dt = DT_INST[_fpDtId];
+function sfRemoveRule(idx) {
+  var dt = DT_INST[_sfDtId];
   if (!dt) return;
-  var values = {};
-  (dt.cfg.filters || []).forEach(function(f) {
-    var el = document.getElementById('fp-' + f.key);
-    if (el) values[f.key] = el.value;
+  dt._sf.splice(idx, 1);
+  if (!dt._sf.length) dt._sf.push({ field: '', op: '', value: '', logic: 'and' });
+  _sfRender();
+  _sfApplyLive();
+}
+
+function sfClear() {
+  var dt = DT_INST[_sfDtId];
+  if (!dt) return;
+  dt._sf = [{ field: '', op: '', value: '', logic: 'and' }];
+  _sfRender();
+  _sfApplyLive();
+}
+
+function sfSetField(idx, val) {
+  var dt = DT_INST[_sfDtId];
+  if (!dt) return;
+  dt._sf[idx].field = val;
+  dt._sf[idx].op = '';
+  dt._sf[idx].value = '';
+  _sfRender();
+  _sfApplyLive();
+}
+
+function sfSetOp(idx, val) {
+  var dt = DT_INST[_sfDtId];
+  if (!dt) return;
+  dt._sf[idx].op = val;
+  if (SF_OPS[val] && SF_OPS[val].noVal) dt._sf[idx].value = '';
+  _sfRender();
+  _sfApplyLive();
+}
+
+function sfSetVal(idx, val) {
+  var dt = DT_INST[_sfDtId];
+  if (!dt) return;
+  dt._sf[idx].value = val;
+  _sfApplyLive();
+}
+
+function sfSetLogic(idx, val) {
+  var dt = DT_INST[_sfDtId];
+  if (!dt) return;
+  dt._sf[idx].logic = val;
+  _sfApplyLive();
+}
+
+function _sfRender() {
+  var dt = DT_INST[_sfDtId];
+  if (!dt) return;
+  var body = document.getElementById('sfBody');
+  if (!body) return;
+  var html = '<div class="sf-rules">';
+  dt._sf.forEach(function(rule, idx) {
+    // логика И/ИЛИ между правилами
+    if (idx > 0) {
+      html += '<div class="sf-logic">'
+        + '<button class="sf-logbtn' + (rule.logic === 'and' ? ' on' : '') + '" onclick="sfSetLogic(' + idx + ',\'and\')">И</button>'
+        + '<button class="sf-logbtn' + (rule.logic === 'or' ? ' on' : '') + '" onclick="sfSetLogic(' + idx + ',\'or\')">ИЛИ</button>'
+        + '</div>';
+    }
+    html += '<div class="sf-rule">';
+    // Поле
+    html += '<select class="sf-field" onchange="sfSetField(' + idx + ',this.value)">';
+    html += '<option value="">-- \u041f\u043e\u043b\u0435 --</option>';
+    dt.cols.forEach(function(c) {
+      html += '<option value="' + esc(c.key) + '"' + (rule.field === c.key ? ' selected' : '') + '>'
+        + esc(c.label) + '</option>';
+    });
+    html += '</select>';
+    // Оператор
+    if (rule.field) {
+      var tp = dt._guessType(rule.field);
+      var ops = tp === 'num' ? SF_OPS_NUM : (tp === 'date' ? SF_OPS_DATE : SF_OPS_TEXT);
+      html += '<select class="sf-op" onchange="sfSetOp(' + idx + ',this.value)">';
+      html += '<option value="">-- \u0423\u0441\u043b\u043e\u0432\u0438\u0435 --</option>';
+      ops.forEach(function(opKey) {
+        html += '<option value="' + opKey + '"' + (rule.op === opKey ? ' selected' : '') + '>'
+          + esc(SF_OPS[opKey].label) + '</option>';
+      });
+      html += '</select>';
+    }
+    // Значение
+    if (rule.field && rule.op && !(SF_OPS[rule.op] && SF_OPS[rule.op].noVal)) {
+      var dlId = 'sf-dl-' + idx;
+      var uniqs = dt._uniqVals(rule.field);
+      html += '<input class="sf-val" list="' + dlId + '" value="' + esc(rule.value || '') + '"'
+        + ' placeholder="\u0417\u043d\u0430\u0447\u0435\u043d\u0438\u0435\u2026" oninput="sfSetVal(' + idx + ',this.value)">';
+      html += '<datalist id="' + dlId + '">';
+      uniqs.forEach(function(u) { html += '<option value="' + esc(u) + '">'; });
+      html += '</datalist>';
+    }
+    // Кнопка удаления
+    html += '<button class="sf-del" onclick="sfRemoveRule(' + idx + ')" title="\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u043f\u0440\u0430\u0432\u0438\u043b\u043e">\u2715</button>';
+    html += '</div>';
   });
-  dt._fpValues = values;
-  if (dt.cfg.onFilter) dt.cfg.onFilter(values);
+  html += '</div>';
+  html += '<button class="btn btn-g btn-sm sf-add" onclick="sfAddRule()">+ \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043f\u0440\u0430\u0432\u0438\u043b\u043e</button>';
+  body.innerHTML = html;
+  // Обновить статус
+  var st = document.getElementById('sfStatus');
+  if (st) {
+    var cnt = dt._sf.filter(function(r) { return r.field && r.op; }).length;
+    st.textContent = cnt ? ('\u0410\u043a\u0442\u0438\u0432\u043d\u043e: ' + cnt + ' \u043f\u0440\u0430\u0432\u0438\u043b(\u043e)') : '';
+  }
+}
+
+function _sfApplyLive() {
+  var dt = DT_INST[_sfDtId];
+  if (!dt) return;
+  dt._filter();
+  dt.pg = 1;
+  dt._rBody();
+  dt._rPgn();
+  dt._rInfo();
   dt._rFilterBtn();
-  fpClose();
+  // обновить статус
+  var st = document.getElementById('sfStatus');
+  if (st) {
+    var cnt = dt._sf.filter(function(r) { return r.field && r.op; }).length;
+    st.textContent = cnt ? ('\u0410\u043a\u0442\u0438\u0432\u043d\u043e: ' + cnt + ' \u043f\u0440\u0430\u0432\u0438\u043b(\u043e)') : '';
+  }
 }
 </script>
