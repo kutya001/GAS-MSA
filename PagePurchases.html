@@ -1,106 +1,103 @@
-﻿<!-- в•ђв•ђ PURCHASES в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ -->
+<!-- ══ PURCHASES ════════════════════════════════════════════════════ -->
 <div class="page" id="page-purchases">
-  <div class="sh"><h2>Р—Р°РєСѓРїРєРё</h2></div>
+  <div class="sh"><h2>Закупки</h2></div>
   <div id="pTable"></div>
 </div>
-
 <script>
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-//  PURCHASES вЂ” С„РѕСЂРјР° Рё С‚Р°Р±Р»РёС†Р°
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-
-// в”Ђв”Ђ С…РµР»РїРµСЂ СЂР°СЃС‡С‘С‚Р° СЃРµР±РµСЃС‚РѕРёРјРѕСЃС‚Рё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ════════════════════════════════════════════════════════════════
+//  PURCHASES — форма и таблица
+// ════════════════════════════════════════════════════════════════
+// ── хелпер расчёта себестоимости ────────────────────────────────
 function _pCalcKgs(form) {
   var usd  = parseFloat(form.getVal('cost_usd')) || 0;
   var rate = parseFloat(form.getVal('rate'))     || 88;
-  form.setCalc('cost_kgs', fmtN(usd * rate) + ' в‚ё');
+  form.setCalc('cost_kgs', fmtN(usd * rate) + ' ₸');
 }
-
-// в”Ђв”Ђ С„РѕСЂРјР° Р·Р°РєСѓРїРєРё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ── форма закупки ────────────────────────────────────────────────
 var purchaseForm = new MainForm({
   id:    'mfPurchase',
-  title: 'Р—Р°РєСѓРїРєР°',
+  title: 'Закупка',
   size:  'lg',
   fields: [
-    { key: 'has_imei', label: 'рџ“± РўРѕРІР°СЂ СЃ IMEI РєРѕРґРѕРј (РїРѕС€С‚СѓС‡РЅС‹Р№ СѓС‡С‘С‚)', type: 'checkbox', span: 2,
+    { key: 'has_imei', label: '📱 Товар с IMEI кодом (поштучный учёт)', type: 'checkbox', span: 2,
       default: true,
       onChange: function(v, f) { f.refreshVis(); },
       renderView: function(v) {
-        return v ? '<span class="badge bb">IMEI (РїРѕС€С‚СѓС‡РЅРѕ)</span>' : '<span class="badge bp">РџР°СЂС‚РёСЏ</span>';
+        return v ? '<span class="badge bb">IMEI (поштучно)</span>' : '<span class="badge bp">Партия</span>';
       }
     },
-    { key: 'brand_id', label: 'Р‘СЂРµРЅРґ', type: 'select', required: true,
+    { key: 'brand_id', label: 'Бренд', type: 'select', required: true,
       getOptions: function() { return ST.refs.brands; },
       onChange: function(v, f) {
         var m = ST.refs.models.filter(function(x) { return !v || x.brand_id === +v; });
-        f.fillField('model_id', m, 'id', 'name', 'вЂ”');
+        f.fillField('model_id', m, 'id', 'name', '—');
       },
-      renderView: function(v, r) { return esc(r.brand_name || 'вЂ”'); }
+      renderView: function(v, r) { return esc(r.brand_name || '—'); }
     },
-    { key: 'model_id', label: 'РњРѕРґРµР»СЊ', type: 'select', required: true,
+    { key: 'model_id', label: 'Модель', type: 'select', required: true,
       getOptions: function() { return ST.refs.models; },
-      renderView: function(v, r) { return '<span class="fw7">' + esc(r.model_name || 'вЂ”') + '</span>'; }
+      renderView: function(v, r) { return '<span class="fw7">' + esc(r.model_name || '—') + '</span>'; }
     },
-    { key: 'spec',  label: 'РҐР°СЂР°РєС‚РµСЂРёСЃС‚РёРєР°', type: 'text', placeholder: '8/256, 128GB...' },
-    { key: 'color', label: 'Р¦РІРµС‚',           type: 'text', placeholder: 'Р§С‘СЂРЅС‹Р№, Р‘РµР»С‹Р№...' },
-    { key: 'wh_id', label: 'РЎРєР»Р°Рґ', type: 'select', required: true,
+    { key: 'spec',  label: 'Характеристика', type: 'text', placeholder: '8/256, 128GB...' },
+    { key: 'color', label: 'Цвет',           type: 'text', placeholder: 'Чёрный, Белый...' },
+    { key: 'wh_id', label: 'Склад', type: 'select', required: true,
       getOptions: function() { return ST.warehouses; },
-      renderView: function(v, r) { return esc(r.wh_name || 'вЂ”'); }
+      renderView: function(v, r) { return esc(r.wh_name || '—'); }
     },
-    { key: 'supplier_id', label: 'РџРѕСЃС‚Р°РІС‰РёРє', type: 'select',
+    { key: 'supplier_id', label: 'Поставщик', type: 'select',
       getOptions: function() { return ST.refs.suppliers; },
-      renderView: function(v, r) { return esc(r.supplier_name || 'вЂ”'); }
+      renderView: function(v, r) { return esc(r.supplier_name || '—'); }
     },
-    { key: 'imei', label: 'IMEI (15 С†РёС„СЂ)', type: 'text', maxlength: 15, mono: true,
+    { key: 'imei', label: 'IMEI (15 цифр)', type: 'text', maxlength: 15, mono: true,
       placeholder: '352365010000001',
       showIf: function(f) { return !!f.getVal('has_imei'); },
       renderView: function(v, r) {
-        return r.has_imei ? '<span class="imeic">' + esc(v || 'вЂ”') + '</span>' : '<span class="muted">вЂ”</span>';
+        return r.has_imei ? '<span class="imeic">' + esc(v || '—') + '</span>' : '<span class="muted">—</span>';
       }
     },
-    { key: 'qty', label: 'РљРѕР»РёС‡РµСЃС‚РІРѕ (РїР°СЂС‚РёСЏ)', type: 'number', min: 1, default: 1,
+    { key: 'qty', label: 'Количество (партия)', type: 'number', min: 1, default: 1,
       showIf: function(f) { return !f.getVal('has_imei'); },
       renderView: function(v, r) {
-        return !r.has_imei ? '<span class="badge bp">Г—' + esc(String(v || 1)) + '</span>' : '<span class="muted">вЂ”</span>';
+        return !r.has_imei ? '<span class="badge bp">×' + esc(String(v || 1)) + '</span>' : '<span class="muted">—</span>';
       }
     },
-    { key: 'condition', label: 'РЎРѕСЃС‚РѕСЏРЅРёРµ', type: 'select',
-      options: ['РќРѕРІС‹Р№', 'Р‘/РЈ'], emptyLabel: false
+    { key: 'condition', label: 'Состояние', type: 'select',
+      options: ['Новый', 'Б/У'], emptyLabel: false
     },
-    { key: 'purchase_date', label: 'Р”Р°С‚Р° Р·Р°РєСѓРїРєРё', type: 'date', required: true,
+    { key: 'purchase_date', label: 'Дата закупки', type: 'date', required: true,
       renderView: function(v) { return fmtD(v); }
     },
-    { key: 'cost_usd', label: 'РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ USD', type: 'number', min: 0, step: 0.01, required: true,
+    { key: 'cost_usd', label: 'Себестоимость USD', type: 'number', min: 0, step: 0.01, required: true,
       onChange: function(v, f) { _pCalcKgs(f); },
       renderView: function(v) { return '<span class="mono fw7">$' + fmtN(v) + '</span>'; }
     },
-    { key: 'rate', label: 'РљСѓСЂСЃ KGS/USD', type: 'number', min: 1, default: 88,
+    { key: 'rate', label: 'Курс KGS/USD', type: 'number', min: 1, default: 88,
       onChange: function(v, f) { _pCalcKgs(f); },
       renderView: function(v) { return esc(String(v || 88)); }
     },
-    { key: 'cost_kgs', label: 'РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ KGS (Р°РІС‚РѕСЂР°СЃС‡С‘С‚)', type: 'calc', span: 2,
-      calcInit: '0 в‚ё',
-      renderView: function(v) { return '<span class="mono fw7 tg">' + fmtN(v) + ' в‚ё</span>'; }
+    { key: 'cost_kgs', label: 'Себестоимость KGS (авторасчёт)', type: 'calc', span: 2,
+      calcInit: '0 ₸',
+      renderView: function(v) { return '<span class="mono fw7 tg">' + fmtN(v) + ' ₸</span>'; }
     },
-    { key: 'pay_wallet_id', label: 'РћРїР»Р°С‚Р° РїРѕСЃС‚Р°РІС‰РёРєСѓ (РєРѕС€РµР»С‘Рє)', type: 'select', span: 2,
+    { key: 'pay_wallet_id', label: 'Оплата поставщику (кошелёк)', type: 'select', span: 2,
       getOptions: function() { return ST.wallets; },
-      emptyLabel: 'РќРµ РѕРїР»Р°С‡РµРЅРѕ вЂ” РґРѕР»Рі РїРѕСЃС‚Р°РІС‰РёРєСѓ',
+      emptyLabel: 'Не оплачено — долг поставщику',
       renderView: function(v) {
         var w = v ? ST.wallets.find(function(x) { return x.id === +v; }) : null;
-        return w ? esc(w.name) : '<span class="badge ba">Р”РѕР»Рі РїРѕСЃС‚Р°РІС‰РёРєСѓ</span>';
+        return w ? esc(w.name) : '<span class="badge ba">Долг поставщику</span>';
       }
     },
-    { key: 'status', label: 'РЎС‚Р°С‚СѓСЃ', viewOnly: true,
+    { key: 'status', label: 'Статус', viewOnly: true,
       renderView: function(v) {
-        var c = v === 'Р’ РЅР°Р»РёС‡РёРё' ? 'bb' : v === 'РџСЂРѕРґР°РЅРѕ' ? 'bg' : 'bgr';
-        return '<span class="badge ' + c + '">' + esc(v || 'вЂ”') + '</span>';
+        var c = v === 'В наличии' ? 'bb' : v === 'Продано' ? 'bg' : 'bgr';
+        return '<span class="badge ' + c + '">' + esc(v || '—') + '</span>';
       }
     },
-    { key: 'note', label: 'РџСЂРёРјРµС‡Р°РЅРёРµ', type: 'text', span: 2, placeholder: 'РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ' }
+    { key: 'note', label: 'Примечание', type: 'text', span: 2, placeholder: 'Необязательно' }
   ],
   validate: function(values) {
     if (values.has_imei && values.imei && !/^\d{15}$/.test(values.imei)) {
-      return 'IMEI РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ 15 С†РёС„СЂ';
+      return 'IMEI должен быть 15 цифр';
     }
     return null;
   },
@@ -112,7 +109,7 @@ var purchaseForm = new MainForm({
       has_imei: values.has_imei,
       imei: values.has_imei ? (values.imei || '') : '',
       qty:  values.has_imei ? 1 : (+values.qty || 1),
-      condition: values.condition || 'РќРѕРІС‹Р№',
+      condition: values.condition || 'Новый',
       purchase_date: values.purchase_date,
       cost_usd: +values.cost_usd, rate: +values.rate || 88,
       cost_kgs: (+values.cost_usd) * (+values.rate || 88),
@@ -121,29 +118,29 @@ var purchaseForm = new MainForm({
     };
     if (editId) await api('updatePurchase', Object.assign({ id: editId }, data));
     else        await api('addPurchase', data);
-    toast(editId ? 'Р—Р°РєСѓРїРєР° РѕР±РЅРѕРІР»РµРЅР°' : 'Р—Р°РєСѓРїРєР° РґРѕР±Р°РІР»РµРЅР°', 's');
+    toast(editId ? 'Закупка обновлена' : 'Закупка добавлена', 's');
     loadPurchases();
   },
   onDelete: async function(id) {
     await api('deletePurchase', { id: id });
-    toast('Р—Р°РєСѓРїРєР° СѓРґР°Р»РµРЅР°', 's');
+    toast('Закупка удалена', 's');
     loadPurchases();
   },
   afterMount: function(mode, rec, form) {
     if (mode === 'view') return;
-    // РќР°РїРѕР»РЅСЏРµРј СЃРїСЂР°РІРѕС‡РЅРёРєРё
-    form.fillField('brand_id', ST.refs.brands, 'id', 'name', 'вЂ”');
+    // Наполняем справочники
+    form.fillField('brand_id', ST.refs.brands, 'id', 'name', '—');
     if (rec) document.getElementById(form.id + '-brand_id').value = rec.brand_id || '';
     var bid = +(form.getVal('brand_id'));
-    form.fillField('model_id', ST.refs.models.filter(function(m) { return !bid || m.brand_id === bid; }), 'id', 'name', 'вЂ”');
+    form.fillField('model_id', ST.refs.models.filter(function(m) { return !bid || m.brand_id === bid; }), 'id', 'name', '—');
     if (rec) document.getElementById(form.id + '-model_id').value = rec.model_id || '';
-    form.fillField('wh_id', ST.warehouses, 'id', 'name', 'вЂ”');
+    form.fillField('wh_id', ST.warehouses, 'id', 'name', '—');
     if (rec) document.getElementById(form.id + '-wh_id').value = rec.wh_id || '';
-    form.fillField('supplier_id', ST.refs.suppliers, 'id', 'name', 'вЂ”');
+    form.fillField('supplier_id', ST.refs.suppliers, 'id', 'name', '—');
     if (rec) document.getElementById(form.id + '-supplier_id').value = rec.supplier_id || '';
-    form.fillField('pay_wallet_id', ST.wallets, 'id', 'name', 'РќРµ РѕРїР»Р°С‡РµРЅРѕ вЂ” РґРѕР»Рі РїРѕСЃС‚Р°РІС‰РёРєСѓ');
+    form.fillField('pay_wallet_id', ST.wallets, 'id', 'name', 'Не оплачено — долг поставщику');
     if (rec) document.getElementById(form.id + '-pay_wallet_id').value = rec.pay_wallet_id || '';
-    // РРЅРёС‚
+    // Инит
     if (mode === 'create') {
       var d = document.getElementById(form.id + '-purchase_date');
       if (d) d.value = today();
@@ -152,31 +149,30 @@ var purchaseForm = new MainForm({
     form.refreshVis();
   }
 });
-
-// в”Ђв”Ђ DT С‚Р°Р±Р»РёС†Р° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ── DT таблица ───────────────────────────────────────────────────
 var _pDT = null;
 function _pDTinit() {
   if (_pDT) return _pDT;
   _pDT = new DT({
     id: 'purchases', containerId: 'pTable',
-    addLabel: '+ Р—Р°РєСѓРїРєР°', onAdd: function() { purchaseForm.openCreate(); },
+    addLabel: '+ Закупка', onAdd: function() { purchaseForm.openCreate(); },
     onRowClick: function(r) { purchaseForm.openView(r); },
     filters: [
-      { key: 'wh_id',    label: 'РЎРєР»Р°Рґ',  type: 'select', getOptions: function() { return ST.warehouses; } },
-      { key: 'brand_id', label: 'Р‘СЂРµРЅРґ',  type: 'select', getOptions: function() { return ST.refs.brands; } },
-      { key: 'status',   label: 'РЎС‚Р°С‚СѓСЃ', type: 'select',
-        options: ['Р’ РЅР°Р»РёС‡РёРё', 'РџСЂРѕРґР°РЅРѕ'], emptyLabel: 'Р’СЃРµ' },
-      { key: 'dateFrom', label: 'Р”Р°С‚Р° РѕС‚', type: 'date' },
-      { key: 'dateTo',   label: 'Р”Р°С‚Р° РґРѕ', type: 'date' }
+      { key: 'wh_id',    label: 'Склад',  type: 'select', getOptions: function() { return ST.warehouses; } },
+      { key: 'brand_id', label: 'Бренд',  type: 'select', getOptions: function() { return ST.refs.brands; } },
+      { key: 'status',   label: 'Статус', type: 'select',
+        options: ['В наличии', 'Продано'], emptyLabel: 'Все' },
+      { key: 'dateFrom', label: 'Дата от', type: 'date' },
+      { key: 'dateTo',   label: 'Дата до', type: 'date' }
     ],
     onFilter: function() { loadPurchases(); },
     cols: [
-      { key: 'brand_name',    label: 'Р‘СЂРµРЅРґ',      w: '88px' },
-      { key: 'model_name',    label: 'РњРѕРґРµР»СЊ' },
-      { key: 'spec',          label: 'РҐР°СЂ-РєР°',      w: '80px' },
-      { key: 'wh_name',       label: 'РЎРєР»Р°Рґ' },
-      { key: 'supplier_name', label: 'РџРѕСЃС‚Р°РІС‰РёРє' },
-      { key: '_iq', label: 'IMEI / РЁС‚.', sortable: false,
+      { key: 'brand_name',    label: 'Бренд',      w: '88px' },
+      { key: 'model_name',    label: 'Модель' },
+      { key: 'spec',          label: 'Хар-ка',      w: '80px' },
+      { key: 'wh_name',       label: 'Склад' },
+      { key: 'supplier_name', label: 'Поставщик' },
+      { key: '_iq', label: 'IMEI / Шт.', sortable: false,
         render: function(v, r) {
           return r.has_imei ? '<span class="imeic">' + esc(r.imei || '') + '</span>'
                             : '<span class="badge bp">&times;' + r.qty + '</span>';
@@ -185,22 +181,21 @@ function _pDTinit() {
       { key: 'cost_usd', label: '$ USD', align: 'right', mono: true,
         render: function(v) { return '$' + fmtN(v); }
       },
-      { key: 'cost_kgs', label: 'в‚ё KGS', align: 'right', mono: true,
-        render: function(v) { return fmtN(v) + 'в‚ё'; }
+      { key: 'cost_kgs', label: '₸ KGS', align: 'right', mono: true,
+        render: function(v) { return fmtN(v) + '₸'; }
       },
-      { key: 'status', label: 'РЎС‚Р°С‚СѓСЃ',
+      { key: 'status', label: 'Статус',
         render: function(v) {
-          return '<span class="badge ' + (v === 'Р’ РЅР°Р»РёС‡РёРё' ? 'bb' : v === 'РџСЂРѕРґР°РЅРѕ' ? 'bg' : 'bgr') + '">' + esc(v) + '</span>';
+          return '<span class="badge ' + (v === 'В наличии' ? 'bb' : v === 'Продано' ? 'bg' : 'bgr') + '">' + esc(v) + '</span>';
         }
       },
-      { key: 'purchase_date', label: 'Р”Р°С‚Р°', w: '84px',
+      { key: 'purchase_date', label: 'Дата', w: '84px',
         render: function(v) { return fmtD(v); }
       }
     ]
   });
   return _pDT;
 }
-
 async function loadPurchases() {
   var fp = _pDT ? (_pDT._fpValues || {}) : {};
   var d  = await api('getPurchases', {

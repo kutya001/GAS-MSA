@@ -1,80 +1,75 @@
-﻿<!-- в•ђв•ђ REFS в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ -->
+<!-- ══ REFS ═══════════════════════════════════════════════════════════════ -->
 <div class="page" id="page-refs">
-  <div class="sh"><h2>РЎРїСЂР°РІРѕС‡РЅРёРєРё</h2>
-    <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="refForm.openCreate()">+ Р”РѕР±Р°РІРёС‚СЊ</button></div>
+  <div class="sh"><h2>Справочники</h2>
+    <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="refForm.openCreate()">+ Добавить</button></div>
   </div>
   <div class="ptabs" id="refTabs">
-    <button class="ptab on" onclick="showRefTab('brands',this)">Р‘СЂРµРЅРґС‹</button>
-    <button class="ptab" onclick="showRefTab('models',this)">РњРѕРґРµР»Рё</button>
-    <button class="ptab" onclick="showRefTab('suppliers',this)">РџРѕСЃС‚Р°РІС‰РёРєРё</button>
-    <button class="ptab" onclick="showRefTab('managers',this)">РњРµРЅРµРґР¶РµСЂС‹</button>
-    <button class="ptab" onclick="showRefTab('currencies',this)">Р’Р°Р»СЋС‚С‹</button>
+    <button class="ptab on" onclick="showRefTab('brands',this)">Бренды</button>
+    <button class="ptab" onclick="showRefTab('models',this)">Модели</button>
+    <button class="ptab" onclick="showRefTab('suppliers',this)">Поставщики</button>
+    <button class="ptab" onclick="showRefTab('managers',this)">Менеджеры</button>
+    <button class="ptab" onclick="showRefTab('currencies',this)">Валюты</button>
   </div>
   <div id="refsTable"></div>
 </div>
-
-<!-- в•ђв•ђ CATS в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ -->
+<!-- ══ CATS ══════════════════════════════════════════════════════════════ -->
 <div class="page" id="page-cats">
-  <div class="sh"><h2>РљР°С‚РµРіРѕСЂРёРё Рё СЃС‚Р°С‚СЊРё</h2><p>РЎС‚СЂСѓРєС‚СѓСЂР° СЃС‚Р°С‚РµР№ РґР»СЏ РєР°СЃСЃРѕРІС‹С… РѕРїРµСЂР°С†РёР№ (РџСЂРёС…РѕРґ / Р Р°СЃС…РѕРґ)</p>
+  <div class="sh"><h2>Категории и статьи</h2><p>Структура статей для кассовых операций (Приход / Расход)</p>
     <div class="sh-acts">
-      <button class="btn btn-g btn-sm" onclick="catForm.openCreate()">+ РљР°С‚РµРіРѕСЂРёСЏ</button>
-      <button class="btn btn-p btn-sm" onclick="articleForm.openCreate()">+ РЎС‚Р°С‚СЊСЏ</button>
+      <button class="btn btn-g btn-sm" onclick="catForm.openCreate()">+ Категория</button>
+      <button class="btn btn-p btn-sm" onclick="articleForm.openCreate()">+ Статья</button>
     </div>
   </div>
   <div class="ptabs">
-    <button class="ptab on" onclick="showCatTab('РџСЂРёС…РѕРґ',this)">в†‘ РџСЂРёС…РѕРґ</button>
-    <button class="ptab" onclick="showCatTab('Р Р°СЃС…РѕРґ',this)">в†“ Р Р°СЃС…РѕРґ</button>
+    <button class="ptab on" onclick="showCatTab('Приход',this)">↑ Приход</button>
+    <button class="ptab" onclick="showCatTab('Расход',this)">↓ Расход</button>
   </div>
   <div class="ct" id="catTree"></div>
 </div>
-
 <script>
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 //  REFS FORM
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 var _curRef = 'brands';
-
 var refForm = new MainForm({
   id: 'mfRef',
   title: function(mode, rec) {
-    var labels = { brands: 'Р‘СЂРµРЅРґ', models: 'РњРѕРґРµР»СЊ', suppliers: 'РџРѕСЃС‚Р°РІС‰РёРє', managers: 'РњРµРЅРµРґР¶РµСЂ', currencies: 'Р’Р°Р»СЋС‚Р°' };
-    return labels[_curRef] || 'РЎРїСЂР°РІРѕС‡РЅРёРє';
+    var labels = { brands: 'Бренд', models: 'Модель', suppliers: 'Поставщик', managers: 'Менеджер', currencies: 'Валюта' };
+    return labels[_curRef] || 'Справочник';
   },
   fields: [
-    { key: 'brand_id', label: 'Р‘СЂРµРЅРґ', type: 'select', required: true,
+    { key: 'brand_id', label: 'Бренд', type: 'select', required: true,
       getOptions: function() { return ST.refs.brands || []; },
       showIf:  function() { return _curRef === 'models'; },
       renderView: function(v, r) { return esc(r.brand_name || v); }
     },
-    { key: 'name', label: 'РќР°Р·РІР°РЅРёРµ', type: 'text', required: true },
-    { key: 'info', label: 'Р”РѕРї. РёРЅС„Рѕ', type: 'text', placeholder: 'РћРїРёСЃР°РЅРёРµ, С‚РµР»РµС„РѕРЅ...' }
+    { key: 'name', label: 'Название', type: 'text', required: true },
+    { key: 'info', label: 'Доп. инфо', type: 'text', placeholder: 'Описание, телефон...' }
   ],
   onSave: async function(values, editId) {
     var data = { tab: _curRef, name: values.name, info: values.info,
                  brand_id: _curRef === 'models' ? (+values.brand_id || null) : null };
     if (editId) await api('updateRef', Object.assign({ id: editId }, data));
     else        await api('addRef', data);
-    toast('РЎРѕС…СЂР°РЅРµРЅРѕ', 's');
+    toast('Сохранено', 's');
     await _reloadRefs();
   },
   onDelete: async function(id) {
     await api('deleteRef', { id: id, tab: _curRef });
-    toast('РЈРґР°Р»РµРЅРѕ', 's');
+    toast('Удалено', 's');
     await _reloadRefs();
   },
   afterMount: function(mode, rec, form) {
-    form.fillField('brand_id', ST.refs.brands || [], 'id', 'name', 'вЂ”');
+    form.fillField('brand_id', ST.refs.brands || [], 'id', 'name', '—');
   }
 });
-
 async function _reloadRefs() {
   var d = await api('getRefData'); if (d) ST.refs = d;
   _refDTinit().setData(ST.refs[_curRef] || []);
 }
-
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 //  REFS DT
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 var _refDT = null;
 function _refDTinit() {
   if (_refDT) return _refDT;
@@ -86,16 +81,14 @@ function _refDTinit() {
       { key: 'id',         label: 'ID',       w: '56px', mono: true,
         render: function(v) { return '<span class="muted">#' + v + '</span>'; }
       },
-      { key: 'brand_name', label: 'Р‘СЂРµРЅРґ',    sortable: false },
-      { key: 'name',       label: 'РќР°Р·РІР°РЅРёРµ', render: function(v) { return '<b>' + esc(v) + '</b>'; } },
-      { key: 'info',       label: 'Р”РѕРї. РёРЅС„Рѕ', sortable: false }
+      { key: 'brand_name', label: 'Бренд',    sortable: false },
+      { key: 'name',       label: 'Название', render: function(v) { return '<b>' + esc(v) + '</b>'; } },
+      { key: 'info',       label: 'Доп. инфо', sortable: false }
     ]
   });
   return _refDT;
 }
-
 async function loadRefs() { showRefTab(_curRef, null); }
-
 function showRefTab(tab, el) {
   _curRef = tab;
   document.querySelectorAll('#refTabs .ptab').forEach(function(x) { x.classList.remove('on'); });
@@ -104,106 +97,99 @@ function showRefTab(tab, el) {
   dt.setColVis('brand_name', tab === 'models');
   dt.setData(ST.refs[tab] || []);
 }
-
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 //  CAT FORM
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 var catForm = new MainForm({
-  id: 'mfCat', title: 'РљР°С‚РµРіРѕСЂРёСЏ',
+  id: 'mfCat', title: 'Категория',
   fields: [
-    { key: 'op_type', label: 'РўРёРї',       type: 'select', required: true,
-      options: ['РџСЂРёС…РѕРґ', 'Р Р°СЃС…РѕРґ'], emptyLabel: 'вЂ” РўРёРї вЂ”'
+    { key: 'op_type', label: 'Тип',       type: 'select', required: true,
+      options: ['Приход', 'Расход'], emptyLabel: '— Тип —'
     },
-    { key: 'name',    label: 'РќР°Р·РІР°РЅРёРµ',  type: 'text',   required: true },
-    { key: 'note',    label: 'РџСЂРёРјРµС‡Р°РЅРёРµ', type: 'text' }
+    { key: 'name',    label: 'Название',  type: 'text',   required: true },
+    { key: 'note',    label: 'Примечание', type: 'text' }
   ],
   onSave: async function(values, editId) {
     if (editId) await api('updateCat', { id: editId, op_type: values.op_type, name: values.name, note: values.note });
     else        await api('addCat',    { op_type: values.op_type, name: values.name, note: values.note });
-    toast('РљР°С‚РµРіРѕСЂРёСЏ СЃРѕС…СЂР°РЅРµРЅР°', 's');
+    toast('Категория сохранена', 's');
     var c = await api('getCats'); if (c) ST.cats = c;
     renderCatTree();
   },
   onDelete: async function(id) {
     await api('deleteCat', { id: id });
-    toast('РљР°С‚РµРіРѕСЂРёСЏ СѓРґР°Р»РµРЅР°', 's');
+    toast('Категория удалена', 's');
     var res = await Promise.all([api('getCats'), api('getArticles')]);
     if (res[0]) ST.cats = res[0]; if (res[1]) ST.articles = res[1];
     renderCatTree();
   }
 });
-
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 //  ARTICLE FORM
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-var _curCatTab = 'РџСЂРёС…РѕРґ';
-
+// ════════════════════════════════════════════════════════════════
+var _curCatTab = 'Приход';
 var articleForm = new MainForm({
-  id: 'mfArt', title: 'РЎС‚Р°С‚СЊСЏ',
+  id: 'mfArt', title: 'Статья',
   fields: [
-    { key: 'cat_id', label: 'РљР°С‚РµРіРѕСЂРёСЏ', type: 'select', required: true,
+    { key: 'cat_id', label: 'Категория', type: 'select', required: true,
       getOptions: function() { return ST.cats.filter(function(c) { return c.op_type === _curCatTab; }); }
     },
-    { key: 'name', label: 'РќР°Р·РІР°РЅРёРµ',   type: 'text', required: true },
-    { key: 'note', label: 'РџСЂРёРјРµС‡Р°РЅРёРµ', type: 'text' }
+    { key: 'name', label: 'Название',   type: 'text', required: true },
+    { key: 'note', label: 'Примечание', type: 'text' }
   ],
   onSave: async function(values, editId) {
     if (editId) await api('updateArticle', { id: editId, cat_id: +values.cat_id, name: values.name, note: values.note });
     else        await api('addArticle',    { cat_id: +values.cat_id, name: values.name, note: values.note });
-    toast('РЎС‚Р°С‚СЊСЏ СЃРѕС…СЂР°РЅРµРЅР°', 's');
+    toast('Статья сохранена', 's');
     var a = await api('getArticles'); if (a) ST.articles = a;
     renderCatTree();
   },
   onDelete: async function(id) {
     await api('deleteArticle', { id: id });
-    toast('РЎС‚Р°С‚СЊСЏ СѓРґР°Р»РµРЅР°', 's');
+    toast('Статья удалена', 's');
     var a = await api('getArticles'); if (a) ST.articles = a;
     renderCatTree();
   },
   afterMount: function(mode, rec, form) {
-    form.fillField('cat_id', ST.cats.filter(function(c) { return c.op_type === _curCatTab; }), 'id', 'name', 'вЂ”');
+    form.fillField('cat_id', ST.cats.filter(function(c) { return c.op_type === _curCatTab; }), 'id', 'name', '—');
   }
 });
-
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 //  CATS + ARTICLES TREE
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// ════════════════════════════════════════════════════════════════
 function _catById(id) { return (ST.cats || []).find(function(x) { return x.id === id; }); }
 function _artById(id) { return (ST.articles || []).find(function(x) { return x.id === id; }); }
-
 async function loadCats() { renderCatTree(); }
-
 function showCatTab(tab, el) {
   _curCatTab = tab;
   document.querySelectorAll('#page-cats .ptab').forEach(function(x) { x.classList.remove('on'); });
   if (el) el.classList.add('on');
   renderCatTree();
 }
-
 function renderCatTree() {
   var cats = (ST.cats || []).filter(function(c) { return c.op_type === _curCatTab; });
   var tree = document.getElementById('catTree');
   if (!cats.length) {
-    tree.innerHTML = '<div style="padding:24px;text-align:center;color:var(--tx3)">РќРµС‚ РєР°С‚РµРіРѕСЂРёР№</div>';
+    tree.innerHTML = '<div style="padding:24px;text-align:center;color:var(--tx3)">Нет категорий</div>';
     return;
   }
   tree.innerHTML = cats.map(function(cat) {
     var arts = (ST.articles || []).filter(function(a) { return a.cat_id === cat.id; });
-    var icon = _curCatTab === 'РџСЂРёС…РѕРґ' ? 'в†‘' : 'в†“';
+    var icon = _curCatTab === 'Приход' ? '↑' : '↓';
     return '<div class="ct-grp">' +
       '<div class="ct-hd">' +
         '<span>' + icon + '</span>' +
         '<span>' + esc(cat.name) + '</span>' +
         '<span class="badge bgr" style="margin-left:auto">' + arts.length + '</span>' +
-        '<button class="btn-icon" onclick="catForm.openView(_catById(' + cat.id + '))" style="margin-left:4px">вњЏпёЏ</button>' +
+        '<button class="btn-icon" onclick="catForm.openView(_catById(' + cat.id + '))" style="margin-left:4px">✏️</button>' +
       '</div>' +
       '<div class="ct-rows">' +
         (arts.map(function(a) {
           return '<div class="ct-row">' +
-            '<span class="ct-rn">вЂў ' + esc(a.name) + '</span>' +
-            '<button class="btn-icon" onclick="articleForm.openView(_artById(' + a.id + '))">вњЏпёЏ</button>' +
+            '<span class="ct-rn">• ' + esc(a.name) + '</span>' +
+            '<button class="btn-icon" onclick="articleForm.openView(_artById(' + a.id + '))">✏️</button>' +
           '</div>';
-        }).join('') || '<div style="color:var(--tx3);font-size:.7rem;padding:4px 0">РќРµС‚ СЃС‚Р°С‚РµР№</div>') +
+        }).join('') || '<div style="color:var(--tx3);font-size:.7rem;padding:4px 0">Нет статей</div>') +
       '</div></div>';
   }).join('');
 }
