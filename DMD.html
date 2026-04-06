@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DMD - Master Data Management</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Настройка Tailwind (опционально) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    }
+  </style>
+
+  <!-- Babel для компиляции JSX "на лету" -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans antialiased">
+  <div id="root"></div>
+
+  <!-- Основной код приложения -->
+  <script type="text/babel" data-type="module">
+    // Подтягиваем зависимости через ESM-провайдер
+    import React, { useState, useRef, useMemo } from 'https://esm.sh/react@18.2.0';
+    import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+    import { 
+      Settings, Box, Plus, Trash2, Save, X, Edit2, List, 
+      ChevronLeft, BookOpen, FileJson, Download, Upload, 
+      HelpCircle, FileText, GripVertical, PlusCircle, FunctionSquare,
+      LayoutGrid, Table, CheckCircle, AlertCircle, Palette
+    } from 'https://esm.sh/lucide-react@0.292.0';
+
+    const generateId = () => Math.random().toString(36).substr(2, 9);
+
+    // --- КОНТЕКСТ ФУНКЦИЙ EXCEL ---
+    const excelFunctions = {
+      СЦЕПИТЬ: (...args) => args.join(''),
+      ПСТР: (text, start, num) => String(text).substr(start - 1, num),
+      ЛЕВСИМВ: (text, num = 1) => String(text).slice(0, num),
+      ПРАВСИМВ: (text, num = 1) => String(text).slice(-num),
+      СЖПРОБЕЛЫ: (text) => String(text).trim(),
+      ДЛСТР: (text) => String(text).length,
+      ПОИСК: (find, text) => { const idx = String(text).indexOf(find); return idx >= 0 ? idx + 1 : 0; },
+      ТЕКСТ: (val) => String(val),
+      РАЗНДАТ: (start, end, unit) => {
+        const d1 = new Date(start); const d2 = new Date(end);
+        if (isNaN(d1) || isNaN(d2)) return 0;
+        const diffTime = Math.abs(d2 - d1);
+        if (unit === 'd' || unit === 'д') return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        if (unit === 'm' || unit === 'м') return Math.floor(diffTime / (1000 * 60 * 60 * 24 * 30.44));
+        if (unit === 'y' || unit === 'г') return Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365.25));
+        return diffTime;
+      },
+      ТДАТА: () => new Date().toLocaleString(),
+      СЕГОДНЯ: () => new Date().toLocaleDateString(),
+      ДЕНЬ: (d) => new Date(d).getDate(),
+      МЕСЯЦ: (d) => new Date(d).getMonth() + 1,
+      ГОД: (d) => new Date(d).getFullYear(),
+      ДЕНЬНЕДЕЛИ: (d) => { const day = new Date(d).getDay(); return day === 0 ? 7 : day; },
+      ЕСЛИ: (cond, t, f) => cond ? t : f,
+      И: (...args) => args.every(Boolean),
+      ИЛИ: (...args) => args.some(Boolean),
+      НЕ: (cond) => !cond
+    };
+
+    // --- УТИЛИТЫ ДЛЯ ЦВЕТА ---
+    const hexToRgb = (hex) => {
+      let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 0, g: 0, b: 0 };
+    };
+
+    const rgbToHex = (r, g, b) => {
+      return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).padStart(6, '0');
+    };
+
+    // --- КОМПОНЕНТ РЕДАКТОРА ФОРМУЛ ---
+    const FormulaInput = ({ attr, allAttributes, onChange }) => {
+      const inputRef = useRef(null);
+      const [showHints, setShowHints] = useState(false);
+
+      const insertText = (text) => {
+        const input = inputRef.current;
+        if (!input) return;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const val = input.value;
+        const newVal = val.substring(0, start) + text + val.substring(end);
+        onChange(newVal);
+        setTimeout(() => { input.focus(); input.setSelectionRange(start + text.length, start + text.length); }, 0);
+      };
+
+      return (
+        <div className="w-full relative flex flex-col gap-1.5">
+          <input 
+            ref={inputRef} type="text" className="w-full px-3 py-2 text-sm border border-green-300 rounded bg-white focus:ring-2 focus:ring-green-500 font-mono"
+            value={attr.formula || ''} onChange={e => onChange(e.target.value)} placeholder='Напр: СЦЕПИТЬ({Бренд}, " ", {Модель})'
+          />
+          <div className="flex justify-between items-center bg-gray-50 p-1.5 rounded border">
+            <div className="flex flex-wrap gap-1">
+              {allAttributes.filter(a => a.id !== attr.id && a.name).map(a => (
+                <button key={a.id} type="button" onClick={() => insertText(`{${a.name}}`)} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium rounded hover:bg-blue-200 transition-colors">
+                  {a.name}
+                </button>
+              ))}
+              {allAttributes.length <= 1 && <span className="text-[10px] text-gray-400">Сначала создайте атрибуты</span>}
+            </div>
+            <button type="button" onClick={() => setShowHints(!showHints)} className="ml-2 px-2 py-1 text-[10px] bg-green-100 text-green-700 hover:bg-green-200 rounded font-bold flex items-center shrink-0">
+              <FunctionSquare size={12} className="mr-1"/> Функции
+            </button>
+          </div>
+          
+          {showHints && (
+            <div className="mt-1 p-2 bg-white border border-gray-200 rounded text-xs shadow-lg max-h-48 overflow-y-auto z-10 absolute top-full left-0 w-full">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                <div><strong className="text-gray-700">Текст:</strong><br/>
+                  <span className="text-blue-600 cursor-pointer hover:underline" onClick={()=>insertText('СЦЕПИТЬ(')}>СЦЕПИТЬ(т1, т2)</span>, 
+                  <span className="text-blue-600 cursor-pointer hover:underline" onClick={()=>insertText('ПСТР(')}>ПСТР(текст, нач, кол)</span>, 
+                  <span className="text-blue-600 cursor-pointer hover:underline" onClick={()=>insertText('ЛЕВСИМВ(')}>ЛЕВСИМВ(т, кол)</span>, 
+                  <span className="text-blue-600 cursor-pointer hover:underline" onClick={()=>insertText('СЖПРОБЕЛЫ(')}>СЖПРОБЕЛЫ(т)</span>
+                </div>
+                <div><strong className="text-gray-700">Даты:</strong><br/>
+                  <span className="text-blue-600 cursor-pointer hover:underline" onClick={()=>insertText('СЕГОДНЯ()')}>СЕГОДНЯ()</span>, 
+                  <span className="text-blue-600 cursor-pointer hover:underline" onClick={()=>insertText('РАЗНДАТ(')}>РАЗНДАТ(д1, д2, "д")</span>, 
+                  <span className="text-blue-600 cursor-pointer hover:underline" onClick={()=>insertText('ГОД(')}>ГОД(д)</span>
+                </div>
+                <div className="col-span-2"><strong className="text-gray-700">Логические & Математика:</strong><br/>
+                  <span className="text-blue-600 cursor-pointer hover:underline" onClick={()=>insertText('ЕСЛИ(')}>ЕСЛИ(условие, да, нет)</span>, 
+                  <span className="text-gray-600">+ - * / &gt; &lt; ==</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('templates'); // 'templates' | 'products' | 'dictionaries' | 'docs'
+      const [docsTab, setDocsTab] = useState('architecture'); // 'architecture' | 'tables' | 'fsd'
+
+      // --- Состояние БД ---
+      const [dictionaries, setDictionaries] = useState([]);
+      const [templates, setTemplates] = useState([]);
+      const [products, setProducts] = useState([]);
+
+      // --- Настройки UI ---
+      const [productViewMode, setProductViewMode] = useState('cards'); // 'cards' | 'table'
+
+      // --- Состояния форм ---
+      const [editingDict, setEditingDict] = useState(null);
+      const [editingTemplate, setEditingTemplate] = useState(null);
+      const [editingProduct, setEditingProduct] = useState(null);
+
+      // --- Уведомления (Toasts) ---
+      const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
+      const notify = (message, type = 'error') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
+      };
+
+      // --- Состояние модального окна JSON ---
+      const [jsonModal, setJsonModal] = useState({ isOpen: false, mode: 'export', content: '', title: '' });
+      const [jsonInput, setJsonInput] = useState('');
+
+      // --- Drag & Drop ---
+      const [draggedAttrIndex, setDraggedAttrIndex] = useState(null);
+
+      // === ЛОГИКА СПРАВОЧНИКОВ ===
+      const handleCreateDict = () => setEditingDict({ id: generateId(), name: '', items: [], rawItems: '', isNew: true });
+      const handleEditDict = (dict) => setEditingDict({ ...dict, rawItems: dict.items.join(', ') });
+
+      const handleSaveDict = () => {
+        if (!editingDict.name.trim()) return notify('Укажите название справочника', 'error');
+        const parsedItems = editingDict.rawItems !== undefined 
+          ? editingDict.rawItems.split(',').map(s => s.trim()).filter(s => s) 
+          : editingDict.items;
+        const dictToSave = { id: editingDict.id, name: editingDict.name, items: parsedItems };
+
+        setDictionaries(prev => editingDict.isNew ? [...prev, dictToSave] : prev.map(d => d.id === editingDict.id ? dictToSave : d));
+        setEditingDict(null);
+        notify('Справочник сохранен', 'success');
+      };
+
+      const handleDeleteDict = (id) => {
+        if (templates.some(t => t.attributes.some(a => a.type === 'reference' && a.dictionaryId === id))) {
+          return notify('Справочник используется в одном из шаблонов. Удаление невозможно.', 'error');
+        }
+        setDictionaries(prev => prev.filter(d => d.id !== id));
+        notify('Справочник удален', 'success');
+      };
+
+      // === ЛОГИКА ШАБЛОНОВ ===
+      const handleCreateTemplate = () => setEditingTemplate({ id: generateId(), name: '', description: '', attributes: [], isNew: true });
+
+      const handleAddAttribute = (index = -1) => {
+        const newAttr = { 
+          id: generateId(), name: '', type: 'string', options: '', 
+          dictionaryId: '', isRequired: false, displayStyle: 'list', 
+          formula: '', description: '' 
+        };
+        setEditingTemplate(prev => {
+          const attrs = [...prev.attributes];
+          if (index === -1 || index >= attrs.length) attrs.push(newAttr);
+          else attrs.splice(index + 1, 0, newAttr);
+          return { ...prev, attributes: attrs };
+        });
+      };
+
+      const handleUpdateAttribute = (id, field, value) => {
+        setEditingTemplate(prev => ({
+          ...prev, attributes: prev.attributes.map(attr => attr.id === id ? { ...attr, [field]: value } : attr)
+        }));
+      };
+
+      const handleRemoveAttribute = (id) => setEditingTemplate(prev => ({ ...prev, attributes: prev.attributes.filter(attr => attr.id !== id) }));
+
+      const handleDragStart = (e, index) => { setDraggedAttrIndex(index); e.dataTransfer.effectAllowed = "move"; };
+      const handleDragOver = (e, index) => {
+        e.preventDefault();
+        if (draggedAttrIndex === null || draggedAttrIndex === index) return;
+        setEditingTemplate(prev => {
+          const newAttrs = [...(prev.attributes || [])];
+          const draggedItem = newAttrs[draggedAttrIndex];
+          newAttrs.splice(draggedAttrIndex, 1);
+          newAttrs.splice(index, 0, draggedItem);
+          return { ...prev, attributes: newAttrs };
+        });
+        setDraggedAttrIndex(index);
+      };
+      const handleDragEnd = () => setDraggedAttrIndex(null);
+
+      const handleSaveTemplate = () => {
+        if (!(editingTemplate.name || '').trim()) return notify('Укажите название шаблона', 'error');
+        for (const attr of (editingTemplate.attributes || [])) {
+          if (!(attr.name || '').trim()) return notify('У всех атрибутов должно быть заполнено название', 'error');
+          if ((attr.type === 'enum_radio' || attr.type === 'enum_checkbox') && !(attr.options || '').trim()) return notify(`Укажите опции для атрибута "${attr.name}"`, 'error');
+          if (attr.type === 'reference' && !attr.dictionaryId) return notify(`Выберите справочник для атрибута "${attr.name}"`, 'error');
+          if (attr.type === 'calculated' && !(attr.formula || '').trim()) return notify(`Укажите формулу для атрибута "${attr.name}"`, 'error');
+        }
+        setTemplates(prev => {
+          if (editingTemplate.isNew) {
+            const { isNew, ...newTemplate } = editingTemplate;
+            return [...prev, newTemplate];
+          }
+          return prev.map(t => t.id === editingTemplate.id ? editingTemplate : t);
+        });
+        setEditingTemplate(null);
+        notify('Шаблон успешно сохранен', 'success');
+      };
+
+      const handleDeleteTemplate = (id) => {
+        if (products.some(p => p.templateId === id)) return notify('Невозможно удалить: существуют связанные товары.', 'error');
+        setTemplates(prev => prev.filter(t => t.id !== id));
+        notify('Шаблон удален', 'success');
+      };
+
+      // === ЛОГИКА ТОВАРОВ И ФОРМУЛ ===
+      const handleCreateProduct = () => setEditingProduct({ id: generateId(), templateId: '', name: '', sku: '', attributeValues: {}, isNew: true });
+      const handleProductAttributeChange = (attrId, value) => setEditingProduct(prev => ({ ...prev, attributeValues: { ...prev.attributeValues, [attrId]: value } }));
+
+      const handleCheckboxChange = (attrId, option, isChecked) => {
+        setEditingProduct(prev => {
+          const currentArr = Array.isArray(prev.attributeValues[attrId]) ? prev.attributeValues[attrId] : [];
+          return { ...prev, attributeValues: { ...prev.attributeValues, [attrId]: isChecked ? [...currentArr, option] : currentArr.filter(i => i !== option) } };
+        });
+      };
+
+      const handleMultiSelectChange = (attrId, selectedOptions) => setEditingProduct(prev => ({ ...prev, attributeValues: { ...prev.attributeValues, [attrId]: Array.from(selectedOptions, o => o.value) } }));
+
+      const handleSaveProduct = () => {
+        if (!editingProduct.name.trim()) return notify('Укажите наименование номенклатуры', 'error');
+        if (!editingProduct.templateId) return notify('Выберите шаблон (категорию) товара', 'error');
+        
+        const template = templates.find(t => t.id === editingProduct.templateId);
+        if (template) {
+          for (const attr of template.attributes) {
+            if (attr.isRequired && attr.type !== 'calculated') {
+              const val = editingProduct.attributeValues[attr.id];
+              if (val == null || (typeof val === 'string' && !val.trim()) || (Array.isArray(val) && !val.length)) {
+                return notify(`Обязательное поле "${attr.name}" не заполнено!`, 'error');
+              }
+            }
+          }
+        }
+        setProducts(prev => editingProduct.isNew ? [...prev, { ...editingProduct, isNew: undefined }] : prev.map(p => p.id === editingProduct.id ? editingProduct : p));
+        setEditingProduct(null);
+        notify('Товар успешно сохранен', 'success');
+      };
+
+      const handleDeleteProduct = (id) => {
+        setProducts(prev => prev.filter(p => p.id !== id));
+        notify('Товар удален', 'success');
+      };
+
+      const evaluateFormula = (formula, templateAttrs, attributeValues) => {
+        if (!formula) return '';
+        let parsedFormula = formula;
+        
+        templateAttrs.forEach(a => {
+          const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`\\{${escapeRegExp(a.name)}\\}`, 'g');
+          const val = attributeValues[a.id];
+          let replacer = '""';
+          
+          if (val !== undefined && val !== null && val !== '') {
+            if (!isNaN(Number(val)) && (a.type === 'integer' || a.type === 'float')) {
+              replacer = Number(val);
+            } else {
+              replacer = JSON.stringify(val); 
+            }
+          } else if (a.type === 'integer' || a.type === 'float') {
+            replacer = 0;
+          }
+          parsedFormula = parsedFormula.replace(regex, replacer);
+        });
+
+        try {
+          const fnNames = Object.keys(excelFunctions);
+          const fnValues = Object.values(excelFunctions);
+          const fn = new Function(...fnNames, `return ${parsedFormula};`);
+          return fn(...fnValues);
+        } catch (e) {
+          return '#ОШИБКА';
+        }
+      };
+
+      // === ЛОГИКА JSON ===
+      const openJsonModal = (mode, data = null, title = '') => {
+        setJsonModal({ isOpen: true, mode, title });
+        if (mode === 'export' || mode === 'schema') {
+          setJsonInput(JSON.stringify(data, null, 2));
+        } else {
+          setJsonInput('');
+        }
+      };
+
+      const handleImportJson = () => {
+        try {
+          if (!jsonInput.trim()) throw new Error("JSON пуст");
+          const parsed = JSON.parse(jsonInput);
+          const templatesToAdd = Array.isArray(parsed) ? parsed : [parsed];
+          
+          if (!templatesToAdd.every(t => t.id && t.name && Array.isArray(t.attributes))) {
+            throw new Error('Неверная структура JSON (отсутствует id, name или attributes)');
+          }
+
+          setTemplates(prev => {
+            const newT = [...prev];
+            templatesToAdd.forEach(t => { 
+              const idx = newT.findIndex(ext => ext.id === t.id); 
+              if (idx >= 0) newT[idx] = t; 
+              else newT.push(t); 
+            });
+            return newT;
+          });
+          notify('Шаблоны успешно импортированы!', 'success');
+          setJsonModal({ isOpen: false, mode: 'export', title: '' });
+          setJsonInput('');
+        } catch (e) { 
+          notify(`Ошибка импорта: ${e.message}`, 'error'); 
+        }
+      };
+
+      const handleCopyToClipboard = (textToCopy) => {
+        try {
+          const textArea = document.createElement("textarea");
+          textArea.value = textToCopy || jsonInput;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-9999px";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          notify('Скопировано в буфер обмена!', 'success');
+        } catch (err) {
+          notify('Не удалось скопировать. Выделите и скопируйте вручную.', 'error');
+        }
+      };
+
+      const renderAttributeValueForTable = (attr, product, template) => {
+        if (attr.type === 'calculated') return evaluateFormula(attr.formula, template.attributes, product.attributeValues);
+        const val = product.attributeValues[attr.id];
+        if (val === undefined || val === null || val === '') return <span className="text-gray-300">-</span>;
+        if (attr.type === 'boolean') return val === 'true' || val === true ? <span className="text-green-600 font-medium">Да</span> : <span className="text-gray-400">Нет</span>;
+        if (attr.type === 'color_rgb') return (
+          <div className="flex items-center gap-1.5">
+            <span className="w-3.5 h-3.5 rounded-sm shadow-sm border border-gray-200" style={{backgroundColor: val}}></span>
+            <span className="font-mono text-xs text-gray-600">{val}</span>
+          </div>
+        );
+        if (Array.isArray(val)) return val.join(', ');
+        return String(val);
+      };
+
+      // === РЕНДЕР: ШАБЛОНЫ ===
+      const renderTemplateEditor = () => (
+        <div className="bg-white md:rounded-lg md:shadow-sm md:border border-gray-200 min-h-[calc(100vh-64px)] md:min-h-0 flex flex-col">
+          <div className="flex items-center p-4 border-b md:p-6 bg-gray-50/50">
+            <button onClick={() => setEditingTemplate(null)} className="mr-3 p-2 -ml-2 text-gray-500 hover:text-gray-700 md:hidden"><ChevronLeft size={24} /></button>
+            <h2 className="text-lg font-bold text-gray-800 flex-1">{editingTemplate.isNew ? 'Новый шаблон' : 'Редактирование шаблона'}</h2>
+            <button onClick={() => setEditingTemplate(null)} className="hidden md:block text-gray-500 hover:text-gray-700 bg-white border shadow-sm p-1.5 rounded-md"><X size={18} /></button>
+          </div>
+
+          <div className="p-4 md:p-6 space-y-6 flex-1 overflow-y-auto bg-gray-50/30">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-lg border shadow-sm">
+              <div className="col-span-1 md:col-span-2">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Наименование шаблона</label>
+                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 font-medium" value={editingTemplate.name} onChange={e => setEditingTemplate({ ...editingTemplate, name: e.target.value })} placeholder="Например: Смартфоны" />
+              </div>
+              <div className="col-span-1 md:col-span-2">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Описание шаблона (необязательно)</label>
+                <textarea className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm h-16 resize-none" value={editingTemplate.description || ''} onChange={e => setEditingTemplate({ ...editingTemplate, description: e.target.value })} placeholder="Для чего используется этот шаблон..." />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <label className="block text-sm font-bold text-gray-800">Атрибуты спецификации</label>
+                {editingTemplate.attributes.length === 0 && (
+                  <button onClick={() => handleAddAttribute(-1)} className="flex items-center text-sm font-medium text-white bg-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-700 shadow-sm"><Plus size={16} className="mr-1" /> Добавить</button>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {editingTemplate.attributes.map((attr, index) => (
+                  <div 
+                    key={attr.id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={(e) => handleDragOver(e, index)} onDragEnd={handleDragEnd}
+                    className={`bg-white p-3 rounded-lg border shadow-sm transition-all flex flex-col gap-2 ${draggedAttrIndex === index ? 'opacity-50 ring-2 ring-blue-400' : 'hover:border-gray-300'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing p-1"><GripVertical size={18}/></div>
+                      <input type="text" className="flex-1 min-w-[120px] px-3 py-1.5 border border-gray-300 rounded text-sm font-medium focus:ring-2 focus:ring-blue-500" value={attr.name} onChange={e => handleUpdateAttribute(attr.id, 'name', e.target.value)} placeholder="Название (напр. Цвет)" />
+                      
+                      <select className="w-40 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50" value={attr.type} onChange={e => handleUpdateAttribute(attr.id, 'type', e.target.value)}>
+                        <optgroup label="Базовые">
+                          <option value="string">Текст</option>
+                          <option value="integer">Целое число</option>
+                          <option value="float">Дробное число</option>
+                          <option value="boolean">Да/Нет</option>
+                        </optgroup>
+                        <optgroup label="Продвинутые">
+                          <option value="date">Дата</option>
+                          <option value="datetime">Дата и время</option>
+                          <option value="color_rgb">Цвет (RGB/Палитра)</option>
+                          <option value="calculated">Расчетный (Формула)</option>
+                        </optgroup>
+                        <optgroup label="Списки">
+                          <option value="enum_radio">Один выбор</option>
+                          <option value="enum_checkbox">Множественный</option>
+                          <option value="reference">Из справочника</option>
+                        </optgroup>
+                      </select>
+
+                      {attr.type !== 'calculated' && (
+                        <label className="hidden md:flex items-center gap-1.5 cursor-pointer bg-gray-50 px-2 py-1.5 rounded border text-xs text-gray-600 hover:bg-gray-100">
+                          <input type="checkbox" checked={attr.isRequired || false} onChange={e => handleUpdateAttribute(attr.id, 'isRequired', e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" /> Обяз.
+                        </label>
+                      )}
+
+                      <div className="flex items-center gap-1 border-l pl-2">
+                        <button onClick={() => handleAddAttribute(index)} title="Добавить атрибут ниже" className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><PlusCircle size={18}/></button>
+                        <button onClick={() => handleRemoveAttribute(attr.id)} title="Удалить атрибут" className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
+                      </div>
+                    </div>
+
+                    <div className="pl-8 flex flex-col md:flex-row gap-2 items-start">
+                      <input type="text" className="flex-1 w-full px-3 py-1 text-xs border border-transparent hover:border-gray-200 focus:border-gray-300 rounded bg-gray-50 focus:bg-white text-gray-600" value={attr.description || ''} onChange={e => handleUpdateAttribute(attr.id, 'description', e.target.value)} placeholder="Подсказка для заполняющего..." />
+                      
+                      {attr.type !== 'calculated' && (
+                        <label className="md:hidden flex items-center gap-1.5 cursor-pointer bg-gray-50 px-2 py-1 rounded border text-xs text-gray-600">
+                          <input type="checkbox" checked={attr.isRequired || false} onChange={e => handleUpdateAttribute(attr.id, 'isRequired', e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500" /> Обязательно
+                        </label>
+                      )}
+
+                      {(attr.type === 'enum_radio' || attr.type === 'enum_checkbox') && (
+                        <div className="flex gap-2 w-full md:w-auto">
+                          <input type="text" className="flex-1 md:w-48 px-3 py-1 text-xs border border-blue-200 rounded bg-blue-50 focus:bg-white" value={attr.options || ''} onChange={e => handleUpdateAttribute(attr.id, 'options', e.target.value)} placeholder="Варианты через запятую" />
+                          <select className="px-2 py-1 text-xs border border-gray-300 rounded bg-white" value={attr.displayStyle || 'list'} onChange={e => handleUpdateAttribute(attr.id, 'displayStyle', e.target.value)}><option value="list">Список</option><option value="dropdown">Выпадающий</option></select>
+                        </div>
+                      )}
+
+                      {attr.type === 'reference' && (
+                        <select className="w-full md:w-48 px-3 py-1 text-xs border border-purple-200 rounded bg-purple-50 focus:bg-white" value={attr.dictionaryId || ''} onChange={e => handleUpdateAttribute(attr.id, 'dictionaryId', e.target.value)}>
+                          <option value="">-- Выберите справочник --</option>
+                          {dictionaries.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      )}
+
+                      {attr.type === 'calculated' && (
+                        <div className="w-full md:w-[400px]">
+                          <FormulaInput attr={attr} allAttributes={editingTemplate.attributes} onChange={(val) => handleUpdateAttribute(attr.id, 'formula', val)} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4 border-t flex justify-end gap-3 bg-white">
+            <button onClick={() => setEditingTemplate(null)} className="px-5 py-2 text-sm text-gray-700 border border-gray-300 rounded-md font-medium hover:bg-gray-50">Отмена</button>
+            <button onClick={handleSaveTemplate} className="px-5 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md font-medium shadow-sm flex items-center"><Save size={16} className="mr-2"/>Сохранить</button>
+          </div>
+        </div>
+      );
+
+      // === РЕНДЕР: ТОВАРЫ ===
+      const renderProductEditor = () => {
+        const template = templates.find(t => t.id === editingProduct.templateId);
+
+        const renderInputForType = (attr) => {
+          const val = editingProduct.attributeValues[attr.id];
+          const baseClasses = "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white";
+
+          switch (attr.type) {
+            case 'string': return <input type="text" className={baseClasses} value={val || ''} onChange={e => handleProductAttributeChange(attr.id, e.target.value)} />;
+            case 'integer': return <input type="number" step="1" className={baseClasses} value={val || ''} onChange={e => handleProductAttributeChange(attr.id, e.target.value)} />;
+            case 'float': return <input type="number" step="any" className={baseClasses} value={val || ''} onChange={e => handleProductAttributeChange(attr.id, e.target.value)} />;
+            case 'boolean': return <select className={baseClasses} value={val || 'false'} onChange={e => handleProductAttributeChange(attr.id, e.target.value)}><option value="false">Нет</option><option value="true">Да</option></select>;
+            case 'date': return <input type="date" className={baseClasses} value={val || ''} onChange={e => handleProductAttributeChange(attr.id, e.target.value)} />;
+            case 'time': return <input type="time" className={baseClasses} value={val || ''} onChange={e => handleProductAttributeChange(attr.id, e.target.value)} />;
+            case 'datetime': return <input type="datetime-local" className={baseClasses} value={val || ''} onChange={e => handleProductAttributeChange(attr.id, e.target.value)} />;
+            
+            case 'color_rgb': {
+              const hexValue = val || '#000000';
+              const rgb = hexToRgb(hexValue);
+              const handleColorChange = (newHex) => handleProductAttributeChange(attr.id, newHex);
+              const handleSliderChange = (channel, numVal) => {
+                 const newRgb = { ...rgb, [channel]: parseInt(numVal) };
+                 handleColorChange(rgbToHex(newRgb.r, newRgb.g, newRgb.b));
+              };
+              return (
+                <div className="flex flex-col gap-4 p-3 border border-gray-200 rounded-md bg-gray-50/50">
+                  <div className="flex items-center gap-3">
+                    <input type="color" value={hexValue} onChange={e => handleColorChange(e.target.value)} className="w-12 h-10 p-0.5 bg-white border border-gray-300 rounded cursor-pointer" />
+                    <span className="font-mono text-sm uppercase text-gray-700 bg-white px-2 py-1 border rounded">{hexValue}</span>
+                    <div className="ml-auto w-10 h-10 rounded shadow-inner border border-gray-200" style={{backgroundColor: hexValue}}></div>
+                  </div>
+                  <div className="space-y-3 bg-white p-3 rounded border border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-red-500 w-4">R</span>
+                      <input type="range" min="0" max="255" value={rgb.r} onChange={e => handleSliderChange('r', e.target.value)} className="flex-1 accent-red-500" />
+                      <span className="text-xs font-mono w-6 text-right">{rgb.r}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-green-500 w-4">G</span>
+                      <input type="range" min="0" max="255" value={rgb.g} onChange={e => handleSliderChange('g', e.target.value)} className="flex-1 accent-green-500" />
+                      <span className="text-xs font-mono w-6 text-right">{rgb.g}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-blue-500 w-4">B</span>
+                      <input type="range" min="0" max="255" value={rgb.b} onChange={e => handleSliderChange('b', e.target.value)} className="flex-1 accent-blue-500" />
+                      <span className="text-xs font-mono w-6 text-right">{rgb.b}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            case 'calculated': 
+              const result = evaluateFormula(attr.formula, template.attributes, editingProduct.attributeValues);
+              return (
+                <div className="w-full px-3 py-2 text-sm border border-green-300 rounded-md bg-green-50/50 text-gray-800 font-mono overflow-x-auto whitespace-nowrap">
+                  {result !== '' ? String(result) : '-'}
+                </div>
+              );
+
+            case 'enum_radio': {
+              const radioOpts = (attr.options || '').split(',').map(s => s.trim()).filter(Boolean);
+              if (attr.displayStyle === 'dropdown') return <select className={baseClasses} value={val || ''} onChange={e => handleProductAttributeChange(attr.id, e.target.value)}><option value="">-- Выберите --</option>{radioOpts.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}</select>;
+              return <div className="space-y-2 mt-2">{radioOpts.map((opt, i) => <label key={i} className="flex items-center gap-2 cursor-pointer"><input type="radio" name={`radio_${attr.id}`} value={opt} checked={val === opt} onChange={e => handleProductAttributeChange(attr.id, e.target.value)} className="text-blue-600 focus:ring-blue-500 h-4 w-4" /><span className="text-sm text-gray-700">{opt}</span></label>)}</div>;
+            }
+            case 'enum_checkbox': {
+              const checkOpts = (attr.options || '').split(',').map(s => s.trim()).filter(Boolean);
+              const selectedArr = Array.isArray(val) ? val : [];
+              if (attr.displayStyle === 'dropdown') return <div><select multiple className={`${baseClasses} h-24`} value={selectedArr} onChange={e => handleMultiSelectChange(attr.id, e.target.selectedOptions)}>{checkOpts.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}</select><p className="text-[10px] text-gray-500 mt-1">Зажмите Ctrl для мнж. выбора</p></div>;
+              return <div className="space-y-2 mt-2">{checkOpts.map((opt, i) => <label key={i} className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={selectedArr.includes(opt)} onChange={e => handleCheckboxChange(attr.id, opt, e.target.checked)} className="text-blue-600 rounded focus:ring-blue-500 h-4 w-4" /><span className="text-sm text-gray-700">{opt}</span></label>)}</div>;
+            }
+            case 'reference': {
+              const dict = dictionaries.find(d => d.id === attr.dictionaryId);
+              return <select className={baseClasses} value={val || ''} onChange={e => handleProductAttributeChange(attr.id, e.target.value)}><option value="">-- Выберите значение --</option>{dict?.items.map((item, i) => <option key={i} value={item}>{item}</option>)}</select>;
+            }
+            default: return null;
+          }
+        };
+
+        return (
+          <div className="bg-white md:rounded-lg md:shadow-sm md:border border-gray-200 min-h-[calc(100vh-64px)] md:min-h-0 flex flex-col">
+            <div className="flex items-center p-4 border-b md:p-6 bg-gray-50/50">
+              <button onClick={() => setEditingProduct(null)} className="mr-3 p-2 -ml-2 text-gray-500 md:hidden"><ChevronLeft size={24} /></button>
+              <h2 className="text-lg font-bold text-gray-800 flex-1">{editingProduct.isNew ? 'Новая позиция' : 'Редактирование'}</h2>
+              <button onClick={() => setEditingProduct(null)} className="hidden md:block text-gray-500 bg-white border p-1.5 rounded-md hover:bg-gray-100"><X size={18} /></button>
+            </div>
+
+            <div className="p-4 md:p-6 space-y-6 flex-1 overflow-y-auto bg-gray-50/30">
+              <div className="bg-white p-5 rounded-lg border shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Шаблон (Категория)</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50" value={editingProduct.templateId} onChange={e => setEditingProduct({...editingProduct, templateId: e.target.value, attributeValues: {}})} disabled={!editingProduct.isNew}>
+                    <option value="">-- Выберите --</option>{templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Артикул / SKU</label>
+                  <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" value={editingProduct.sku} onChange={e => setEditingProduct({ ...editingProduct, sku: e.target.value })} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Наименование</label>
+                  <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" value={editingProduct.name} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+                </div>
+              </div>
+
+              {template && template.attributes.length > 0 && (
+                <div>
+                  <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center border-b pb-2"><List size={18} className="mr-2 text-blue-600"/> Спецификация</h3>
+                  {template.description && <p className="text-sm text-gray-500 mb-4 bg-blue-50/50 p-2 rounded border border-blue-100">{template.description}</p>}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {template.attributes.map(attr => (
+                      <div key={attr.id} className={`bg-white p-4 rounded-lg border shadow-sm flex flex-col ${attr.type === 'calculated' ? 'border-green-200 bg-green-50/20' : 'border-gray-200'}`}>
+                        <label className="block text-sm font-semibold text-gray-800 mb-1">
+                          {attr.name} 
+                          {attr.isRequired && attr.type !== 'calculated' && <span className="text-red-500 ml-1">*</span>}
+                          {attr.type === 'calculated' && <span className="text-green-600 ml-1 text-xs bg-green-100 px-1 rounded" title="Формула">fx</span>}
+                          {attr.type === 'color_rgb' && <Palette size={14} className="inline ml-1 text-pink-500" />}
+                        </label>
+                        {attr.description && <p className="text-[11px] text-gray-400 mb-2 leading-tight">{attr.description}</p>}
+                        <div className="mt-auto pt-1">{renderInputForType(attr)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t flex justify-end gap-3 bg-white">
+              <button onClick={() => setEditingProduct(null)} className="px-5 py-2 text-sm text-gray-700 border rounded-md font-medium hover:bg-gray-50">Отмена</button>
+              <button onClick={handleSaveProduct} className="px-5 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md font-medium shadow-sm flex items-center"><Save size={16} className="mr-2"/>Сохранить</button>
+            </div>
+          </div>
+        );
+      };
+
+      const isEditing = editingTemplate || editingProduct || editingDict;
+
+      const groupedProducts = useMemo(() => {
+        return templates.map(t => ({
+          template: t,
+          items: products.filter(p => p.templateId === t.id)
+        })).filter(g => g.items.length > 0);
+      }, [templates, products]);
+
+      const uncategorizedProducts = products.filter(p => !p.templateId || !templates.find(t => t.id === p.templateId));
+
+      const schemaDefinitionJson = {
+        "описание": "Схема объекта Шаблона (Template MDM)",
+        "структура": {
+          "id": "Строка (Уникальный идентификатор)",
+          "name": "Строка (Название шаблона спецификации)",
+          "description": "Строка (Необязательное описание шаблона)",
+          "attributes": [
+            {
+              "id": "Строка (Уникальный ID атрибута)",
+              "name": "Строка (Название свойства/колонки)",
+              "type": "string | integer | float | boolean | date | time | datetime | color_rgb | enum_radio | enum_checkbox | reference | calculated",
+              "description": "Строка (Подсказка для заполняющего)",
+              "isRequired": "Логическое (true/false) - обязательно ли поле",
+              "displayStyle": "list | dropdown (Применяется только для enum_radio / enum_checkbox)",
+              "options": "Строка через запятую (Применяется только для enum_radio / enum_checkbox)",
+              "dictionaryId": "Строка с ID справочника (Применяется только для типа reference)",
+              "formula": "Строка с формулой вычисления (Применяется только для типа calculated)"
+            }
+          ]
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gray-100 md:bg-gray-50 flex flex-col md:flex-row font-sans text-gray-900 relative">
+          
+          {toast.show && (
+            <div className={`fixed top-4 right-4 md:top-8 md:right-8 z-50 px-5 py-3 rounded-lg shadow-2xl font-medium flex items-center transform transition-all duration-300 translate-y-0 ${toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
+              {toast.type === 'error' ? <AlertCircle size={20} className="mr-3" /> : <CheckCircle size={20} className="mr-3" />}
+              {toast.message}
+            </div>
+          )}
+
+          <aside className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col h-screen sticky top-0 z-10">
+            <div className="p-5 border-b border-gray-200">
+              <h1 className="text-xl font-black text-gray-800 flex items-center tracking-tight"><Box className="mr-2 text-blue-600" /> MDM Pro</h1>
+              <p className="text-xs text-gray-500 mt-1">Master Data Management</p>
+            </div>
+            <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+              {[{ id: 'templates', icon: Settings, label: 'Шаблоны' }, { id: 'dictionaries', icon: BookOpen, label: 'Справочники' }, { id: 'products', icon: List, label: 'Номенклатура' }, { id: 'docs', icon: FileText, label: 'Документация' }].map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-lg transition-colors ${activeTab === tab.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>
+                  <tab.icon size={18} className="mr-3" /> {tab.label}
+                </button>
+              ))}
+            </nav>
+          </aside>
+
+          {!isEditing && (
+            <header className="md:hidden bg-white shadow-sm border-b px-4 py-4 flex items-center z-10 sticky top-0">
+              <Box className="mr-2 text-blue-600" size={24} />
+              <h1 className="text-lg font-black text-gray-800 tracking-tight">MDM Pro</h1>
+            </header>
+          )}
+
+          <main className={`flex-1 w-full max-w-7xl mx-auto overflow-x-hidden ${!isEditing ? 'pb-24 md:pb-8' : ''} md:p-8 relative`}>
+            
+            {activeTab === 'docs' && (
+              <div className="p-4 md:p-0 flex flex-col h-full">
+                <div className="mb-6 border-b pb-4 flex flex-wrap gap-4 justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800 flex items-center"><BookOpen className="mr-2"/> Техническая документация</h2>
+                    <p className="text-gray-500 mt-1">Архитектура базы данных, EAV-модель и Functional Specification Document (FSD).</p>
+                  </div>
+                  <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <button onClick={() => setDocsTab('architecture')} className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${docsTab === 'architecture' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}>Архитектура и БД</button>
+                    <button onClick={() => setDocsTab('fsd')} className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${docsTab === 'fsd' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}>FSD Интеграция</button>
+                  </div>
+                </div>
+
+                {docsTab === 'architecture' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8 space-y-8 prose prose-blue max-w-none text-sm md:text-base overflow-y-auto">
+                    <section>
+                      <h3 className="text-xl font-bold text-gray-900 border-b pb-2">1. Механика работы и Логика (EAV Паттерн)</h3>
+                      <p className="mt-3 text-gray-700">
+                        Система построена на архитектуре EAV (Entity-Attribute-Value), что обеспечивает гибкость в создании номенклатуры с изменяющимся набором характеристик без жесткого изменения схемы базы данных (ALTER TABLE). 
+                        <br/><br/>Логика работы делится на 3 этапа:
+                        <br/>1. <strong>Справочники (Dictionaries):</strong> Изолированные таблицы-словари (Бренды, Цвета, Страны), используемые для ссылочной целостности.
+                        <br/>2. <strong>Шаблоны (Templates):</strong> Каркас (схема), описывающий, какие <strong>Атрибуты (Attributes)</strong> должны быть у товара данной категории. 
+                        <br/>3. <strong>Номенклатура (Products):</strong> Экземпляры сущностей, которые хранят реальные значения согласно правилам выбранного шаблона в формате JSON.
+                      </p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-xl font-bold text-gray-900 border-b pb-2">2. Описание системных таблиц (Схема БД)</h3>
+                      
+                      <div className="space-y-6 mt-4">
+                        <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
+                          <h4 className="font-bold text-purple-800 text-lg mb-2">Таблица: Dictionaries (Справочники)</h4>
+                          <p className="text-sm text-gray-700 mb-3">Хранит одномерные списки значений для использования в выпадающих списках номенклатуры.</p>
+                          <table className="min-w-full bg-white text-sm text-left border">
+                            <thead className="bg-gray-100"><tr><th className="px-3 py-2 border">Поле</th><th className="px-3 py-2 border">Тип (SQL)</th><th className="px-3 py-2 border">Описание</th></tr></thead>
+                            <tbody>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">id</td><td className="px-3 py-2 border text-gray-500">VARCHAR (PK)</td><td className="px-3 py-2 border">Уникальный идентификатор</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">name</td><td className="px-3 py-2 border text-gray-500">VARCHAR(255)</td><td className="px-3 py-2 border">Название справочника (напр. "Бренды телефонов")</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">items</td><td className="px-3 py-2 border text-gray-500">JSON / JSONB</td><td className="px-3 py-2 border">Массив строк со значениями: <code>["Apple", "Samsung"]</code></td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                          <h4 className="font-bold text-blue-800 text-lg mb-2">Таблица: Templates (Шаблоны спецификаций)</h4>
+                          <p className="text-sm text-gray-700 mb-3">Определяет классы/категории номенклатуры (например, "Ноутбуки", "Услуги").</p>
+                          <table className="min-w-full bg-white text-sm text-left border">
+                            <thead className="bg-gray-100"><tr><th className="px-3 py-2 border">Поле</th><th className="px-3 py-2 border">Тип (SQL)</th><th className="px-3 py-2 border">Описание</th></tr></thead>
+                            <tbody>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">id</td><td className="px-3 py-2 border text-gray-500">VARCHAR (PK)</td><td className="px-3 py-2 border">Уникальный идентификатор шаблона</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">name</td><td className="px-3 py-2 border text-gray-500">VARCHAR(255)</td><td className="px-3 py-2 border">Название шаблона (напр. "Смартфоны")</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">description</td><td className="px-3 py-2 border text-gray-500">TEXT</td><td className="px-3 py-2 border">Необязательное описание/примечание</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+                          <h4 className="font-bold text-indigo-800 text-lg mb-2">Таблица: Attributes (Атрибуты шаблона)</h4>
+                          <p className="text-sm text-gray-700 mb-3">Описывает схему (столбцы) для каждого шаблона. *В NoSQL БД может быть вложенным массивом внутри Templates.*</p>
+                          <table className="min-w-full bg-white text-sm text-left border">
+                            <thead className="bg-gray-100"><tr><th className="px-3 py-2 border">Поле</th><th className="px-3 py-2 border">Тип (SQL)</th><th className="px-3 py-2 border">Описание</th></tr></thead>
+                            <tbody>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">id</td><td className="px-3 py-2 border text-gray-500">VARCHAR (PK)</td><td className="px-3 py-2 border">Уникальный ID атрибута</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">templateId</td><td className="px-3 py-2 border text-gray-500">VARCHAR (FK)</td><td className="px-3 py-2 border">Ссылка на таблицу Templates</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">name</td><td className="px-3 py-2 border text-gray-500">VARCHAR(255)</td><td className="px-3 py-2 border">Название поля (напр. "Диагональ", "Цвет")</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">type</td><td className="px-3 py-2 border text-gray-500">ENUM</td><td className="px-3 py-2 border"><code>string, integer, float, boolean, date, time, datetime, color_rgb, enum_radio, enum_checkbox, reference, calculated</code></td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">isRequired</td><td className="px-3 py-2 border text-gray-500">BOOLEAN</td><td className="px-3 py-2 border">Обязательно ли поле к заполнению</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">options</td><td className="px-3 py-2 border text-gray-500">TEXT</td><td className="px-3 py-2 border">Варианты через запятую (только для enum)</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">dictionaryId</td><td className="px-3 py-2 border text-gray-500">VARCHAR (FK)</td><td className="px-3 py-2 border">Ссылка на Dictionaries (только для type=reference)</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">formula</td><td className="px-3 py-2 border text-gray-500">TEXT</td><td className="px-3 py-2 border">Формула вычисления (только для type=calculated)</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+                          <h4 className="font-bold text-green-800 text-lg mb-2">Таблица: Products (Номенклатура)</h4>
+                          <p className="text-sm text-gray-700 mb-3">Собственно база товаров. Все динамические характеристики хранятся в JSONB колонке (Pattern: EAV via JSON).</p>
+                          <table className="min-w-full bg-white text-sm text-left border">
+                            <thead className="bg-gray-100"><tr><th className="px-3 py-2 border">Поле</th><th className="px-3 py-2 border">Тип (SQL)</th><th className="px-3 py-2 border">Описание</th></tr></thead>
+                            <tbody>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">id</td><td className="px-3 py-2 border text-gray-500">VARCHAR (PK)</td><td className="px-3 py-2 border">Уникальный идентификатор товара</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">templateId</td><td className="px-3 py-2 border text-gray-500">VARCHAR (FK)</td><td className="px-3 py-2 border">Ссылка на категорию/шаблон (Templates)</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">sku</td><td className="px-3 py-2 border text-gray-500">VARCHAR(100)</td><td className="px-3 py-2 border">Артикул / Штрихкод</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">name</td><td className="px-3 py-2 border text-gray-500">VARCHAR(255)</td><td className="px-3 py-2 border">Полное наименование</td></tr>
+                              <tr><td className="px-3 py-2 font-mono text-xs border">attributeValues</td><td className="px-3 py-2 border text-gray-500">JSONB</td><td className="px-3 py-2 border">Ключ-значение. Пример: <code>{`{"attr_id_1": "Apple", "attr_id_2": ["Red", "Black"]}`}</code></td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </section>
+                    
+                    <section>
+                      <h3 className="text-xl font-bold text-gray-900 border-b pb-2">3. ER-Диаграмма</h3>
+                      <div className="mt-4 overflow-x-auto bg-gray-900 text-green-400 p-4 rounded-lg border border-gray-800 font-mono text-xs md:text-sm">
+<pre>
+{`+-----------------------+           +-----------------------+
+|     DICTIONARIES      |           |        TEMPLATES      |
++-----------------------+           +-----------------------+
+| PK  id         [Str]  |           | PK  id         [Str]  |
+|     name       [Str]  |<-+        |     name       [Str]  |
+|     items      [Arr]  |  |        |     desc       [Str]  |
++-----------------------+  |        +-----------------------+
+                           |                    | 1
+                           |                    |
+                           |                    v M
++-----------------------+  |        +-----------------------+
+|       PRODUCTS        |  |        |      ATTRIBUTES       |
++-----------------------+  |        +-----------------------+
+| PK  id         [Str]  |  |        | PK  id         [Str]  |
+| FK  templateId [Str]  |>-|--------| FK  templateId [Str]  |
+|     sku        [Str]  |  +--------| FK  dictionaryId      |
+|     name       [Str]  |           |     type       [Enum] |
+|     values     [JSON] |           |     formula    [Str]  |
++-----------------------+           |     isRequired [Bool] |
+                                    |     options    [Str]  |
+                                    +-----------------------+`}
+</pre>
+                      </div>
+                    </section>
+                  </div>
+                )}
+
+                {docsTab === 'fsd' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8 space-y-8 prose prose-blue max-w-none text-sm md:text-base overflow-y-auto">
+                    <section>
+                      <h3 className="text-xl font-bold text-gray-900 border-b pb-2">Functional Specification Document (FSD)</h3>
+                      <p className="text-gray-600 text-sm mt-1">Руководство по внедрению MDM-конструктора в сторонние SaaS-системы (ERP, CRM, WMS, PIM).</p>
+                      
+                      <div className="mt-6 space-y-6">
+                        <div>
+                          <h4 className="font-bold text-lg text-gray-800">1. Архитектурный подход к интеграции</h4>
+                          <p className="text-gray-700">Внедрение рекомендуется проводить по микросервисной или модульной архитектуре. Данный фронтенд-компонент выступает в роли "Виджета настройки сущностей" (Entity Builder Widget). Бэкенд сторонней системы должен предоставить RESTful API для синхронизации метаданных.</p>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-lg text-gray-800">2. Контракты REST API (Endpoints)</h4>
+                          <div className="bg-gray-50 border p-4 rounded-lg font-mono text-sm overflow-x-auto text-gray-700">
+                            <p><strong className="text-blue-600">GET /api/v1/mdm/dictionaries</strong> - Получить все справочники</p>
+                            <p><strong className="text-green-600">POST /api/v1/mdm/dictionaries</strong> - Создать справочник (Body: name, items)</p>
+                            <p className="border-b pb-2 mb-2"><strong className="text-red-600">DELETE /api/v1/mdm/dictionaries/:id</strong> - Удалить справочник</p>
+
+                            <p><strong className="text-blue-600">GET /api/v1/mdm/templates</strong> - Получить шаблоны + атрибуты (Join / Aggregate)</p>
+                            <p><strong className="text-green-600">POST /api/v1/mdm/templates</strong> - Создать/обновить шаблон (Upsert). Body: JSON схема шаблона.</p>
+                            <p className="border-b pb-2 mb-2"><strong className="text-red-600">DELETE /api/v1/mdm/templates/:id</strong> - Удалить шаблон</p>
+
+                            <p><strong className="text-blue-600">GET /api/v1/mdm/products</strong> - Получить номенклатуру (С фильтрацией по ?templateId=)</p>
+                            <p><strong className="text-green-600">POST /api/v1/mdm/products</strong> - Сохранить товар (Валидация JSONB payload на стороне бэкенда)</p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-lg text-gray-800">3. Адаптация Базы Данных в целевой SaaS</h4>
+                          <ul className="list-disc pl-5 space-y-2 text-gray-700">
+                            <li><strong>PostgreSQL:</strong> Идеальный выбор. Таблицу <code>Products</code> создать с колонкой <code>attributeValues JSONB</code>. Это позволит целевой ERP-системе делать быстрые индексы и сложные выборки (например: <code>SELECT * FROM Products WHERE attributeValues-&gt;&gt;'color' = 'Red'</code>).</li>
+                            <li><strong>MongoDB / NoSQL:</strong> Шаблон (Template) хранить как отдельную коллекцию, где <code>attributes</code> — массив объектов. Товары (Products) хранить с динамическими ключами на верхнем уровне документа или во вложенном объекте <code>specifications</code>.</li>
+                          </ul>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-lg text-gray-800">4. Валидация и "Расчетные поля" (Формулы)</h4>
+                          <p className="text-gray-700 bg-yellow-50 p-4 border border-yellow-200 rounded-lg">
+                            <strong>Внимание безопасности:</strong> В данном демо-виджете формулы выполняются через <code>new Function()</code> (eval-like) на клиенте.
+                            При внедрении в SaaS-продукт, вычисление формул <strong>обязательно</strong> должно производиться через безопасный AST-парсер (например, <a href="https://mathjs.org/" target="_blank" rel="noreferrer" className="text-blue-600 underline">math.js</a> или <a href="https://github.com/handsontable/formula-parser" target="_blank" rel="noreferrer" className="text-blue-600 underline">formula-parser</a>) как на фронтенде, так и на бэкенде.
+                          </p>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-lg text-gray-800">5. Порядок развертывания виджета</h4>
+                          <ol className="list-decimal pl-5 space-y-2 text-gray-700">
+                            <li>Экспортировать данный React-компонент в целевой проект.</li>
+                            <li>Заменить локальный <code>useState</code> для <code>templates</code>, <code>dictionaries</code> и <code>products</code> на вызовы API-клиента (например, Axios + React Query / Redux Toolkit).</li>
+                            <li>Добавить обработку ошибок бэкенда (Http 400 Bad Request) в функцию <code>notify()</code>.</li>
+                            <li>Внедрить механизм загрузки изображений для номенклатуры (добавив тип атрибута <code>image_url</code> или <code>file</code> с загрузкой в AWS S3).</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'dictionaries' && (
+              <div className={isEditing ? 'bg-white h-full' : 'p-4 md:p-0'}>
+                {!editingDict && (
+                  <div className="flex justify-between items-center mb-4 md:mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800 hidden md:block">Справочники</h2>
+                    <button onClick={handleCreateDict} className="w-full md:w-auto flex justify-center items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm font-medium"><Plus size={18} className="mr-2" /> Добавить</button>
+                  </div>
+                )}
+                {editingDict ? (
+                  <div className="bg-white md:rounded-lg md:shadow-sm md:border border-gray-200 min-h-[calc(100vh-64px)] md:min-h-0 flex flex-col">
+                    <div className="flex items-center p-4 border-b md:p-6 bg-gray-50/50">
+                      <button onClick={() => setEditingDict(null)} className="mr-3 p-2 -ml-2 text-gray-500 md:hidden"><ChevronLeft size={24} /></button>
+                      <h2 className="text-lg font-bold text-gray-800 flex-1">{editingDict.isNew ? 'Новый справочник' : 'Редактирование'}</h2>
+                    </div>
+                    <div className="p-4 md:p-6 flex-1 space-y-4">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Наименование справочника</label>
+                        <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value={editingDict.name} onChange={e => setEditingDict({ ...editingDict, name: e.target.value })} placeholder="Например: Бренды" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Элементы (через запятую)</label>
+                        <textarea 
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 h-32 resize-none" 
+                          value={editingDict.rawItems !== undefined ? editingDict.rawItems : editingDict.items.join(', ')} 
+                          onChange={e => setEditingDict({ ...editingDict, rawItems: e.target.value })} 
+                          placeholder="Apple, Samsung, Xiaomi..." 
+                        />
+                      </div>
+                    </div>
+                    <div className="p-4 border-t flex gap-3 bg-white justify-end">
+                      <button onClick={() => setEditingDict(null)} className="px-5 py-2 text-sm font-medium text-gray-700 border rounded-lg hover:bg-gray-50">Отмена</button>
+                      <button onClick={handleSaveDict} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Сохранить</button>
+                    </div>
+                  </div>
+                ) : (
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                   {dictionaries.length === 0 ? <div className="col-span-full p-8 text-center text-gray-400 bg-white rounded-lg border border-dashed">Нет справочников</div> : 
+                     dictionaries.map(dict => (
+                       <div key={dict.id} className="bg-white p-5 rounded-xl shadow-sm border hover:border-blue-200 transition-colors">
+                         <div className="flex justify-between mb-3">
+                           <h3 className="font-bold text-gray-800 text-lg">{dict.name}</h3>
+                           <div className="flex gap-1">
+                             <button onClick={() => handleEditDict(dict)} className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-1.5 rounded-lg"><Edit2 size={16} /></button>
+                             <button onClick={() => handleDeleteDict(dict.id)} className="text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded-lg"><Trash2 size={16} /></button>
+                           </div>
+                         </div>
+                         <div className="flex flex-wrap gap-1">
+                           {dict.items.slice(0, 5).map((item, i) => <span key={i} className="text-[11px] font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{item}</span>)}
+                           {dict.items.length > 5 && <span className="text-[11px] font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">+{dict.items.length - 5}</span>}
+                         </div>
+                       </div>
+                     ))
+                   }
+                 </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'templates' && (
+              <div className={isEditing ? 'bg-white h-full' : 'p-4 md:p-0'}>
+                {!editingTemplate && (
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-6 gap-3">
+                    <h2 className="text-2xl font-bold text-gray-800 hidden md:block">Шаблоны спецификаций</h2>
+                    <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                      <button onClick={() => openJsonModal('schema')} className="flex-1 md:flex-none flex justify-center items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg font-bold border"><HelpCircle size={16} className="mr-2 text-gray-500" /> JSON Описание</button>
+                      <button onClick={() => openJsonModal('export', templates, 'Экспорт всех шаблонов')} className="flex-1 md:flex-none flex justify-center items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg font-bold border"><FileJson size={16} className="mr-2 text-blue-600" /> JSON Массово</button>
+                      <button onClick={handleCreateTemplate} className="w-full md:w-auto flex justify-center items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm font-bold"><Plus size={18} className="mr-2" /> Создать</button>
+                    </div>
+                  </div>
+                )}
+                {editingTemplate ? renderTemplateEditor() : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {templates.length === 0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border border-dashed">Нет шаблонов</div> : 
+                      templates.map(template => (
+                        <div key={template.id} className="bg-white p-4 md:p-5 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between md:items-center gap-4 hover:border-blue-200 transition-colors">
+                          <div>
+                            <h3 className="font-bold text-lg text-gray-800 mb-1">{template.name}</h3>
+                            <p className="text-sm text-gray-500 mb-2 truncate max-w-lg">{template.description || 'Нет описания'}</p>
+                            <div className="flex items-center gap-3 text-xs font-medium text-gray-500">
+                              <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100">{template.attributes.length} атрибутов</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 self-end md:self-auto border-t md:border-t-0 pt-3 md:pt-0 w-full md:w-auto justify-end">
+                            <button onClick={() => openJsonModal('export', template, `Экспорт JSON: ${template.name}`)} title="Экспорт/Импорт JSON" className="flex items-center px-3 py-1.5 text-sm text-gray-600 bg-gray-50 hover:bg-gray-100 border rounded-lg font-medium"><FileJson size={16} className="mr-1.5"/> JSON</button>
+                            <button onClick={() => setEditingTemplate({...template})} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg"><Edit2 size={18} /></button>
+                            <button onClick={() => handleDeleteTemplate(template.id)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg"><Trash2 size={18} /></button>
+                          </div>
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'products' && (
+              <div className={isEditing ? 'bg-white h-full' : 'p-4 md:p-0'}>
+                {!editingProduct && (
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-6 gap-3">
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-2xl font-bold text-gray-800 hidden md:block">Справочник номенклатуры</h2>
+                      {products.length > 0 && (
+                        <div className="flex bg-gray-200/60 p-1 rounded-lg">
+                          <button onClick={() => setProductViewMode('cards')} className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${productViewMode === 'cards' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} title="Вид карточками"><LayoutGrid size={18}/></button>
+                          <button onClick={() => setProductViewMode('table')} className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${productViewMode === 'table' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`} title="Сплошная таблица"><Table size={18}/></button>
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={handleCreateProduct} disabled={templates.length === 0} className="w-full md:w-auto flex justify-center items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 font-bold shadow-sm"><Plus size={18} className="mr-2" /> Добавить товар</button>
+                  </div>
+                )}
+                
+                {editingProduct ? renderProductEditor() : (
+                  <div>
+                    {products.length === 0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border border-dashed">Справочник пуст</div> : (
+                      <div className="space-y-8">
+                        {groupedProducts.map(group => (
+                          <div key={group.template.id} className="mb-6">
+                            <div className="flex items-center gap-3 mb-4 border-b pb-2 border-gray-200">
+                              <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                                <Box className="mr-2 text-blue-600" size={20}/> 
+                                {group.template.name}
+                              </h3>
+                              <span className="text-xs font-semibold bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{group.items.length} позиций</span>
+                            </div>
+
+                            {productViewMode === 'cards' ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {group.items.map(product => (
+                                  <div key={product.id} className="bg-white p-4 md:p-5 rounded-xl shadow-sm border flex flex-col justify-between items-start hover:border-green-200 transition-colors">
+                                    <div className="pr-4 w-full mb-3">
+                                      {product.sku && <p className="text-xs font-mono text-gray-400 mb-0.5">SKU: {product.sku}</p>}
+                                      <h3 className="font-bold text-gray-800 text-lg mb-1 leading-tight">{product.name}</h3>
+                                      <div className="mt-2 text-xs text-gray-500 line-clamp-2">
+                                        {group.template.attributes.slice(0, 3).map(a => `${a.name}: ${renderAttributeValueForTable(a, product, group.template) === '-' ? '' : String(renderAttributeValueForTable(a, product, group.template)).replace(/<[^>]*>?/gm, '')}`).filter(Boolean).join(' • ')}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 w-full justify-end border-t pt-3">
+                                      <button onClick={() => setEditingProduct({...product})} className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg"><Edit2 size={16} /></button>
+                                      <button onClick={() => handleDeleteProduct(product.id)} className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg"><Trash2 size={16} /></button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="px-4 py-3 text-left font-bold text-gray-600">Артикул / Наименование</th>
+                                      {group.template.attributes.map(attr => (
+                                        <th key={attr.id} className="px-4 py-3 text-left font-bold text-gray-600 whitespace-nowrap">{attr.name}</th>
+                                      ))}
+                                      <th className="px-4 py-3 text-right font-bold text-gray-600">Действия</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-200 bg-white">
+                                    {group.items.map(product => (
+                                      <tr key={product.id} className="hover:bg-blue-50/30 transition-colors">
+                                        <td className="px-4 py-3">
+                                          {product.sku && <div className="text-xs font-mono text-gray-400">{product.sku}</div>}
+                                          <div className="font-bold text-gray-800">{product.name}</div>
+                                        </td>
+                                        {group.template.attributes.map(attr => (
+                                          <td key={attr.id} className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                                            {renderAttributeValueForTable(attr, product, group.template)}
+                                          </td>
+                                        ))}
+                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                          <button onClick={() => setEditingProduct({...product})} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg mr-1"><Edit2 size={16} /></button>
+                                          <button onClick={() => handleDeleteProduct(product.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {uncategorizedProducts.length > 0 && (
+                          <div className="mb-6 opacity-70">
+                            <h3 className="text-xl font-bold text-gray-500 flex items-center mb-4"><Box className="mr-2" size={20}/> Без категории (Шаблон удален)</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {uncategorizedProducts.map(product => (
+                                 <div key={product.id} className="bg-white p-4 rounded-xl border flex justify-between items-start">
+                                   <div>
+                                     {product.sku && <p className="text-xs font-mono text-gray-400 mb-0.5">SKU: {product.sku}</p>}
+                                     <h3 className="font-bold text-gray-600 mb-1 leading-tight">{product.name}</h3>
+                                     <span className="text-xs font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded border border-gray-200">Ошибка связи</span>
+                                   </div>
+                                   <button onClick={() => handleDeleteProduct(product.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                                 </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {jsonModal.isOpen && (
+              <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+                  <div className="flex items-center justify-between p-5 border-b">
+                    <h3 className="text-lg font-bold text-gray-800 flex items-center"><FileJson className="mr-2 text-blue-600"/> {jsonModal.mode === 'schema' ? 'Инструкция по JSON' : jsonModal.title || 'JSON Редактор'}</h3>
+                    <button onClick={() => setJsonModal({ isOpen: false, mode: 'export' })} className="text-gray-400 hover:text-gray-700 bg-gray-100 rounded-full p-1"><X size={20}/></button>
+                  </div>
+                  <div className="p-5 flex-1 overflow-hidden flex flex-col">
+                    {jsonModal.mode === 'export' && (
+                      <div className="mb-3 flex gap-2">
+                        <button onClick={() => { setJsonModal(p => ({...p, mode: 'import', title: 'Импорт шаблонов JSON'})); setJsonInput(''); }} className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded font-bold border border-blue-200 flex items-center hover:bg-blue-100 transition-colors"><Upload size={14} className="mr-1"/>Перейти к Импорту</button>
+                        <button onClick={() => handleCopyToClipboard()} className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded font-bold border hover:bg-gray-200 flex items-center transition-colors"><Download size={14} className="mr-1"/>Копировать JSON</button>
+                      </div>
+                    )}
+                    {jsonModal.mode === 'schema' && (
+                      <div className="mb-3 flex justify-end">
+                        <button onClick={() => handleCopyToClipboard(JSON.stringify(schemaDefinitionJson, null, 2))} className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded font-bold border hover:bg-gray-200 flex items-center transition-colors"><Download size={14} className="mr-1"/>Копировать схему</button>
+                      </div>
+                    )}
+                    {jsonModal.mode === 'schema' ? (
+                      <div className="flex-1 overflow-y-auto bg-gray-900 rounded-lg p-4 text-green-400 text-sm font-mono whitespace-pre-wrap">
+                        {JSON.stringify(schemaDefinitionJson, null, 2)}
+                      </div>
+                    ) : (
+                      <textarea className="w-full flex-1 border border-gray-300 rounded-lg p-4 font-mono text-sm bg-gray-50 resize-none focus:ring-2 focus:ring-blue-500" value={jsonInput} onChange={(e) => setJsonInput(e.target.value)} readOnly={jsonModal.mode === 'export'} placeholder={jsonModal.mode === 'import' ? 'Вставьте массив шаблонов (JSON) сюда...' : ''} />
+                    )}
+                  </div>
+                  {jsonModal.mode === 'import' && (
+                    <div className="p-4 border-t flex justify-end gap-3 bg-gray-50 rounded-b-xl"><button onClick={handleImportJson} className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center transition-colors"><Upload size={16} className="mr-2"/>Применить импорт</button></div>
+                  )}
+                </div>
+              </div>
+            )}
+          </main>
+
+          {!isEditing && (
+            <nav className="md:hidden fixed bottom-0 w-full bg-white border-t flex justify-around items-center h-16 pb-safe z-20 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+              {[{ id: 'templates', icon: Settings, label: 'Шаблоны' }, { id: 'dictionaries', icon: BookOpen, label: 'Справочники' }, { id: 'products', icon: List, label: 'Товары' }, { id: 'docs', icon: FileText, label: 'Инфо' }].map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === tab.id ? 'text-blue-600' : 'text-gray-500'}`}>
+                  <tab.icon size={22} className={activeTab === tab.id ? 'opacity-100' : 'opacity-70'} />
+                  <span className="text-[10px] font-bold">{tab.label}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

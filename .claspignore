@@ -1,0 +1,30 @@
+# Git
+.git/**
+.github/**
+
+# Docs & meta
+**/*.md
+LICENSE
+README.md
+FSD MDM Интеграция.md
+
+# Dev tools / scripts
+_write_te.py
+DMD.html
+
+# IDE & OS
+.vscode/**
+.idea/**
+*.code-workspace
+Thumbs.db
+.DS_Store
+
+# clasp config
+.clasp.json
+.claspignore
+.claspignor
+
+# Node / misc
+node_modules/**
+package.json
+package-lock.json

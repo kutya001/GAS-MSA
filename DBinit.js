@@ -116,6 +116,32 @@ var SCHEMA = {
     widths: [50,80,280,300],
     note: 'Подкатегории расходов/доходов',
   },
+
+  // ── MDM: управление мастер-данными номенклатуры (EAV) ───────────────
+  'MDM_Справочники': {
+    headers: ['id','name','items'],
+    color: '#E0F7FA', tabColor: '#00838F',
+    widths: [50,200,600],
+    note: 'Справочники MDM. items — JSON-массив строковых значений',
+  },
+  'MDM_Шаблоны': {
+    headers: ['id','name','description'],
+    color: '#E0F7FA', tabColor: '#00838F',
+    widths: [50,250,400],
+    note: 'Шаблоны (категории) номенклатуры',
+  },
+  'MDM_Атрибуты': {
+    headers: ['id','template_id','name','type','description','is_required','display_style','options','dictionary_id','formula','sort_order'],
+    color: '#E0F7FA', tabColor: '#00838F',
+    widths: [50,80,180,100,250,80,80,250,80,350,60],
+    note: 'Атрибуты шаблонов (EAV-метаданные). type: string|integer|float|boolean|date|time|datetime|color_rgb|enum_radio|enum_checkbox|reference|calculated',
+  },
+  'MDM_Номенклатура': {
+    headers: ['id','template_id','sku','name','attribute_values','created_at'],
+    color: '#E0F7FA', tabColor: '#00838F',
+    widths: [50,80,150,300,600,110],
+    note: 'Номенклатурные позиции. attribute_values — JSON-объект {attr_id: значение}',
+  },
 };
 
 // ──────────────────────────────────────────────────────────────────────
@@ -376,7 +402,67 @@ function _seedData(ss) {
     [17,m0,'Расход',1,7,15,5000,'OLX','Продвижение объявлений',m0],
     [18,m0,'Расход',1,8,16,3500,'','Хозтовары для точки',m0],
   ]);
+
+  // ── MDM: справочники, шаблоны, атрибуты, номенклатура ────────────────
+  _seedMDM(ss);
+
   Logger.log('✅ Демо-данные залиты');
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  MDM: ДЕМО-ДАННЫЕ мастер-данных номенклатуры
+// ──────────────────────────────────────────────────────────────────────
+function _seedMDM(ss) {
+  // ── Справочники ──────────────────────────────────────────────────────
+  _seedSheet(ss, 'MDM_Справочники', [
+    ['id','name','items'],
+    [1,'Бренды',       JSON.stringify(['Apple','Samsung','Xiaomi','Honor','Tecno','Infinix'])],
+    [2,'Цвета',        JSON.stringify(['Чёрный','Белый','Серый','Голубой','Красный','Зелёный','Синий','Фиолетовый','Лавандовый','Серебристый','Золотой'])],
+    [3,'Состояние',    JSON.stringify(['Новый','Б/У','Восстановленный'])],
+    [4,'Объём памяти', JSON.stringify(['64GB','128GB','256GB','512GB','1TB'])],
+    [5,'RAM',          JSON.stringify(['4GB','6GB','8GB','12GB','16GB'])],
+  ]);
+
+  // ── Шаблоны ──────────────────────────────────────────────────────────
+  _seedSheet(ss, 'MDM_Шаблоны', [
+    ['id','name','description'],
+    [1,'Смартфоны','Шаблон для мобильных телефонов и смартфонов'],
+  ]);
+
+  // ── Атрибуты (шаблон «Смартфоны») ───────────────────────────────────
+  //    type: string|integer|float|boolean|date|time|datetime|
+  //          color_rgb|enum_radio|enum_checkbox|reference|calculated
+  _seedSheet(ss, 'MDM_Атрибуты', [
+    ['id','template_id','name','type','description','is_required','display_style','options','dictionary_id','formula','sort_order'],
+    [1,1,'Бренд',          'reference',  'Производитель устройства',        'TRUE', 'dropdown','',1,'',1],
+    [2,1,'Модель',         'string',     'Название модели',                 'TRUE', '','','','',2],
+    [3,1,'Объём памяти',   'reference',  'Встроенная память (ROM)',          'TRUE', 'dropdown','',4,'',3],
+    [4,1,'RAM',            'reference',  'Оперативная память',              'FALSE','dropdown','',5,'',4],
+    [5,1,'Цвет',           'reference',  'Основной цвет корпуса',           'FALSE','dropdown','',2,'',5],
+    [6,1,'IMEI',           'string',     'Международный идентификатор',     'FALSE','','','','',6],
+    [7,1,'Полное название', 'calculated', 'Автогенерация наименования',      'FALSE','','','','СЦЕПИТЬ({Бренд}," ",{Модель}," ",{Объём памяти})',7],
+  ]);
+
+  // ── Номенклатура (примеры карточек из текущих закупок) ────────────────
+  var today = _ds(new Date());
+  _seedSheet(ss, 'MDM_Номенклатура', [
+    ['id','template_id','sku','name','attribute_values','created_at'],
+    [1, 1,'IP15PM-256',    'iPhone 15 Pro Max 256GB',     JSON.stringify({'1':'Apple','2':'iPhone 15 Pro Max','3':'256GB','5':'Чёрный'}),           today],
+    [2, 1,'IP15P-128',     'iPhone 15 Pro 128GB',         JSON.stringify({'1':'Apple','2':'iPhone 15 Pro','3':'128GB','5':'Белый'}),                today],
+    [3, 1,'IP15-128',      'iPhone 15 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 15','3':'128GB','5':'Голубой'}),                  today],
+    [4, 1,'IP14-128',      'iPhone 14 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 14','3':'128GB','5':'Фиолетовый'}),              today],
+    [5, 1,'IP13-128',      'iPhone 13 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 13','3':'128GB','5':'Красный'}),                 today],
+    [6, 1,'GS24U-256',     'Galaxy S24 Ultra 12/256GB',   JSON.stringify({'1':'Samsung','2':'Galaxy S24 Ultra','3':'256GB','4':'12GB','5':'Серый'}),today],
+    [7, 1,'GS24-256',      'Galaxy S24 8/256GB',          JSON.stringify({'1':'Samsung','2':'Galaxy S24','3':'256GB','4':'8GB','5':'Белый'}),       today],
+    [8, 1,'GA55-128',      'Galaxy A55 8/128GB',          JSON.stringify({'1':'Samsung','2':'Galaxy A55','3':'128GB','4':'8GB','5':'Лавандовый'}),  today],
+    [9, 1,'GA35-128',      'Galaxy A35 6/128GB',          JSON.stringify({'1':'Samsung','2':'Galaxy A35','3':'128GB','4':'6GB','5':'Чёрный'}),      today],
+    [10,1,'RN14P-256',     'Redmi Note 14 Pro 8/256GB',   JSON.stringify({'1':'Xiaomi','2':'Redmi Note 14 Pro','3':'256GB','4':'8GB','5':'Синий'}), today],
+    [11,1,'RN14-128',      'Redmi Note 14 6/128GB',       JSON.stringify({'1':'Xiaomi','2':'Redmi Note 14','3':'128GB','4':'6GB','5':'Зелёный'}),  today],
+    [12,1,'POCOX6P-256',   'POCO X6 Pro 8/256GB',         JSON.stringify({'1':'Xiaomi','2':'POCO X6 Pro','3':'256GB','4':'8GB','5':'Чёрный'}),     today],
+    [13,1,'HON200P-256',   'Honor 200 Pro 12/256GB',      JSON.stringify({'1':'Honor','2':'Honor 200 Pro','3':'256GB','4':'12GB','5':'Серебристый'}),today],
+    [14,1,'TSPARK30-128',  'Tecno Spark 30 4/128GB',      JSON.stringify({'1':'Tecno','2':'Tecno Spark 30','3':'128GB','4':'4GB','5':'Синий'}),     today],
+  ]);
+  Logger.log('✅ MDM демо-данные залиты');
 }
 
 // ──────────────────────────────────────────────────────────────────────
