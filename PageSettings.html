@@ -34,14 +34,14 @@
 async function loadSettings() {
   var data = await api('getSettings');
   if (data) {
-    g('setCompanyName').value = data.company_name || '';
-    g('setBaseCurrency').value = data.base_currency || 'KGS';
+    document.getElementById('setCompanyName').value = data.company_name || '';
+    document.getElementById('setBaseCurrency').value = data.base_currency || 'KGS';
   }
 }
 
 async function saveSettings() {
-  var name = g('setCompanyName').value.trim();
-  var cur  = g('setBaseCurrency').value;
+  var name = g('setCompanyName').trim();
+  var cur  = g('setBaseCurrency');
   if (!name) { toast('Введите название компании', 'e'); return; }
   await api('saveSettings', { company_name: name, base_currency: cur });
   toast('Настройки сохранены', 's');
