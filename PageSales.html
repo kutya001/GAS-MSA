@@ -47,7 +47,9 @@ var saleForm = new MainForm({
           });
       },
       renderView: function(v, r) {
-        return '<span class="fw7">' + esc((r.brand_name || '') + (r.model_name ? ' ' + r.model_name : '') + (r.spec ? ' ' + r.spec : '')) + '</span>';
+        var cat = [r.class_name, r.type_name, r.purpose_name].filter(Boolean).join(' → ');
+        return '<span class="fw7">' + esc((r.brand_name || '') + (r.model_name ? ' ' + r.model_name : '') + (r.spec ? ' ' + r.spec : '')) + '</span>'
+          + (cat ? '<br><span class="muted" style="font-size:.72rem">' + esc(cat) + '</span>' : '');
       }
     },
     { key: 'buyer', label: 'Покупатель', type: 'text', required: true, placeholder: 'ФИО покупателя' },
@@ -138,6 +140,8 @@ function _sDTinit() {
       { key: 'sale_date',    label: 'Дата',      w: '84px', render: function(v) { return fmtD(v); } },
       { key: 'brand_name',   label: 'Бренд' },
       { key: 'model_name',   label: 'Модель' },
+      { key: 'class_name',   label: 'Класс',  sortable: false },
+      { key: 'type_name',    label: 'Тип',    sortable: false },
       { key: 'buyer',        label: 'Покупатель' },
       { key: 'total_kgs',    label: 'Сумма ₸',   align: 'right', mono: true,
         render: function(v) { return '<span class="fw7">' + fmtN(v) + '₸</span>'; }

@@ -8,6 +8,9 @@ function getSales(p) {
     var mMap   = _buildMap(SH.MODELS,   'id', 'name');
     var mgMap  = _buildMap(SH.MANAGERS, 'id', 'name');
     var wMap   = _buildMap(SH.WALLETS,  'id', 'name');
+    var clMap  = _buildMap(SH.CLASSES,    'id', 'name');
+    var tpMap  = _buildMap(SH.PROD_TYPES, 'id', 'name');
+    var prMap  = _buildMap(SH.PURPOSES,   'id', 'name');
     var purMap = {};
     _rows(SH.PURCHASES).forEach(function(r){ purMap[parseInt(r.id)] = r; });
 
@@ -21,6 +24,9 @@ function getSales(p) {
           brand_name:   bMap[parseInt(pur.brand_id)]  || '',
           model_name:   mMap[parseInt(pur.model_id)]  || '',
           spec:         pur.spec       || '',
+          class_name:   clMap[parseInt(pur.class_id)]   || '',
+          type_name:    tpMap[parseInt(pur.type_id)]    || '',
+          purpose_name: prMap[parseInt(pur.purpose_id)] || '',
           buyer:        r.buyer        || '',
           wa:           r.wa           || '',
           sale_date:    r.sale_date    || '',

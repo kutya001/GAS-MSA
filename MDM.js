@@ -70,13 +70,15 @@ function getTemplates() {
       });
     }
 
-    // Создание плоского списка с parent_id
+    // Создание плоского списка с class_id/type_id/purpose_id
     var result = tRows.map(function(t) {
       var tid = parseInt(t.id);
       var attrs = (attrMap[tid] || []).sort(function(a, b) { return a.sort_order - b.sort_order; });
       return {
         id:          tid,
-        parent_id:   t.parent_id ? parseInt(t.parent_id) : null,
+        class_id:    t.class_id ? parseInt(t.class_id) : null,
+        type_id:     t.type_id ? parseInt(t.type_id) : null,
+        purpose_id:  t.purpose_id ? parseInt(t.purpose_id) : null,
         name:        t.name || '',
         description: t.description || '',
         attributes:  attrs,
@@ -117,13 +119,21 @@ function saveTemplate(p) {
         // Обновление существующего шаблона
         templateId = parseInt(p.id);
         var upd = { name: p.name.trim(), description: p.description || '' };
-        if (p.parent_id !== undefined) upd.parent_id = p.parent_id || '';
+        if (p.class_id !== undefined)   upd.class_id   = p.class_id   || '';
+        if (p.type_id !== undefined)    upd.type_id    = p.type_id    || '';
+        if (p.purpose_id !== undefined) upd.purpose_id = p.purpose_id || '';
         _update(SH.MDM_TEMPLATES, p.id, upd);
         // Удаляем старые атрибуты этого шаблона
         _deleteAttrsByTemplate(templateId);
       } else {
         // Новый шаблон
-        templateId = _append(SH.MDM_TEMPLATES, { parent_id: p.parent_id || '', name: p.name.trim(), description: p.description || '' });
+        templateId = _append(SH.MDM_TEMPLATES, {
+          class_id:    p.class_id    || '',
+          type_id:     p.type_id     || '',
+          purpose_id:  p.purpose_id  || '',
+          name:        p.name.trim(),
+          description: p.description || ''
+        });
       }
 
       // Создаём атрибуты
@@ -158,14 +168,6 @@ function deleteTemplate(p) {
     try {
       if (!p.id) return _err('Не указан id шаблона');
       var tid = parseInt(p.id);
-
-      // Проверяем: нет ли дочерних категорий
-      var allTpl = _rows(SH.MDM_TEMPLATES);
-      for (var c = 0; c < allTpl.length; c++) {
-        if (parseInt(allTpl[c].parent_id) === tid) {
-          return _err('Невозможно удалить: есть дочерние категории (' + allTpl[c].name + ')');
-        }
-      }
 
       // Проверяем: нет ли товаров с этим шаблоном
       var products = _rows(SH.MDM_PRODUCTS);
@@ -536,11 +538,24 @@ function getMDMContext(p) {
       var tid = parseInt(t.id);
       return {
         id:          tid,
-        parent_id:   t.parent_id ? parseInt(t.parent_id) : null,
+        class_id:    t.class_id ? parseInt(t.class_id) : null,
+        type_id:     t.type_id ? parseInt(t.type_id) : null,
+        purpose_id:  t.purpose_id ? parseInt(t.purpose_id) : null,
         name:        t.name || '',
         description: t.description || '',
         attributes:  (attrMap[tid] || []).sort(function(a, b) { return a.sort_order - b.sort_order; }),
       };
+    });
+
+    // Классы / Типы / Назначения — для иерархии
+    var classRows = _rows(SH.CLASSES).filter(function(r) { return r.id; }).map(function(r) {
+      return { id: parseInt(r.id), name: r.name || '' };
+    });
+    var typeRows = _rows(SH.PROD_TYPES).filter(function(r) { return r.id; }).map(function(r) {
+      return { id: parseInt(r.id), class_id: parseInt(r.class_id), name: r.name || '' };
+    });
+    var purposeRows = _rows(SH.PURPOSES).filter(function(r) { return r.id; }).map(function(r) {
+      return { id: parseInt(r.id), type_id: parseInt(r.type_id), name: r.name || '' };
     });
 
     // Номенклатура
@@ -561,6 +576,9 @@ function getMDMContext(p) {
 
     var result = {
       refTables:  refTables,
+      classes:    classRows,
+      types:      typeRows,
+      purposes:   purposeRows,
       templates:  templates,
       products:   products,
     };
