@@ -48,6 +48,27 @@ var purchaseForm = new MainForm({
       getOptions: function() { return ST.refs.suppliers; },
       renderView: function(v, r) { return esc(r.supplier_name || '—'); }
     },
+    { key: 'class_id', label: 'Класс товара', type: 'select',
+      getOptions: function() { return ST.refs.classes; },
+      onChange: function(v, f) {
+        var t = ST.refs.prod_types.filter(function(x) { return !v || x.class_id === +v; });
+        f.fillField('type_id', t, 'id', 'name', '—');
+        f.fillField('purpose_id', [], 'id', 'name', '—');
+      },
+      renderView: function(v, r) { return esc(r.class_name || '—'); }
+    },
+    { key: 'type_id', label: 'Тип продукта', type: 'select',
+      getOptions: function() { return ST.refs.prod_types; },
+      onChange: function(v, f) {
+        var p = ST.refs.purposes.filter(function(x) { return !v || x.type_id === +v; });
+        f.fillField('purpose_id', p, 'id', 'name', '—');
+      },
+      renderView: function(v, r) { return esc(r.type_name || '—'); }
+    },
+    { key: 'purpose_id', label: 'Назначение', type: 'select',
+      getOptions: function() { return ST.refs.purposes; },
+      renderView: function(v, r) { return esc(r.purpose_name || '—'); }
+    },
     { key: 'imei', label: 'IMEI (15 цифр)', type: 'text', maxlength: 15, mono: true,
       placeholder: '352365010000001',
       showIf: function(f) { return !!f.getVal('has_imei'); },
@@ -106,6 +127,7 @@ var purchaseForm = new MainForm({
       brand_id: +values.brand_id, model_id: +values.model_id,
       spec: values.spec, color: values.color,
       wh_id: +values.wh_id, supplier_id: +values.supplier_id || null,
+      class_id: +values.class_id || null, type_id: +values.type_id || null, purpose_id: +values.purpose_id || null,
       has_imei: values.has_imei,
       imei: values.has_imei ? (values.imei || '') : '',
       qty:  values.has_imei ? 1 : (+values.qty || 1),
@@ -138,6 +160,14 @@ var purchaseForm = new MainForm({
     if (rec) document.getElementById(form.id + '-wh_id').value = rec.wh_id || '';
     form.fillField('supplier_id', ST.refs.suppliers, 'id', 'name', '—');
     if (rec) document.getElementById(form.id + '-supplier_id').value = rec.supplier_id || '';
+    form.fillField('class_id', ST.refs.classes, 'id', 'name', '—');
+    if (rec) document.getElementById(form.id + '-class_id').value = rec.class_id || '';
+    var cid = +(form.getVal('class_id'));
+    form.fillField('type_id', ST.refs.prod_types.filter(function(t) { return !cid || t.class_id === cid; }), 'id', 'name', '—');
+    if (rec) document.getElementById(form.id + '-type_id').value = rec.type_id || '';
+    var tid = +(form.getVal('type_id'));
+    form.fillField('purpose_id', ST.refs.purposes.filter(function(p) { return !tid || p.type_id === tid; }), 'id', 'name', '—');
+    if (rec) document.getElementById(form.id + '-purpose_id').value = rec.purpose_id || '';
     form.fillField('pay_wallet_id', ST.wallets, 'id', 'name', 'Не оплачено — долг поставщику');
     if (rec) document.getElementById(form.id + '-pay_wallet_id').value = rec.pay_wallet_id || '';
     // Инит

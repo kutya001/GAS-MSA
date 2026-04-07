@@ -11,6 +11,9 @@ var REF_MAP = {
   suppliers:  'SUPPLIERS',
   managers:   'MANAGERS',
   currencies: 'CURRENCIES',
+  classes:    'CLASSES',
+  prod_types: 'PROD_TYPES',
+  purposes:   'PURPOSES',
 };
 
 // ══════════════════════════════════════════════════════════════════════
@@ -20,12 +23,38 @@ function getRefData() {
   try {
     var cached = _cGet('refData');
     if (cached) return _ok(cached);
+
+    var brands     = _rows(SH.BRANDS).filter(function(r){ return r.id && r.name; });
+    var models     = _rows(SH.MODELS).filter(function(r){ return r.id && r.name; });
+    var suppliers  = _rows(SH.SUPPLIERS).filter(function(r){ return r.id && r.name; });
+    var managers   = _rows(SH.MANAGERS).filter(function(r){ return r.id && r.name; });
+    var currencies = _rows(SH.CURRENCIES).filter(function(r){ return r.id && r.name; });
+    var classes    = _rows(SH.CLASSES).filter(function(r){ return r.id && r.name; });
+    var prodTypes  = _rows(SH.PROD_TYPES).filter(function(r){ return r.id && r.name; });
+    var purposes   = _rows(SH.PURPOSES).filter(function(r){ return r.id && r.name; });
+
+    // Обогащение: имена родителей
+    var brandMap = {};
+    brands.forEach(function(b) { brandMap[parseInt(b.id)] = b.name; });
+    models.forEach(function(m) { m.brand_name = brandMap[parseInt(m.brand_id)] || ''; });
+
+    var classMap = {};
+    classes.forEach(function(c) { classMap[parseInt(c.id)] = c.name; });
+    prodTypes.forEach(function(t) { t.class_name = classMap[parseInt(t.class_id)] || ''; });
+
+    var typeMap = {};
+    prodTypes.forEach(function(t) { typeMap[parseInt(t.id)] = t.name; });
+    purposes.forEach(function(p) { p.type_name = typeMap[parseInt(p.type_id)] || ''; });
+
     var data = {
-      brands:     _rows(SH.BRANDS).filter(function(r){ return r.id && r.name; }),
-      models:     _rows(SH.MODELS).filter(function(r){ return r.id && r.name; }),
-      suppliers:  _rows(SH.SUPPLIERS).filter(function(r){ return r.id && r.name; }),
-      managers:   _rows(SH.MANAGERS).filter(function(r){ return r.id && r.name; }),
-      currencies: _rows(SH.CURRENCIES).filter(function(r){ return r.id && r.name; }),
+      brands:     brands,
+      models:     models,
+      suppliers:  suppliers,
+      managers:   managers,
+      currencies: currencies,
+      classes:    classes,
+      prod_types: prodTypes,
+      purposes:   purposes,
     };
     _cSet('refData', data, CACHE_TTL);
     return _ok(data);
@@ -39,6 +68,8 @@ function addRef(p) {
       var shName = SH[REF_MAP[p.tab]];
       var obj = { name: p.name || '', info: p.info || '' };
       if (p.tab === 'models' && p.brand_id) obj.brand_id = parseInt(p.brand_id);
+      if (p.tab === 'prod_types' && p.class_id) obj.class_id = parseInt(p.class_id);
+      if (p.tab === 'purposes' && p.type_id) obj.type_id = parseInt(p.type_id);
       var newId = _append(shName, obj);
       _cDel(['refData']);
       return _ok({ id: newId });
@@ -52,6 +83,8 @@ function updateRef(p) {
       if (!REF_MAP[p.tab]) return _err('Неизвестный справочник: ' + p.tab);
       var obj = { name: p.name || '', info: p.info || '' };
       if (p.tab === 'models' && p.brand_id) obj.brand_id = parseInt(p.brand_id);
+      if (p.tab === 'prod_types' && p.class_id) obj.class_id = parseInt(p.class_id);
+      if (p.tab === 'purposes' && p.type_id) obj.type_id = parseInt(p.type_id);
       _update(SH[REF_MAP[p.tab]], p.id, obj);
       _cDel(['refData']);
       return _ok({});

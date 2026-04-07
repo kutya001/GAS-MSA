@@ -5,7 +5,7 @@
 // ════════════════════════════════════════════════════════════════
 const ST = {
   page:'dashboard', rtab:'general',
-  refs:{brands:[],models:[],suppliers:[],managers:[],currencies:[]},
+  refs:{brands:[],models:[],suppliers:[],managers:[],currencies:[],classes:[],prod_types:[],purposes:[]},
   wallets:[],warehouses:[],cats:[],articles:[],
   charts:{},
   wdWalletId:null,
@@ -42,6 +42,9 @@ const MOCK={
     suppliers:[{id:1,name:'Ислам Сатуу',info:'+996 700 111'},{id:2,name:'Эрлис',info:'+996 555 222'},{id:3,name:'ТехИмпорт',info:'Оптовик'}],
     managers:[{id:1,name:'Айдай',info:'Розница'},{id:2,name:'Нурлан',info:'Онлайн'},{id:3,name:'Бакыт',info:'Опт'}],
     currencies:[{id:1,name:'KGS',info:'Кыргызский сом'},{id:2,name:'USD',info:'Доллар'},{id:3,name:'RUB',info:'Рубль'}],
+    classes:[{id:1,name:'Устройства',info:'Телефоны, планшеты и т.д.'},{id:2,name:'Аксессуары',info:'Дополнительные товары'},{id:3,name:'Комплектующие/Запчасти',info:'Запасные части'},{id:4,name:'Услуги',info:'Сервис и обслуживание'}],
+    prod_types:[{id:1,name:'Смартфоны',class_id:1,class_name:'Устройства',info:''},{id:2,name:'Планшеты',class_id:1,class_name:'Устройства',info:''},{id:3,name:'Аудио',class_id:2,class_name:'Аксессуары',info:'Акустика и наушники'},{id:4,name:'Защита',class_id:2,class_name:'Аксессуары',info:'Чехлы и стекла'},{id:5,name:'Питание и кабели',class_id:2,class_name:'Аксессуары',info:''},{id:6,name:'Автомобильные аксессуары',class_id:2,class_name:'Аксессуары',info:''},{id:7,name:'Периферия',class_id:2,class_name:'Аксессуары',info:''}],
+    purposes:[{id:1,name:'TWS',type_id:3,type_name:'Аудио',info:'True Wireless'},{id:2,name:'Накладные наушники',type_id:3,type_name:'Аудио',info:''},{id:3,name:'Проводные наушники',type_id:3,type_name:'Аудио',info:''},{id:4,name:'Портативная акустика',type_id:3,type_name:'Аудио',info:''},{id:5,name:'Чехлы',type_id:4,type_name:'Защита',info:''},{id:6,name:'Защитные стекла',type_id:4,type_name:'Защита',info:''},{id:7,name:'Пленки',type_id:4,type_name:'Защита',info:''},{id:8,name:'Сетевые ЗУ',type_id:5,type_name:'Питание и кабели',info:''},{id:9,name:'Беспроводные ЗУ',type_id:5,type_name:'Питание и кабели',info:''},{id:10,name:'Power Bank',type_id:5,type_name:'Питание и кабели',info:''},{id:11,name:'Кабели синхронизации',type_id:5,type_name:'Питание и кабели',info:''}],
   }}),
   getWallets:()=>({status:'ok',data:[
     {id:1,name:'Основная касса',currency:'KGS',icon:'💰',balance:612000,total_in:950000,total_out:338000},
@@ -63,11 +66,11 @@ const MOCK={
     {id:8,name:'Менеджер',cat_id:5},{id:9,name:'Прочее',cat_id:6},
   ]}),
   getPurchases:()=>({status:'ok',data:{rows:[
-    {id:1,brand_id:1,brand_name:'Apple',model_id:1,model_name:'iPhone 15 Pro Max',spec:'8/256',color:'Чёрный',wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',has_imei:true,imei:'352365010000001',qty:1,cost_usd:430,rate:88,cost_kgs:37840,status:'Продано',purchase_date:'2025-08-05',note:''},
-    {id:2,brand_id:1,brand_name:'Apple',model_id:2,model_name:'iPhone 15 Pro',spec:'6/128',color:'Белый',wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',has_imei:true,imei:'352365010000002',qty:1,cost_usd:380,rate:88,cost_kgs:33440,status:'В наличии',purchase_date:'2025-08-10',note:''},
-    {id:3,brand_id:3,brand_name:'Xiaomi',model_id:6,model_name:'Redmi Note 14',spec:'6/128',color:'Синий',wh_id:1,wh_name:'Основной склад',supplier_id:2,supplier_name:'Эрлис',has_imei:true,imei:'860000030000009',qty:1,cost_usd:82,rate:88,cost_kgs:7216,status:'В наличии',purchase_date:'2025-09-15',note:''},
-    {id:4,brand_id:2,brand_name:'Samsung',model_id:4,model_name:'Galaxy S24',spec:'8/256',color:'Серый',wh_id:2,wh_name:'Онлайн-склад',supplier_id:3,supplier_name:'ТехИмпорт',has_imei:false,imei:'',qty:3,cost_usd:320,rate:88,cost_kgs:28160,status:'В наличии',purchase_date:'2025-10-01',note:'Партия'},
-    {id:5,brand_id:1,brand_name:'Apple',model_id:3,model_name:'iPhone 14',spec:'256GB',color:'Фиолет.',wh_id:1,wh_name:'Основной склад',supplier_id:3,supplier_name:'ТехИмпорт',has_imei:true,imei:'352365010000019',qty:1,cost_usd:300,rate:88,cost_kgs:26400,status:'В наличии',purchase_date:'2025-10-15',note:''},
+    {id:1,brand_id:1,brand_name:'Apple',model_id:1,model_name:'iPhone 15 Pro Max',spec:'8/256',color:'Чёрный',wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:true,imei:'352365010000001',qty:1,cost_usd:430,rate:88,cost_kgs:37840,status:'Продано',purchase_date:'2025-08-05',note:''},
+    {id:2,brand_id:1,brand_name:'Apple',model_id:2,model_name:'iPhone 15 Pro',spec:'6/128',color:'Белый',wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:true,imei:'352365010000002',qty:1,cost_usd:380,rate:88,cost_kgs:33440,status:'В наличии',purchase_date:'2025-08-10',note:''},
+    {id:3,brand_id:3,brand_name:'Xiaomi',model_id:6,model_name:'Redmi Note 14',spec:'6/128',color:'Синий',wh_id:1,wh_name:'Основной склад',supplier_id:2,supplier_name:'Эрлис',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:true,imei:'860000030000009',qty:1,cost_usd:82,rate:88,cost_kgs:7216,status:'В наличии',purchase_date:'2025-09-15',note:''},
+    {id:4,brand_id:2,brand_name:'Samsung',model_id:4,model_name:'Galaxy S24',spec:'8/256',color:'Серый',wh_id:2,wh_name:'Онлайн-склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:false,imei:'',qty:3,cost_usd:320,rate:88,cost_kgs:28160,status:'В наличии',purchase_date:'2025-10-01',note:'Партия'},
+    {id:5,brand_id:1,brand_name:'Apple',model_id:3,model_name:'iPhone 14',spec:'256GB',color:'Фиолет.',wh_id:1,wh_name:'Основной склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:true,imei:'352365010000019',qty:1,cost_usd:300,rate:88,cost_kgs:26400,status:'В наличии',purchase_date:'2025-10-15',note:''},
   ],total:5}}),
   getSales:()=>({status:'ok',data:{rows:[
     {id:1,brand_name:'Apple',model_name:'iPhone 15 Pro Max',spec:'8/256',buyer:'Асель Токтогулова',total_kgs:145500,paid_kgs:145500,debt_kgs:0,sale_date:'2025-08-07',manager_name:'Айдай',wa:'+996700001001',wallet_id:1,wallet_name:'Основная касса',note:''},

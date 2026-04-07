@@ -14,6 +14,9 @@ function getPurchases(p) {
     var mMap  = _buildMap(SH.MODELS,     'id', 'name');
     var sMap  = _buildMap(SH.SUPPLIERS,  'id', 'name');
     var wMap  = _buildMap(SH.WAREHOUSES, 'id', 'name');
+    var clMap = _buildMap(SH.CLASSES,    'id', 'name');
+    var tpMap = _buildMap(SH.PROD_TYPES, 'id', 'name');
+    var prMap = _buildMap(SH.PURPOSES,   'id', 'name');
 
     var rows = _rows(SH.PURCHASES)
       .filter(function(r){ return r.id && r.status !== 'Удалено'; })
@@ -29,6 +32,12 @@ function getPurchases(p) {
           model_name:    mMap[parseInt(r.model_id)]    || '',
           wh_name:       wMap[parseInt(r.wh_id)]       || '',
           supplier_name: sMap[parseInt(r.supplier_id)] || '',
+          class_id:      parseInt(r.class_id)    || 0,
+          type_id:       parseInt(r.type_id)     || 0,
+          purpose_id:    parseInt(r.purpose_id)  || 0,
+          class_name:    clMap[parseInt(r.class_id)]   || '',
+          type_name:     tpMap[parseInt(r.type_id)]    || '',
+          purpose_name:  prMap[parseInt(r.purpose_id)] || '',
           spec:          r.spec      || '',
           color:         r.color     || '',
           condition:     r.condition || 'Новый',
@@ -82,7 +91,9 @@ function addPurchase(p) {
         qty: qty, condition: p.condition || 'Новый',
         purchase_date: p.purchase_date || _today(),
         cost_usd: costUsd, rate: rate, cost_kgs: costKgs,
-        status: 'В наличии', note: p.note || '', created_at: _today(),
+        status: 'В наличии', note: p.note || '',
+        class_id: parseInt(p.class_id) || '', type_id: parseInt(p.type_id) || '', purpose_id: parseInt(p.purpose_id) || '',
+        created_at: _today(),
       };
       var newId = _append(SH.PURCHASES, obj);
 
@@ -124,6 +135,7 @@ function updatePurchase(p) {
         purchase_date: p.purchase_date || '',
         cost_usd: costUsd, rate: rate, cost_kgs: Math.round(costUsd * rate),
         note: p.note || '',
+        class_id: parseInt(p.class_id) || '', type_id: parseInt(p.type_id) || '', purpose_id: parseInt(p.purpose_id) || '',
       });
       _cDel(['purchases_all']);
       return _ok({});
