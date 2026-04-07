@@ -1,0 +1,49 @@
+<!-- ══ НАСТРОЙКИ ══════════════════════════════════════════════════════ -->
+<div class="page" id="page-settings">
+  <div class="sh"><h2>Настройки</h2></div>
+
+  <div style="max-width:520px;margin:0 auto">
+    <!-- Название компании -->
+    <div class="fgrp">
+      <label class="req">Название компании</label>
+      <input class="fi" id="setCompanyName" placeholder="Введите название компании" style="font-size:1rem">
+    </div>
+
+    <!-- Основная валюта учёта -->
+    <div class="fgrp">
+      <label class="req">Основная валюта учёта</label>
+      <select class="fi" id="setBaseCurrency" style="font-size:1rem">
+        <option value="KGS">KGS — Кыргызский сом</option>
+        <option value="USD">USD — Доллар США</option>
+        <option value="RUB">RUB — Российский рубль</option>
+      </select>
+    </div>
+
+    <!-- Кнопка сохранить -->
+    <div style="margin-top:20px">
+      <button class="btn btn-p" onclick="saveSettings()">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+//  Настройки
+// ══════════════════════════════════════════════════════════════════════
+
+async function loadSettings() {
+  var data = await api('getSettings');
+  if (data) {
+    g('setCompanyName').value = data.company_name || '';
+    g('setBaseCurrency').value = data.base_currency || 'KGS';
+  }
+}
+
+async function saveSettings() {
+  var name = g('setCompanyName').value.trim();
+  var cur  = g('setBaseCurrency').value;
+  if (!name) { toast('Введите название компании', 'e'); return; }
+  await api('saveSettings', { company_name: name, base_currency: cur });
+  toast('Настройки сохранены', 's');
+}
+</script>

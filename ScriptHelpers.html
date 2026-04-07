@@ -189,12 +189,14 @@ const MOCK={
   addMDMProduct:()=>({status:'ok',data:{id:100+Math.random()*100|0}}),
   updateMDMProduct:()=>({status:'ok',data:{}}),
   deleteMDMProduct:()=>({status:'ok',data:{}}),
+  getSettings:()=>({status:'ok',data:{company_name:'МобилТрек',base_currency:'KGS'}}),
+  saveSettings:()=>({status:'ok',data:true}),
 };
 
 // ════════════════════════════════════════════════════════════════
 //  NAVIGATION
 // ════════════════════════════════════════════════════════════════
-const PAGE_TITLE={dashboard:'Дашборд',purchases:'Закупки',sales:'Продажи',payments:'Оплаты',wallets:'Кошельки / Кассы',cashops:'Движение средств',debts:'Долги',warehouses:'Склады',stock:'Остатки',refs:'Справочники',cats:'Категории / Статьи',analytics:'Аналитика',mdm:'Номенклатура MDM'};
+const PAGE_TITLE={dashboard:'Дашборд',purchases:'Закупки',sales:'Продажи',payments:'Оплаты',wallets:'Кошельки / Кассы',cashops:'Движение средств',debts:'Долги',warehouses:'Склады',stock:'Остатки',refs:'Справочники',cats:'Категории / Статьи',analytics:'Аналитика',mdm:'Номенклатура MDM',settings:'Настройки'};
 
 function nav(p){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
@@ -209,7 +211,7 @@ function nav(p){
 }
 
 function onNav(p){
-  const map={dashboard:loadDash,purchases:loadPurchases,sales:loadSales,payments:loadPayments,wallets:loadWallets,cashops:loadCash,debts:loadDebts,warehouses:loadWarehouses,stock:loadStock,refs:loadRefs,cats:loadCats,analytics:loadAnalytics,mdm:loadMDM};
+  const map={dashboard:loadDash,purchases:loadPurchases,sales:loadSales,payments:loadPayments,wallets:loadWallets,cashops:loadCash,debts:loadDebts,warehouses:loadWarehouses,stock:loadStock,refs:loadRefs,cats:loadCats,analytics:loadAnalytics,mdm:loadMDM,settings:loadSettings};
   if(map[p]) map[p]();
 }
 

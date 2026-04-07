@@ -33,6 +33,11 @@
 
   <!-- Tab: Шаблоны -->
   <div class="tp on" id="mdm-templates">
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn btn-g btn-sm" onclick="mdmOpenJsonHelp()">📋 Описание JSON</button>
+      <button class="btn btn-g btn-sm" onclick="mdmOpenJsonImport()">📥 Импорт JSON</button>
+      <button class="btn btn-g btn-sm" onclick="mdmExportAllJson()">📤 Экспорт JSON</button>
+    </div>
     <div id="mdmTplTable"></div>
   </div>
 
@@ -72,6 +77,7 @@
     </div>
     <div class="mfoot">
       <button class="btn btn-rd" id="mdmTplDelBtn" style="display:none" onclick="mdmDeleteTemplate()">🗑 Удалить</button>
+      <button class="btn btn-g btn-sm" id="mdmTplJsonBtn" style="display:none" onclick="mdmEditTplAsJson()">{ } JSON</button>
       <div style="flex:1"></div>
       <button class="btn btn-g" onclick="closeM('ovMdmTpl')">Отмена</button>
       <button class="btn btn-p" onclick="mdmSaveTemplate()">💾 Сохранить</button>
@@ -92,6 +98,59 @@
       <div style="flex:1"></div>
       <button class="btn btn-g" onclick="closeM('ovMdmProd')">Отмена</button>
       <button class="btn btn-p" id="mdmProdSaveBtn" onclick="mdmSaveProduct()">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Модальное окно: JSON-редактор шаблона ═══════════════════ -->
+<div class="ov" id="ovMdmJson">
+  <div class="modal modal-lg">
+    <div class="mh">
+      <h2 id="mdmJsonTitle">Импорт шаблона из JSON</h2>
+      <button class="mclose" onclick="closeM('ovMdmJson')">✕</button>
+    </div>
+    <div class="mbody">
+      <p style="font-size:.82rem;color:var(--tx2);margin-bottom:8px" id="mdmJsonHint">Вставьте JSON-объект шаблона или массив шаблонов для массового импорта.</p>
+      <textarea id="mdmJsonArea" rows="18" style="width:100%;font-family:var(--mo);font-size:.82rem;resize:vertical;border:1px solid var(--bdr);border-radius:var(--r);padding:10px;background:var(--bg2);color:var(--tx1)" spellcheck="false" placeholder='{ "name": "Смартфоны", "attributes": [...] }'></textarea>
+      <div id="mdmJsonErr" style="color:var(--rd);font-size:.82rem;margin-top:6px;min-height:1.2em"></div>
+      <div id="mdmJsonProgress" style="display:none;margin-top:8px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--tx2)">
+          <span id="mdmJsonProgressText">0 / 0</span>
+        </div>
+        <div style="width:100%;height:6px;background:var(--bg3);border-radius:3px;margin-top:4px;overflow:hidden">
+          <div id="mdmJsonProgressBar" style="height:100%;background:var(--ac);border-radius:3px;transition:width .2s;width:0%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-g btn-sm" onclick="mdmJsonFormat()">Форматировать</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-g" onclick="closeM('ovMdmJson')">Отмена</button>
+      <button class="btn btn-p" id="mdmJsonSaveBtn" onclick="mdmJsonImport()">📥 Импортировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Модальное окно: описание JSON-схемы ═════════════════════ -->
+<div class="ov" id="ovMdmJsonHelp">
+  <div class="modal modal-lg">
+    <div class="mh">
+      <h2>📋 JSON-схема шаблона MDM</h2>
+      <button class="mclose" onclick="closeM('ovMdmJsonHelp')">✕</button>
+    </div>
+    <div class="mbody" style="font-size:.84rem;line-height:1.6">
+      <p>Каждый шаблон описывается JSON-объектом. Для массового импорта оберните массив шаблонов в <code>[ ]</code>.</p>
+      <pre id="mdmJsonSchemaCode" style="background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:12px;font-family:var(--mo);font-size:.78rem;overflow-x:auto;white-space:pre;line-height:1.55;max-height:60vh"></pre>
+      <div style="margin-top:10px">
+        <b style="font-size:.82rem">Допустимые типы атрибутов:</b>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px" id="mdmJsonHelpTypes"></div>
+      </div>
+      <div style="margin-top:10px" id="mdmJsonHelpRefTables"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-g btn-sm" onclick="mdmCopySchema()">📋 Скопировать схему</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-p" onclick="closeM('ovMdmJsonHelp')">Закрыть</button>
     </div>
   </div>
 </div>
@@ -219,6 +278,7 @@ function mdmOpenTplModal(tpl) {
   document.getElementById('mdmTplName').value = tpl ? tpl.name : '';
   document.getElementById('mdmTplDesc').value = tpl ? (tpl.description || '') : '';
   document.getElementById('mdmTplDelBtn').style.display = tpl ? '' : 'none';
+  document.getElementById('mdmTplJsonBtn').style.display = tpl ? '' : 'none';
 
   // Клонируем атрибуты для редактирования
   if (tpl && tpl.attributes) {
@@ -648,5 +708,274 @@ async function _mdmReloadProducts() {
   } catch(e) {}
   _mdmRenderKpi();
   _mdmRenderProdTable();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MDM — JSON IMPORT / EXPORT
+// ════════════════════════════════════════════════════════════════
+
+// Схема для справки
+var _MDM_JSON_SCHEMA = {
+  "описание": "Схема объекта Шаблона (Template MDM). Для массового импорта оберните в массив [ ].",
+  "структура": {
+    "name": "Строка (Название шаблона — обязательно)",
+    "description": "Строка (Необязательное описание)",
+    "attributes": [
+      {
+        "name": "Строка (Название атрибута — обязательно)",
+        "type": "string | integer | float | boolean | date | time | datetime | color_rgb | enum_radio | enum_checkbox | reference | calculated",
+        "description": "Строка (Подсказка для поля — необязательно)",
+        "is_required": "Логическое true/false (по умолчанию false)",
+        "display_style": "list | dropdown (Только для enum_radio / enum_checkbox)",
+        "options": "Строка через запятую (Только для enum_radio / enum_checkbox)",
+        "ref_table": "Ключ таблицы-справочника (Только для reference). Допустимые: brands, models, suppliers, managers, currencies, wallets, warehouses, cats, articles",
+        "formula": "Строка-формула (Только для calculated). Пример: СЦЕПИТЬ({Бренд},\" \",{Модель})"
+      }
+    ]
+  },
+  "пример": {
+    "name": "Смартфоны",
+    "description": "Шаблон для мобильных телефонов",
+    "attributes": [
+      { "name": "Бренд", "type": "reference", "ref_table": "brands", "is_required": true },
+      { "name": "Модель", "type": "string", "is_required": true },
+      { "name": "Ёмкость", "type": "enum_radio", "options": "64GB,128GB,256GB,512GB", "display_style": "list", "is_required": true },
+      { "name": "Цвет", "type": "enum_radio", "options": "Чёрный,Белый,Синий,Красный,Серый", "display_style": "list" },
+      { "name": "Полное название", "type": "calculated", "formula": "СЦЕПИТЬ({Бренд},\" \",{Модель},\" \",{Ёмкость})" }
+    ]
+  }
+};
+
+// ── Конвертация: внутренний формат → JSON ───────────────────────
+function _mdmTplToJson(tpl) {
+  var obj = { name: tpl.name, description: tpl.description || '' };
+  obj.attributes = (tpl.attributes || []).map(function(a) {
+    var attr = { name: a.name, type: a.type };
+    if (a.description) attr.description = a.description;
+    if (a.is_required) attr.is_required = true;
+    if (a.display_style) attr.display_style = a.display_style;
+    if (a.options) attr.options = a.options;
+    if (a.ref_table) attr.ref_table = a.ref_table;
+    if (a.formula) attr.formula = a.formula;
+    return attr;
+  });
+  return obj;
+}
+
+// ── Конвертация: JSON → внутренний формат _mdmTplAttrs ──────────
+function _mdmJsonToAttrs(attrs) {
+  return (attrs || []).map(function(a, i) {
+    return {
+      name: (a.name || '').trim(),
+      type: a.type || 'string',
+      description: a.description || '',
+      is_required: !!a.is_required,
+      display_style: a.display_style || '',
+      options: a.options || '',
+      ref_table: a.ref_table || '',
+      formula: a.formula || '',
+      sort_order: i + 1
+    };
+  });
+}
+
+// ── Валидация JSON шаблона ──────────────────────────────────────
+function _mdmValidateJsonTpl(obj) {
+  if (!obj || typeof obj !== 'object') return 'Ожидается JSON-объект шаблона';
+  if (!(obj.name || '').trim()) return 'Поле "name" (название) обязательно';
+  if (!Array.isArray(obj.attributes)) return 'Поле "attributes" должно быть массивом';
+  var validTypes = Object.keys(MDM_TYPE_LABELS);
+  for (var i = 0; i < obj.attributes.length; i++) {
+    var a = obj.attributes[i];
+    if (!(a.name || '').trim()) return 'Атрибут #' + (i+1) + ': не указано "name"';
+    if (a.type && validTypes.indexOf(a.type) === -1) return 'Атрибут "' + a.name + '": неизвестный type "' + a.type + '"';
+    if (a.type === 'reference' && !a.ref_table) return 'Атрибут "' + a.name + '": для reference укажите "ref_table"';
+    if (a.type === 'calculated' && !(a.formula || '').trim()) return 'Атрибут "' + a.name + '": для calculated укажите "formula"';
+    if ((a.type === 'enum_radio' || a.type === 'enum_checkbox') && !(a.options || '').trim()) return 'Атрибут "' + a.name + '": укажите "options"';
+  }
+  return null;
+}
+
+// ── Открыть JSON-импорт (пустой) ───────────────────────────────
+function mdmOpenJsonImport() {
+  document.getElementById('mdmJsonTitle').textContent = 'Импорт шаблона из JSON';
+  document.getElementById('mdmJsonHint').textContent = 'Вставьте JSON-объект шаблона или массив шаблонов для массового импорта.';
+  document.getElementById('mdmJsonArea').value = '';
+  document.getElementById('mdmJsonErr').textContent = '';
+  document.getElementById('mdmJsonSaveBtn').textContent = '📥 Импортировать';
+  document.getElementById('mdmJsonSaveBtn').onclick = mdmJsonImport;
+  openM('ovMdmJson');
+}
+
+// ── Мост: из модалки шаблона → JSON-редактор ────────────────────
+function mdmEditTplAsJson() {
+  var tpl = {
+    id: _mdmTplEditId,
+    name: document.getElementById('mdmTplName').value,
+    description: document.getElementById('mdmTplDesc').value,
+    attributes: _mdmTplAttrs.slice()
+  };
+  closeM('ovMdmTpl');
+  mdmOpenJsonEdit(tpl);
+}
+
+// ── Открыть JSON-редактор для текущего шаблона ──────────────────
+function mdmOpenJsonEdit(tpl) {
+  document.getElementById('mdmJsonTitle').textContent = 'Редактировать шаблон через JSON';
+  document.getElementById('mdmJsonHint').textContent = 'Отредактируйте JSON и сохраните. ID шаблона будет сохранён.';
+  var json = _mdmTplToJson(tpl);
+  json._id = tpl.id; // служебное поле для обновления
+  document.getElementById('mdmJsonArea').value = JSON.stringify(json, null, 2);
+  document.getElementById('mdmJsonErr').textContent = '';
+  document.getElementById('mdmJsonSaveBtn').textContent = '💾 Сохранить';
+  document.getElementById('mdmJsonSaveBtn').onclick = function() { mdmJsonImport(true); };
+  openM('ovMdmJson');
+}
+
+// ── Экспорт всех шаблонов в JSON ────────────────────────────────
+function mdmExportAllJson() {
+  var arr = ST.mdm.templates.map(function(t) { return _mdmTplToJson(t); });
+  var text = JSON.stringify(arr, null, 2);
+  // Скачиваем как файл
+  var blob = new Blob([text], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'mdm_templates_export.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Экспорт ' + arr.length + ' шаблон(ов) — скачивание начато', 's');
+}
+
+// ── Форматирование JSON в textarea ──────────────────────────────
+function mdmJsonFormat() {
+  var el = document.getElementById('mdmJsonArea');
+  var errEl = document.getElementById('mdmJsonErr');
+  try {
+    var parsed = JSON.parse(el.value);
+    el.value = JSON.stringify(parsed, null, 2);
+    errEl.textContent = '';
+  } catch(e) {
+    errEl.textContent = '⚠ Невалидный JSON: ' + e.message;
+  }
+}
+
+// ── Импорт из JSON ─────────────────────────────────────────────
+async function mdmJsonImport(isEdit) {
+  var el = document.getElementById('mdmJsonArea');
+  var errEl = document.getElementById('mdmJsonErr');
+  errEl.textContent = '';
+
+  var parsed;
+  try {
+    parsed = JSON.parse(el.value);
+  } catch(e) {
+    errEl.textContent = '⚠ Невалидный JSON: ' + e.message;
+    return;
+  }
+
+  // Нормализуем: один объект → массив
+  var templates = Array.isArray(parsed) ? parsed : [parsed];
+
+  // Валидация всех шаблонов
+  for (var i = 0; i < templates.length; i++) {
+    var err = _mdmValidateJsonTpl(templates[i]);
+    if (err) {
+      errEl.textContent = '⚠ Шаблон ' + (templates.length > 1 ? '#' + (i+1) + ': ' : '') + err;
+      return;
+    }
+  }
+
+  // Показываем прогресс
+  var progWrap = document.getElementById('mdmJsonProgress');
+  var progBar  = document.getElementById('mdmJsonProgressBar');
+  var progText = document.getElementById('mdmJsonProgressText');
+  var saveBtn  = document.getElementById('mdmJsonSaveBtn');
+  var total    = templates.length;
+
+  if (total > 1) {
+    progWrap.style.display = '';
+    progBar.style.width = '0%';
+    progText.textContent = '0 / ' + total;
+  }
+  saveBtn.disabled = true;
+
+  // Сохраняем последовательно
+  var saved = 0;
+  for (var j = 0; j < templates.length; j++) {
+    var t = templates[j];
+    var data = {
+      name: t.name.trim(),
+      description: t.description || '',
+      attributes: _mdmJsonToAttrs(t.attributes)
+    };
+    // При редактировании одного шаблона — передаём id
+    if (isEdit && t._id) data.id = t._id;
+
+    try {
+      await api('saveTemplate', data);
+      saved++;
+      if (total > 1) {
+        var pct = Math.round((saved / total) * 100);
+        progBar.style.width = pct + '%';
+        progText.textContent = saved + ' / ' + total;
+      }
+    } catch(e) {
+      errEl.textContent = '⚠ Ошибка при сохранении "' + t.name + '": ' + e.message;
+      break;
+    }
+  }
+
+  saveBtn.disabled = false;
+  progWrap.style.display = 'none';
+
+  if (saved > 0) {
+    toast(saved + ' шаблон(ов) импортировано', 's');
+    closeM('ovMdmJson');
+    await _mdmReloadAll();
+  }
+}
+
+// ── Описание JSON-схемы ─────────────────────────────────────────
+function mdmOpenJsonHelp() {
+  // Рендер схемы
+  document.getElementById('mdmJsonSchemaCode').textContent = JSON.stringify(_MDM_JSON_SCHEMA, null, 2);
+
+  // Типы
+  var typesHtml = '';
+  Object.keys(MDM_TYPE_LABELS).forEach(function(t) {
+    typesHtml += '<span class="mdm-tag">' + t + ' — ' + MDM_TYPE_LABELS[t] + '</span>';
+  });
+  document.getElementById('mdmJsonHelpTypes').innerHTML = typesHtml;
+
+  // Справочные таблицы
+  var rtHtml = '<b style="font-size:.82rem">Доступные ref_table (для type: reference):</b><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">';
+  Object.keys(ST.mdm.refTables || {}).forEach(function(key) {
+    var rt = ST.mdm.refTables[key];
+    rtHtml += '<span class="mdm-tag">' + key + ' — ' + esc(rt.label) + '</span>';
+  });
+  rtHtml += '</div>';
+  document.getElementById('mdmJsonHelpRefTables').innerHTML = rtHtml;
+
+  openM('ovMdmJsonHelp');
+}
+
+// ── Скопировать схему в буфер ───────────────────────────────────
+function mdmCopySchema() {
+  var text = JSON.stringify(_MDM_JSON_SCHEMA, null, 2);
+  navigator.clipboard.writeText(text).then(function() {
+    toast('Схема скопирована в буфер', 's');
+  }).catch(function() {
+    // Fallback
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Схема скопирована в буфер', 's');
+  });
 }
 </script>
