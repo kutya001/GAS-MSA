@@ -135,6 +135,11 @@ function _mdmLoadTab(tab) {
 //  MDM — MAIN LOAD
 // ════════════════════════════════════════════════════════════════
 async function loadMDM() {
+  // Гарантируем инициализацию (защита от ReferenceError)
+  if (!ST.mdm) {
+    ST.mdm = { refTables: {}, templates: [], products: [], curTab: 'templates' };
+  }
+
   try {
     var ctx = await api('getMDMContext');
     if (ctx) {
@@ -142,7 +147,10 @@ async function loadMDM() {
       ST.mdm.templates  = ctx.templates  || [];
       ST.mdm.products   = ctx.products   || [];
     }
-  } catch(e) { /* данные загрузятся по табам */ }
+  } catch(e) {
+    console.error('Ошибка загрузки контекста MDM:', e);
+  }
+
   _mdmRenderKpi();
   _mdmLoadTab(ST.mdm.curTab);
 }
