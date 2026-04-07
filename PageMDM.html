@@ -1,0 +1,644 @@
+<!-- ══ MDM — УПРАВЛЕНИЕ МАСТЕР-ДАННЫМИ ═════════════════════════════════ -->
+<style>
+.mdm-attr-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;margin-bottom:6px;transition:box-shadow var(--t)}
+.mdm-attr-card:hover{box-shadow:var(--s1)}
+.mdm-attr-hd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mdm-attr-hd .fi{flex:1;min-width:100px}
+.mdm-attr-hd select.fi{max-width:180px}
+.mdm-attr-num{font-size:.72rem;font-weight:800;color:var(--tx3);min-width:24px}
+.mdm-attr-ext{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+.mdm-attr-ext .fgrp{flex:1;min-width:140px}
+.mdm-tag-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.mdm-tag{background:var(--acbg);color:var(--ac);padding:3px 8px;border-radius:99px;font-size:.76rem;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.mdm-tag button{background:none;border:none;color:var(--rd);cursor:pointer;font-size:.82rem;padding:0;line-height:1}
+.mdm-kpi-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.mdm-kpi-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:12px 16px;flex:1;min-width:140px;text-align:center}
+.mdm-kpi-card .kpi-val{font-size:1.5rem;font-weight:900;margin-bottom:2px}
+.mdm-kpi-card .kpi-lbl{font-size:.72rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+</style>
+
+<div class="page" id="page-mdm">
+  <div class="sh"><h2>Управление мастер-данными</h2>
+    <p>Шаблоны номенклатуры и карточки товаров</p>
+  </div>
+
+  <!-- KPI-обзор -->
+  <div class="mdm-kpi-row" id="mdmKpi"></div>
+
+  <!-- Вкладки -->
+  <div class="tabs" id="mdmTabs">
+    <button class="tab on" data-mt="templates">📐 Шаблоны</button>
+    <button class="tab" data-mt="products">📦 Номенклатура</button>
+  </div>
+
+  <!-- Tab: Шаблоны -->
+  <div class="tp on" id="mdm-templates">
+    <div id="mdmTplTable"></div>
+  </div>
+
+  <!-- Tab: Номенклатура -->
+  <div class="tp" id="mdm-products">
+    <div class="ptabs" id="mdmProdTplTabs"></div>
+    <div id="mdmProdTable"></div>
+  </div>
+</div>
+
+<!-- ════ Модальное окно: редактор шаблона ═════════════════════════ -->
+<div class="ov" id="ovMdmTpl">
+  <div class="modal modal-lg">
+    <div class="mh">
+      <h2 id="mdmTplModalTitle">Новый шаблон</h2>
+      <button class="mclose" onclick="closeM('ovMdmTpl')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="fg2 g1" style="margin-bottom:12px">
+        <div class="fgrp">
+          <label class="req">Название шаблона</label>
+          <input id="mdmTplName" type="text" placeholder="Например: Смартфоны">
+        </div>
+        <div class="fgrp">
+          <label>Описание</label>
+          <textarea id="mdmTplDesc" rows="2" placeholder="Описание категории товаров"></textarea>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="sh" style="margin-top:10px">
+        <h2 style="font-size:.92rem">Атрибуты шаблона</h2>
+        <div class="sh-acts">
+          <button class="btn btn-p btn-sm" onclick="mdmAddAttr()">+ Атрибут</button>
+        </div>
+      </div>
+      <div id="mdmAttrList"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-rd" id="mdmTplDelBtn" style="display:none" onclick="mdmDeleteTemplate()">🗑 Удалить</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-g" onclick="closeM('ovMdmTpl')">Отмена</button>
+      <button class="btn btn-p" onclick="mdmSaveTemplate()">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Модальное окно: карточка товара (динамическая) ════════════ -->
+<div class="ov" id="ovMdmProd">
+  <div class="modal modal-lg">
+    <div class="mh">
+      <h2 id="mdmProdModalTitle">Карточка товара</h2>
+      <button class="mclose" onclick="closeM('ovMdmProd')">✕</button>
+    </div>
+    <div class="mbody" id="mdmProdBody"></div>
+    <div class="mfoot" id="mdmProdFoot">
+      <button class="btn btn-rd" id="mdmProdDelBtn" style="display:none" onclick="mdmDeleteProduct()">🗑 Удалить</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-g" onclick="closeM('ovMdmProd')">Отмена</button>
+      <button class="btn btn-p" id="mdmProdSaveBtn" onclick="mdmSaveProduct()">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  MDM — STATE & CONSTANTS
+// ════════════════════════════════════════════════════════════════
+var MDM_TYPE_LABELS = {
+  string:'Текст', integer:'Целое число', float:'Дробное число',
+  boolean:'Да / Нет', date:'Дата', time:'Время', datetime:'Дата и время',
+  color_rgb:'Цвет (RGB)', enum_radio:'Выбор (один)', enum_checkbox:'Выбор (несколько)',
+  reference:'Справочник БД', calculated:'Вычисляемое'
+};
+
+var _mdmTplAttrs = [];
+var _mdmTplEditId = null;
+var _mdmProdEditId = null;
+
+// ════════════════════════════════════════════════════════════════
+//  MDM — TABS
+// ════════════════════════════════════════════════════════════════
+document.getElementById('mdmTabs').addEventListener('click', function(e) {
+  var tab = e.target.closest('.tab');
+  if (!tab || !tab.dataset.mt) return;
+  document.querySelectorAll('#mdmTabs .tab').forEach(function(x) { x.classList.remove('on'); });
+  tab.classList.add('on');
+  document.querySelectorAll('#page-mdm > .tp').forEach(function(x) { x.classList.remove('on'); });
+  var tp = document.getElementById('mdm-' + tab.dataset.mt);
+  if (tp) tp.classList.add('on');
+  ST.mdm.curTab = tab.dataset.mt;
+  _mdmLoadTab(tab.dataset.mt);
+});
+
+function _mdmLoadTab(tab) {
+  if (tab === 'templates') _mdmRenderTemplates();
+  if (tab === 'products')  _mdmRenderProducts();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MDM — MAIN LOAD
+// ════════════════════════════════════════════════════════════════
+async function loadMDM() {
+  try {
+    var ctx = await api('getMDMContext');
+    if (ctx) {
+      ST.mdm.refTables  = ctx.refTables  || {};
+      ST.mdm.templates  = ctx.templates  || [];
+      ST.mdm.products   = ctx.products   || [];
+    }
+  } catch(e) { /* данные загрузятся по табам */ }
+  _mdmRenderKpi();
+  _mdmLoadTab(ST.mdm.curTab);
+}
+
+function _mdmRenderKpi() {
+  var d = ST.mdm;
+  var refCount = Object.keys(d.refTables).length;
+  var html =
+    '<div class="mdm-kpi-card"><div class="kpi-val">' + refCount + '</div><div class="kpi-lbl">Справочников БД</div></div>' +
+    '<div class="mdm-kpi-card"><div class="kpi-val">' + (d.templates.length) + '</div><div class="kpi-lbl">Шаблонов</div></div>' +
+    '<div class="mdm-kpi-card"><div class="kpi-val">' + (d.products.length) + '</div><div class="kpi-lbl">Товаров</div></div>';
+  document.getElementById('mdmKpi').innerHTML = html;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ШАБЛОНЫ (Templates) — DT + custom modal
+// ════════════════════════════════════════════════════════════════
+var _mdmTplDT = null;
+function _mdmTplDTinit() {
+  if (_mdmTplDT) return _mdmTplDT;
+  _mdmTplDT = new DT({
+    id: 'mdmTpl', containerId: 'mdmTplTable',
+    addLabel: '+ Шаблон',
+    onAdd: function() { mdmOpenTplModal(null); },
+    onRowClick: function(r) {
+      var tpl = ST.mdm.templates.find(function(t) { return t.id === r.id; });
+      if (tpl) mdmOpenTplModal(tpl);
+    },
+    cols: [
+      { key: 'id', label: 'ID', w: '56px', mono: true,
+        render: function(v) { return '<span class="muted">#' + v + '</span>'; }
+      },
+      { key: 'name', label: 'Название',
+        render: function(v) { return '<b>' + esc(v) + '</b>'; }
+      },
+      { key: 'description', label: 'Описание',
+        render: function(v) { return '<span class="muted">' + esc(v || '—') + '</span>'; }
+      },
+      { key: '_attr_count', label: 'Атрибутов', w: '100px',
+        render: function(v) { return '<span class="badge bp">' + v + '</span>'; }
+      },
+      { key: '_prod_count', label: 'Товаров', w: '90px',
+        render: function(v) { return '<span class="badge bg">' + v + '</span>'; }
+      }
+    ]
+  });
+  return _mdmTplDT;
+}
+
+function _mdmRenderTemplates() {
+  var rows = ST.mdm.templates.map(function(t) {
+    var prodCount = ST.mdm.products.filter(function(p) { return p.template_id === t.id; }).length;
+    return {
+      id: t.id, name: t.name, description: t.description,
+      _attr_count: (t.attributes || []).length,
+      _prod_count: prodCount
+    };
+  });
+  _mdmTplDTinit().setData(rows);
+}
+
+// ── Открытие модалки шаблона ────────────────────────────────────
+function mdmOpenTplModal(tpl) {
+  _mdmTplEditId = tpl ? tpl.id : null;
+  document.getElementById('mdmTplModalTitle').textContent = tpl ? 'Редактировать шаблон' : 'Новый шаблон';
+  document.getElementById('mdmTplName').value = tpl ? tpl.name : '';
+  document.getElementById('mdmTplDesc').value = tpl ? (tpl.description || '') : '';
+  document.getElementById('mdmTplDelBtn').style.display = tpl ? '' : 'none';
+
+  // Клонируем атрибуты для редактирования
+  if (tpl && tpl.attributes) {
+    _mdmTplAttrs = tpl.attributes.map(function(a) {
+      return {
+        name: a.name, type: a.type, description: a.description || '',
+        is_required: a.is_required, display_style: a.display_style || '',
+        options: a.options || '', ref_table: a.ref_table || '',
+        formula: a.formula || '', sort_order: a.sort_order || 0
+      };
+    });
+  } else {
+    _mdmTplAttrs = [];
+  }
+  _mdmRenderAttrList();
+  openM('ovMdmTpl');
+}
+
+function mdmAddAttr() {
+  _mdmTplAttrs.push({
+    name: '', type: 'string', description: '', is_required: false,
+    display_style: '', options: '', ref_table: '', formula: ''
+  });
+  _mdmRenderAttrList();
+  // Скролл вниз
+  var list = document.getElementById('mdmAttrList');
+  list.lastElementChild && list.lastElementChild.scrollIntoView({ behavior:'smooth', block:'end' });
+}
+
+function mdmRemoveAttr(idx) {
+  _mdmTplAttrs.splice(idx, 1);
+  _mdmRenderAttrList();
+}
+
+function mdmMoveAttr(idx, dir) {
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= _mdmTplAttrs.length) return;
+  var tmp = _mdmTplAttrs[idx];
+  _mdmTplAttrs[idx] = _mdmTplAttrs[newIdx];
+  _mdmTplAttrs[newIdx] = tmp;
+  _mdmRenderAttrList();
+}
+
+function _mdmRenderAttrList() {
+  var html = '';
+  _mdmTplAttrs.forEach(function(a, i) {
+    html += '<div class="mdm-attr-card" data-idx="' + i + '">';
+    html += '<div class="mdm-attr-hd">';
+    html += '<span class="mdm-attr-num">#' + (i + 1) + '</span>';
+    html += '<input class="fi" placeholder="Название атрибута" value="' + esc(a.name) + '" onchange="_mdmTplAttrs[' + i + '].name=this.value" style="min-width:130px">';
+    html += '<select class="fi" onchange="_mdmTplAttrs[' + i + '].type=this.value;_mdmRenderAttrList()">';
+    Object.keys(MDM_TYPE_LABELS).forEach(function(t) {
+      html += '<option value="' + t + '"' + (a.type === t ? ' selected' : '') + '>' + MDM_TYPE_LABELS[t] + '</option>';
+    });
+    html += '</select>';
+    html += '<label class="chkrow" style="margin:0;white-space:nowrap"><input type="checkbox"' + (a.is_required ? ' checked' : '') + ' onchange="_mdmTplAttrs[' + i + '].is_required=this.checked"><span>Обяз.</span></label>';
+    html += '<button class="btn-icon" onclick="mdmMoveAttr(' + i + ',-1)" title="Вверх" style="font-size:.7rem">▲</button>';
+    html += '<button class="btn-icon" onclick="mdmMoveAttr(' + i + ',1)" title="Вниз" style="font-size:.7rem">▼</button>';
+    html += '<button class="btn-icon" onclick="mdmRemoveAttr(' + i + ')" title="Удалить" style="color:var(--rd)">✕</button>';
+    html += '</div>';
+    html += _mdmAttrExtFields(a, i);
+    html += '</div>';
+  });
+  if (!_mdmTplAttrs.length) {
+    html = '<div class="empty" style="padding:24px">Нет атрибутов. Нажмите «+ Атрибут» для добавления.</div>';
+  }
+  document.getElementById('mdmAttrList').innerHTML = html;
+}
+
+function _mdmAttrExtFields(a, i) {
+  var html = '';
+  if (a.type === 'enum_radio' || a.type === 'enum_checkbox') {
+    html += '<div class="mdm-attr-ext">';
+    html += '<div class="fgrp"><label>Варианты (через запятую)</label><input class="fi" value="' + esc(a.options) + '" placeholder="Вариант1, Вариант2, ..." onchange="_mdmTplAttrs[' + i + '].options=this.value"></div>';
+    html += '<div class="fgrp" style="max-width:180px"><label>Стиль</label><select class="fi" onchange="_mdmTplAttrs[' + i + '].display_style=this.value"><option value="list"' + (a.display_style === 'list' ? ' selected' : '') + '>Список</option><option value="dropdown"' + (a.display_style === 'dropdown' ? ' selected' : '') + '>Выпадающий</option></select></div>';
+    html += '</div>';
+  }
+  if (a.type === 'reference') {
+    html += '<div class="mdm-attr-ext">';
+    html += '<div class="fgrp"><label class="req">Таблица-справочник БД</label><select class="fi" onchange="_mdmTplAttrs[' + i + '].ref_table=this.value">';
+    html += '<option value="">— Выберите таблицу —</option>';
+    Object.keys(ST.mdm.refTables).forEach(function(key) {
+      var rt = ST.mdm.refTables[key];
+      html += '<option value="' + key + '"' + (a.ref_table === key ? ' selected' : '') + '>' + esc(rt.label) + ' (' + (rt.items||[]).length + ')</option>';
+    });
+    html += '</select></div>';
+    html += '</div>';
+  }
+  if (a.type === 'calculated') {
+    var refs = _mdmTplAttrs.filter(function(x, j) { return j !== i && x.name; }).map(function(x) { return '{' + x.name + '}'; }).join(', ');
+    html += '<div class="mdm-attr-ext">';
+    html += '<div class="fgrp" style="flex:2"><label class="req">Формула</label><input class="fi" style="font-family:var(--mo)" value="' + esc(a.formula) + '" placeholder=\'СЦЕПИТЬ({Бренд}, " ", {Модель})\' onchange="_mdmTplAttrs[' + i + '].formula=this.value">';
+    if (refs) html += '<span class="fhint">Ссылки: ' + refs + '</span>';
+    html += '</div></div>';
+  }
+  // Описание для простых типов
+  if (['string','integer','float','date','time','datetime','boolean','color_rgb'].indexOf(a.type) >= 0) {
+    html += '<div class="mdm-attr-ext">';
+    html += '<div class="fgrp"><label>Подсказка</label><input class="fi" value="' + esc(a.description) + '" placeholder="Описание поля (необязательно)" onchange="_mdmTplAttrs[' + i + '].description=this.value"></div>';
+    html += '</div>';
+  }
+  return html;
+}
+
+// ── Сохранение шаблона ──────────────────────────────────────────
+async function mdmSaveTemplate() {
+  var name = document.getElementById('mdmTplName').value.trim();
+  if (!name) { toast('Укажите название шаблона', 'w'); return; }
+
+  // Валидация атрибутов
+  for (var i = 0; i < _mdmTplAttrs.length; i++) {
+    var a = _mdmTplAttrs[i];
+    if (!a.name.trim()) { toast('Атрибут #' + (i+1) + ': укажите название', 'w'); return; }
+    if (a.type === 'reference' && !a.ref_table) { toast('Атрибут "' + a.name + '": выберите таблицу-справочник', 'w'); return; }
+    if (a.type === 'calculated' && !a.formula.trim()) { toast('Атрибут "' + a.name + '": укажите формулу', 'w'); return; }
+    if ((a.type === 'enum_radio' || a.type === 'enum_checkbox') && !a.options.trim()) { toast('Атрибут "' + a.name + '": укажите варианты', 'w'); return; }
+  }
+
+  var data = {
+    name: name,
+    description: document.getElementById('mdmTplDesc').value.trim(),
+    attributes: _mdmTplAttrs.map(function(a, i) {
+      return {
+        name: a.name.trim(), type: a.type, description: a.description || '',
+        is_required: !!a.is_required, display_style: a.display_style || '',
+        options: a.options || '', ref_table: a.ref_table || '',
+        formula: a.formula || '', sort_order: i + 1
+      };
+    })
+  };
+  if (_mdmTplEditId) data.id = _mdmTplEditId;
+
+  await api('saveTemplate', data);
+  toast('Шаблон сохранён', 's');
+  closeM('ovMdmTpl');
+  await _mdmReloadAll();
+}
+
+// ── Удаление шаблона ────────────────────────────────────────────
+async function mdmDeleteTemplate() {
+  if (!_mdmTplEditId) return;
+  if (!confirm('Удалить шаблон? Это невозможно, если есть связанные товары.')) return;
+  await api('deleteTemplate', { id: _mdmTplEditId });
+  toast('Шаблон удалён', 's');
+  closeM('ovMdmTpl');
+  await _mdmReloadAll();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  НОМЕНКЛАТУРА (Products)
+// ════════════════════════════════════════════════════════════════
+var _mdmProdDT = null;
+
+function _mdmRenderProducts() {
+  // Рендер табов шаблонов
+  var tabsHtml = '';
+  ST.mdm.templates.forEach(function(t, i) {
+    var cnt = ST.mdm.products.filter(function(p) { return p.template_id === t.id; }).length;
+    var isOn = ST.mdm.curTplId ? (ST.mdm.curTplId === t.id) : (i === 0);
+    tabsHtml += '<button class="ptab' + (isOn ? ' on' : '') + '" onclick="_mdmSelectTpl(' + t.id + ',this)">' + esc(t.name) + ' <span class="badge bgr" style="margin-left:4px">' + cnt + '</span></button>';
+  });
+  if (!ST.mdm.templates.length) {
+    tabsHtml = '<span class="muted" style="font-size:.82rem">Сначала создайте шаблон во вкладке «Шаблоны»</span>';
+  }
+  document.getElementById('mdmProdTplTabs').innerHTML = tabsHtml;
+
+  // Автовыбор первого шаблона
+  if (!ST.mdm.curTplId && ST.mdm.templates.length) {
+    ST.mdm.curTplId = ST.mdm.templates[0].id;
+  }
+  _mdmRenderProdTable();
+}
+
+function _mdmSelectTpl(tplId, el) {
+  ST.mdm.curTplId = tplId;
+  document.querySelectorAll('#mdmProdTplTabs .ptab').forEach(function(x) { x.classList.remove('on'); });
+  if (el) el.classList.add('on');
+  _mdmRenderProdTable();
+}
+
+function _mdmRenderProdTable() {
+  var tpl = ST.mdm.templates.find(function(t) { return t.id === ST.mdm.curTplId; });
+  if (!tpl) {
+    document.getElementById('mdmProdTable').innerHTML = '<div class="empty">Выберите шаблон для просмотра товаров</div>';
+    return;
+  }
+
+  // Строим колонки из атрибутов шаблона
+  var cols = [
+    { key: 'id', label: 'ID', w: '56px', mono: true,
+      render: function(v) { return '<span class="muted">#' + v + '</span>'; }
+    },
+    { key: 'sku', label: 'SKU', mono: true, w: '120px' },
+    { key: 'name', label: 'Наименование',
+      render: function(v) { return '<b>' + esc(v || '—') + '</b>'; }
+    }
+  ];
+
+  (tpl.attributes || []).forEach(function(attr) {
+    if (attr.type === 'calculated') return;
+    cols.push({
+      key: '_a' + attr.id,
+      label: attr.name,
+      render: function(v) {
+        if (v === undefined || v === null || v === '') return '<span class="muted">—</span>';
+        if (attr.type === 'boolean') return v === true || v === 'true' ? '<span class="badge bg">Да</span>' : '<span class="muted">Нет</span>';
+        if (attr.type === 'color_rgb') return '<span style="display:inline-block;width:18px;height:18px;border-radius:4px;background:' + esc(String(v)) + ';vertical-align:middle;border:1px solid var(--bdr)"></span>';
+        if (Array.isArray(v)) return v.map(function(x) { return '<span class="badge bgr">' + esc(x) + '</span>'; }).join(' ');
+        return esc(String(v));
+      }
+    });
+  });
+
+  cols.push({ key: 'created_at', label: 'Создан', w: '90px', render: function(v) { return fmtD(v); } });
+
+  // Данные: вытаскиваем attribute_values в плоскую структуру
+  var products = ST.mdm.products.filter(function(p) { return p.template_id === tpl.id; });
+  var rows = products.map(function(p) {
+    var row = { id: p.id, sku: p.sku, name: p.name, template_id: p.template_id, attribute_values: p.attribute_values, created_at: p.created_at };
+    (tpl.attributes || []).forEach(function(a) {
+      row['_a' + a.id] = p.attribute_values[String(a.id)];
+    });
+    return row;
+  });
+
+  // Пересоздаём DT
+  if (_mdmProdDT) {
+    delete DT_INST[_mdmProdDT.cfg.id];
+    _mdmProdDT = null;
+  }
+  document.getElementById('mdmProdTable').innerHTML = '';
+
+  _mdmProdDT = new DT({
+    id: 'mdmProd_' + tpl.id, containerId: 'mdmProdTable',
+    addLabel: '+ Товар',
+    onAdd: function() { mdmOpenProdModal(null); },
+    onRowClick: function(r) { mdmOpenProdModal(r); },
+    cols: cols
+  });
+  _mdmProdDT.setData(rows);
+}
+
+// ── Модалка товара: динамическая форма ──────────────────────────
+function mdmOpenProdModal(product) {
+  var tpl = ST.mdm.templates.find(function(t) { return t.id === ST.mdm.curTplId; });
+  if (!tpl) { toast('Выберите шаблон', 'w'); return; }
+
+  _mdmProdEditId = product ? product.id : null;
+  document.getElementById('mdmProdModalTitle').textContent = product ? 'Редактировать товар' : 'Новый товар';
+  document.getElementById('mdmProdDelBtn').style.display = product ? '' : 'none';
+
+  var av = product ? (product.attribute_values || {}) : {};
+  var html = '<div class="fg2">';
+  html += '<div class="fgrp"><label class="req">SKU (артикул)</label><input id="mdmP_sku" placeholder="Уникальный код" value="' + esc(product ? product.sku : '') + '"></div>';
+  html += '<div class="fgrp"><label class="req">Наименование</label><input id="mdmP_name" placeholder="Название товара" value="' + esc(product ? product.name : '') + '"></div>';
+
+  // Динамические поля из шаблона
+  (tpl.attributes || []).forEach(function(a) {
+    var val = av[String(a.id)];
+    html += _mdmProdFieldHtml(a, val);
+  });
+
+  html += '</div>';
+  document.getElementById('mdmProdBody').innerHTML = html;
+  openM('ovMdmProd');
+}
+
+function _mdmProdFieldHtml(attr, val) {
+  var id = 'mdmP_' + attr.id;
+  var reqCls = attr.is_required ? ' class="req"' : '';
+  var v = (val !== undefined && val !== null) ? val : '';
+
+  switch (attr.type) {
+    case 'string':
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><input id="' + id + '" value="' + esc(v) + '" placeholder="' + esc(attr.description || '') + '"></div>';
+
+    case 'integer':
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><input id="' + id + '" type="number" step="1" value="' + esc(v) + '" placeholder="' + esc(attr.description || '0') + '"></div>';
+
+    case 'float':
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><input id="' + id + '" type="number" step="0.01" value="' + esc(v) + '" placeholder="' + esc(attr.description || '0.00') + '"></div>';
+
+    case 'boolean':
+      return '<div class="fgrp"><label class="chkrow"><input type="checkbox" id="' + id + '"' + (v === true || v === 'true' ? ' checked' : '') + '><span>' + esc(attr.name) + (attr.is_required ? ' *' : '') + '</span></label></div>';
+
+    case 'date':
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><input id="' + id + '" type="date" value="' + esc(v) + '"></div>';
+
+    case 'time':
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><input id="' + id + '" type="time" value="' + esc(v) + '"></div>';
+
+    case 'datetime':
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><input id="' + id + '" type="datetime-local" value="' + esc(v) + '"></div>';
+
+    case 'color_rgb':
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><div style="display:flex;gap:8px;align-items:center"><input id="' + id + '" type="color" value="' + esc(v || '#000000') + '" style="width:48px;height:36px;cursor:pointer;border:1px solid var(--bdr);border-radius:var(--r1)"><span id="' + id + '_hex" style="font-family:var(--mo);font-size:.82rem;color:var(--tx2)">' + esc(v || '#000000') + '</span></div></div>';
+
+    case 'enum_radio':
+      var opts = (attr.options || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      var radios = opts.map(function(o) {
+        return '<label class="chkrow"><input type="radio" name="' + id + '" value="' + esc(o) + '"' + (v === o ? ' checked' : '') + '><span>' + esc(o) + '</span></label>';
+      }).join('');
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><div>' + radios + '</div></div>';
+
+    case 'enum_checkbox':
+      var opts2 = (attr.options || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      var sel = Array.isArray(v) ? v : [];
+      var cbs = opts2.map(function(o) {
+        return '<label class="chkrow"><input type="checkbox" name="' + id + '" value="' + esc(o) + '"' + (sel.indexOf(o) >= 0 ? ' checked' : '') + '><span>' + esc(o) + '</span></label>';
+      }).join('');
+      return '<div class="fgrp full"><label' + reqCls + '>' + esc(attr.name) + '</label><div>' + cbs + '</div></div>';
+
+    case 'reference':
+      var rt = (ST.mdm.refTables || {})[attr.ref_table];
+      var items = rt ? (rt.items || []) : [];
+      var selectOpts = '<option value="">—</option>' + items.map(function(it) {
+        return '<option value="' + esc(it.name) + '"' + (v === it.name ? ' selected' : '') + '>' + esc(it.name) + '</option>';
+      }).join('');
+      return '<div class="fgrp"><label' + reqCls + '>' + esc(attr.name) + '</label><select id="' + id + '">' + selectOpts + '</select></div>';
+
+    case 'calculated':
+      return '<div class="fgrp full"><label>' + esc(attr.name) + ' <span class="muted" style="font-size:.7rem">(вычисляемое)</span></label><div class="calc-f" id="' + id + '">' + esc(String(v) || '—') + '</div></div>';
+
+    default:
+      return '<div class="fgrp"><label>' + esc(attr.name) + '</label><input id="' + id + '" value="' + esc(v) + '"></div>';
+  }
+}
+
+// ── Сбор данных формы товара ────────────────────────────────────
+function _mdmCollectProdValues() {
+  var tpl = ST.mdm.templates.find(function(t) { return t.id === ST.mdm.curTplId; });
+  if (!tpl) return null;
+
+  var sku  = (document.getElementById('mdmP_sku').value || '').trim();
+  var name = (document.getElementById('mdmP_name').value || '').trim();
+
+  if (!name) { toast('Укажите наименование товара', 'w'); return null; }
+
+  var av = {};
+  (tpl.attributes || []).forEach(function(a) {
+    var id = 'mdmP_' + a.id;
+    var val;
+    switch (a.type) {
+      case 'boolean':
+        var cb = document.getElementById(id);
+        val = cb ? cb.checked : false;
+        break;
+      case 'enum_radio':
+        var checked = document.querySelector('input[name="' + id + '"]:checked');
+        val = checked ? checked.value : '';
+        break;
+      case 'enum_checkbox':
+        var cbs = document.querySelectorAll('input[name="' + id + '"]:checked');
+        val = [];
+        cbs.forEach(function(c) { val.push(c.value); });
+        break;
+      case 'calculated':
+        val = undefined; // не сохраняем
+        break;
+      case 'color_rgb':
+        var el = document.getElementById(id);
+        val = el ? el.value : '';
+        break;
+      default:
+        var el2 = document.getElementById(id);
+        val = el2 ? el2.value : '';
+    }
+    if (val !== undefined) {
+      av[String(a.id)] = val;
+    }
+  });
+
+  return { sku: sku, name: name, template_id: ST.mdm.curTplId, attribute_values: av };
+}
+
+// ── Сохранение товара ───────────────────────────────────────────
+async function mdmSaveProduct() {
+  var data = _mdmCollectProdValues();
+  if (!data) return;
+
+  if (_mdmProdEditId) {
+    data.id = _mdmProdEditId;
+    await api('updateMDMProduct', data);
+    toast('Товар обновлён', 's');
+  } else {
+    await api('addMDMProduct', data);
+    toast('Товар добавлен', 's');
+  }
+  closeM('ovMdmProd');
+  await _mdmReloadProducts();
+}
+
+// ── Удаление товара ─────────────────────────────────────────────
+async function mdmDeleteProduct() {
+  if (!_mdmProdEditId) return;
+  if (!confirm('Удалить товар?')) return;
+  await api('deleteMDMProduct', { id: _mdmProdEditId });
+  toast('Товар удалён', 's');
+  closeM('ovMdmProd');
+  await _mdmReloadProducts();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MDM — RELOAD HELPERS
+// ════════════════════════════════════════════════════════════════
+async function _mdmReloadAll() {
+  try {
+    var ctx = await api('getMDMContext');
+    if (ctx) {
+      ST.mdm.refTables  = ctx.refTables  || {};
+      ST.mdm.templates  = ctx.templates  || [];
+      ST.mdm.products   = ctx.products   || [];
+    }
+  } catch(e) {}
+  _mdmRenderKpi();
+  _mdmLoadTab(ST.mdm.curTab);
+}
+
+async function _mdmReloadProducts() {
+  try {
+    var d = await api('getMDMProducts', { templateId: ST.mdm.curTplId });
+    if (d && d.rows) {
+      // Обновляем локально
+      ST.mdm.products = ST.mdm.products.filter(function(p) { return p.template_id !== ST.mdm.curTplId; });
+      ST.mdm.products = ST.mdm.products.concat(d.rows);
+    }
+  } catch(e) {}
+  _mdmRenderKpi();
+  _mdmRenderProdTable();
+}
+</script>

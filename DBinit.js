@@ -131,10 +131,10 @@ var SCHEMA = {
     note: 'Шаблоны (категории) номенклатуры',
   },
   'MDM_Атрибуты': {
-    headers: ['id','template_id','name','type','description','is_required','display_style','options','dictionary_id','formula','sort_order'],
+    headers: ['id','template_id','name','type','description','is_required','display_style','options','ref_table','formula','sort_order'],
     color: '#E0F7FA', tabColor: '#00838F',
-    widths: [50,80,180,100,250,80,80,250,80,350,60],
-    note: 'Атрибуты шаблонов (EAV-метаданные). type: string|integer|float|boolean|date|time|datetime|color_rgb|enum_radio|enum_checkbox|reference|calculated',
+    widths: [50,80,180,100,250,80,80,250,120,350,60],
+    note: 'Атрибуты шаблонов (EAV-метаданные). type: string|integer|float|boolean|date|time|datetime|color_rgb|enum_radio|enum_checkbox|reference|calculated. ref_table — ключ таблицы-справочника из SH',
   },
   'MDM_Номенклатура': {
     headers: ['id','template_id','sku','name','attribute_values','created_at'],
@@ -433,14 +433,14 @@ function _seedMDM(ss) {
   //    type: string|integer|float|boolean|date|time|datetime|
   //          color_rgb|enum_radio|enum_checkbox|reference|calculated
   _seedSheet(ss, 'MDM_Атрибуты', [
-    ['id','template_id','name','type','description','is_required','display_style','options','dictionary_id','formula','sort_order'],
-    [1,1,'Бренд',          'reference',  'Производитель устройства',        'TRUE', 'dropdown','',1,'',1],
-    [2,1,'Модель',         'string',     'Название модели',                 'TRUE', '','','','',2],
-    [3,1,'Объём памяти',   'reference',  'Встроенная память (ROM)',          'TRUE', 'dropdown','',4,'',3],
-    [4,1,'RAM',            'reference',  'Оперативная память',              'FALSE','dropdown','',5,'',4],
-    [5,1,'Цвет',           'reference',  'Основной цвет корпуса',           'FALSE','dropdown','',2,'',5],
-    [6,1,'IMEI',           'string',     'Международный идентификатор',     'FALSE','','','','',6],
-    [7,1,'Полное название', 'calculated', 'Автогенерация наименования',      'FALSE','','','','СЦЕПИТЬ({Бренд}," ",{Модель}," ",{Объём памяти})',7],
+    ['id','template_id','name','type','description','is_required','display_style','options','ref_table','formula','sort_order'],
+    [1,1,'Бренд',          'reference',      'Производитель устройства',        'TRUE', 'dropdown','','brands','',1],
+    [2,1,'Модель',         'string',         'Название модели',                 'TRUE', '','','','',2],
+    [3,1,'Объём памяти',   'enum_radio',     'Встроенная память (ROM)',          'TRUE', 'list','64GB,128GB,256GB,512GB,1TB','','',3],
+    [4,1,'RAM',            'enum_radio',     'Оперативная память',              'FALSE','list','4GB,6GB,8GB,12GB,16GB','','',4],
+    [5,1,'Цвет',           'enum_radio',     'Основной цвет корпуса',           'FALSE','list','Чёрный,Белый,Серый,Голубой,Красный,Зелёный,Синий,Фиолетовый,Лавандовый,Серебристый,Золотой','','',5],
+    [6,1,'IMEI',           'string',         'Международный идентификатор',     'FALSE','','','','',6],
+    [7,1,'Полное название', 'calculated',    'Автогенерация наименования',      'FALSE','','','','СЦЕПИТЬ({Бренд}," ",{Модель}," ",{Объём памяти})',7],
   ]);
 
   // ── Номенклатура (примеры карточек из текущих закупок) ────────────────

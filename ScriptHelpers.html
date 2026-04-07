@@ -9,6 +9,7 @@ const ST = {
   wallets:[],warehouses:[],cats:[],articles:[],
   charts:{},
   wdWalletId:null,
+  mdm:{refTables:{},templates:[],products:[],curTplId:null,curTab:'templates'},
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -137,12 +138,63 @@ const MOCK={
   addRef:()=>({status:'ok',data:{id:Math.random()*1000|100}}),
   updateRef:()=>({status:'ok',data:{}}),
   deleteRef:()=>({status:'ok',data:{}}),
+  // MDM mocks
+  getTemplates:()=>({status:'ok',data:[
+    {id:1,name:'Смартфоны',description:'Мобильные телефоны',attributes:[
+      {id:1,template_id:1,name:'Бренд',type:'reference',description:'',is_required:true,display_style:'',options:'',ref_table:'brands',formula:'',sort_order:1},
+      {id:2,template_id:1,name:'Ёмкость',type:'enum_radio',description:'',is_required:true,display_style:'list',options:'64GB,128GB,256GB,512GB,1TB',ref_table:'',formula:'',sort_order:2},
+      {id:3,template_id:1,name:'Цвет',type:'enum_radio',description:'',is_required:false,display_style:'list',options:'Чёрный,Белый,Синий,Красный,Зелёный,Серый',ref_table:'',formula:'',sort_order:3},
+      {id:4,template_id:1,name:'Полное название',type:'calculated',description:'',is_required:false,display_style:'',options:'',ref_table:'',formula:'СЦЕПИТЬ({Бренд}, " ", {Ёмкость})',sort_order:4},
+    ]},
+    {id:2,name:'Аксессуары',description:'Чехлы, зарядки, наушники',attributes:[
+      {id:5,template_id:2,name:'Тип',type:'enum_radio',description:'',is_required:true,display_style:'list',options:'Чехол,Зарядка,Наушники,Плёнка',ref_table:'',formula:'',sort_order:1},
+      {id:6,template_id:2,name:'Совместимость',type:'string',description:'Модель устройства',is_required:false,display_style:'',options:'',ref_table:'',formula:'',sort_order:2},
+    ]},
+  ]}),
+  getMDMProducts:()=>({status:'ok',data:{rows:[
+    {id:1,template_id:1,sku:'IPH15PM-256-B',name:'iPhone 15 Pro Max 256GB',attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},created_at:'2025-08-15'},
+    {id:2,template_id:1,sku:'GS24-256-G',name:'Galaxy S24 256GB',attribute_values:{'1':'Samsung','2':'256GB','3':'Серый'},created_at:'2025-09-01'},
+  ],total:2,page:1,size:100}}),
+  getMDMContext:()=>({status:'ok',data:{
+    refTables:{
+      brands:     {label:'Бренды',     items:[{id:1,name:'Apple'},{id:2,name:'Samsung'},{id:3,name:'Xiaomi'},{id:4,name:'Honor'},{id:5,name:'Tecno'}]},
+      models:     {label:'Модели',     items:[{id:1,name:'iPhone 15 Pro Max'},{id:2,name:'iPhone 15 Pro'},{id:3,name:'iPhone 14'},{id:4,name:'Galaxy S24'},{id:5,name:'Galaxy A55'},{id:6,name:'Redmi Note 14'},{id:7,name:'POCO X6 Pro'}]},
+      suppliers:  {label:'Поставщики', items:[{id:1,name:'Ислам Сатуу'},{id:2,name:'Эрлис'},{id:3,name:'ТехИмпорт'}]},
+      managers:   {label:'Менеджеры',  items:[{id:1,name:'Айдай'},{id:2,name:'Нурлан'},{id:3,name:'Бакыт'}]},
+      currencies: {label:'Валюты',     items:[{id:1,name:'KGS'},{id:2,name:'USD'},{id:3,name:'RUB'}]},
+      wallets:    {label:'Кошельки',   items:[{id:1,name:'Основная касса'},{id:2,name:'Валютная касса'},{id:3,name:'Карта Mbank'}]},
+      warehouses: {label:'Склады',     items:[{id:1,name:'Основной склад'},{id:2,name:'Онлайн-склад'}]},
+      cats:       {label:'Категории',  items:[{id:1,name:'Выручка от продаж'},{id:2,name:'Прочие доходы'},{id:3,name:'Закуп товара'},{id:4,name:'Аренда'},{id:5,name:'Зарплата'},{id:6,name:'Прочие расходы'}]},
+      articles:   {label:'Статьи',     items:[{id:1,name:'Продажа телефонов'},{id:2,name:'Продажа аксессуаров'},{id:3,name:'Закуп Apple'},{id:4,name:'Закуп Samsung'},{id:5,name:'Закуп Xiaomi'},{id:6,name:'Аренда точки'},{id:7,name:'Аренда склада'},{id:8,name:'Менеджер'},{id:9,name:'Прочее'}]},
+    },
+    templates:[
+      {id:1,name:'Смартфоны',description:'Мобильные телефоны',attributes:[
+        {id:1,template_id:1,name:'Бренд',type:'reference',description:'',is_required:true,display_style:'',options:'',ref_table:'brands',formula:'',sort_order:1},
+        {id:2,template_id:1,name:'Ёмкость',type:'enum_radio',description:'',is_required:true,display_style:'list',options:'64GB,128GB,256GB,512GB,1TB',ref_table:'',formula:'',sort_order:2},
+        {id:3,template_id:1,name:'Цвет',type:'enum_radio',description:'',is_required:false,display_style:'list',options:'Чёрный,Белый,Синий,Красный,Зелёный,Серый',ref_table:'',formula:'',sort_order:3},
+        {id:4,template_id:1,name:'Полное название',type:'calculated',description:'',is_required:false,display_style:'',options:'',ref_table:'',formula:'СЦЕПИТЬ({Бренд}, " ", {Ёмкость})',sort_order:4},
+      ]},
+      {id:2,name:'Аксессуары',description:'Чехлы, зарядки, наушники',attributes:[
+        {id:5,template_id:2,name:'Тип',type:'enum_radio',description:'',is_required:true,display_style:'list',options:'Чехол,Зарядка,Наушники,Плёнка',ref_table:'',formula:'',sort_order:1},
+        {id:6,template_id:2,name:'Совместимость',type:'string',description:'Модель устройства',is_required:false,display_style:'',options:'',ref_table:'',formula:'',sort_order:2},
+      ]},
+    ],
+    products:[
+      {id:1,template_id:1,sku:'IPH15PM-256-B',name:'iPhone 15 Pro Max 256GB',attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},created_at:'2025-08-15'},
+      {id:2,template_id:1,sku:'GS24-256-G',name:'Galaxy S24 256GB',attribute_values:{'1':'Samsung','2':'256GB','3':'Серый'},created_at:'2025-09-01'},
+    ],
+  }}),
+  saveTemplate:()=>({status:'ok',data:{id:100+Math.random()*100|0}}),
+  deleteTemplate:()=>({status:'ok',data:{}}),
+  addMDMProduct:()=>({status:'ok',data:{id:100+Math.random()*100|0}}),
+  updateMDMProduct:()=>({status:'ok',data:{}}),
+  deleteMDMProduct:()=>({status:'ok',data:{}}),
 };
 
 // ════════════════════════════════════════════════════════════════
 //  NAVIGATION
 // ════════════════════════════════════════════════════════════════
-const PAGE_TITLE={dashboard:'Дашборд',purchases:'Закупки',sales:'Продажи',payments:'Оплаты',wallets:'Кошельки / Кассы',cashops:'Движение средств',debts:'Долги',warehouses:'Склады',stock:'Остатки',refs:'Справочники',cats:'Категории / Статьи',analytics:'Аналитика'};
+const PAGE_TITLE={dashboard:'Дашборд',purchases:'Закупки',sales:'Продажи',payments:'Оплаты',wallets:'Кошельки / Кассы',cashops:'Движение средств',debts:'Долги',warehouses:'Склады',stock:'Остатки',refs:'Справочники',cats:'Категории / Статьи',analytics:'Аналитика',mdm:'Номенклатура MDM'};
 
 function nav(p){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
@@ -157,7 +209,7 @@ function nav(p){
 }
 
 function onNav(p){
-  const map={dashboard:loadDash,purchases:loadPurchases,sales:loadSales,payments:loadPayments,wallets:loadWallets,cashops:loadCash,debts:loadDebts,warehouses:loadWarehouses,stock:loadStock,refs:loadRefs,cats:loadCats,analytics:loadAnalytics};
+  const map={dashboard:loadDash,purchases:loadPurchases,sales:loadSales,payments:loadPayments,wallets:loadWallets,cashops:loadCash,debts:loadDebts,warehouses:loadWarehouses,stock:loadStock,refs:loadRefs,cats:loadCats,analytics:loadAnalytics,mdm:loadMDM};
   if(map[p]) map[p]();
 }
 

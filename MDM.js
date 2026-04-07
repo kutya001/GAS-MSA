@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════
-//  МобилТрек Pro · MDM.gs  v1.0
+//  МобилТрек Pro · MDM.gs  v1.1
 //  ─────────────────────────────────────────────────────────────────────
 //  Master Data Management — управление мастер-данными номенклатуры:
-//    • Справочники (Dictionaries)  — списки значений
 //    • Шаблоны     (Templates)     — метаданные категорий
 //    • Атрибуты    (Attributes)    — EAV-поля шаблонов
 //    • Номенклатура (Products)     — карточки товаров
 //
+//  Справочники — из существующих таблиц БД (Ref_Бренды, Ref_Модели …).
 //  Архитектура по FSD: гибридная модель EAV + JSON attributeValues.
 //  Зависимости:  Config.js (SH), Helpers.js (_rows, _append, …)
 // ═══════════════════════════════════════════════════════════════════════
@@ -21,89 +21,18 @@ var MDM_ATTR_TYPES = [
   'reference','calculated'
 ];
 
-// ══════════════════════════════════════════════════════════════════════
-//  СПРАВОЧНИКИ (Dictionaries)
-// ══════════════════════════════════════════════════════════════════════
-
-/**
- * Получить все справочники (items парсится из JSON)
- */
-function getDictionaries() {
-  try {
-    var cached = _cGet('mdm_dicts');
-    if (cached) return _ok(cached);
-
-    var rows = _rows(SH.MDM_DICTS)
-      .filter(function(r) { return r.id; })
-      .map(function(r) {
-        var items = [];
-        try { items = JSON.parse(r.items || '[]'); } catch(e) {}
-        return { id: parseInt(r.id), name: r.name || '', items: items };
-      });
-
-    _cSet('mdm_dicts', rows, CACHE_TTL);
-    return _ok(rows);
-  } catch(e) { return _err(e.message); }
-}
-
-/**
- * Создать справочник
- * @param {Object} p  { name, items: string[] }
- */
-function addDictionary(p) {
-  return _withLock(function() {
-    try {
-      if (!(p.name || '').trim()) return _err('Укажите название справочника');
-      var items = Array.isArray(p.items) ? p.items : [];
-      var newId = _append(SH.MDM_DICTS, {
-        name: p.name.trim(),
-        items: JSON.stringify(items),
-      });
-      _cDel(['mdm_dicts']);
-      return _ok({ id: newId });
-    } catch(e) { return _err(e.message); }
-  });
-}
-
-/**
- * Обновить справочник
- * @param {Object} p  { id, name, items: string[] }
- */
-function updateDictionary(p) {
-  return _withLock(function() {
-    try {
-      if (!p.id) return _err('Не указан id справочника');
-      var obj = {};
-      if (p.name !== undefined) obj.name = (p.name || '').trim();
-      if (p.items !== undefined) obj.items = JSON.stringify(Array.isArray(p.items) ? p.items : []);
-      _update(SH.MDM_DICTS, p.id, obj);
-      _cDel(['mdm_dicts']);
-      return _ok({});
-    } catch(e) { return _err(e.message); }
-  });
-}
-
-/**
- * Удалить справочник (проверяет использование в атрибутах)
- * @param {Object} p  { id }
- */
-function deleteDictionary(p) {
-  return _withLock(function() {
-    try {
-      if (!p.id) return _err('Не указан id справочника');
-      // Проверяем ссылочную целостность
-      var attrs = _rows(SH.MDM_ATTRS);
-      for (var i = 0; i < attrs.length; i++) {
-        if (parseInt(attrs[i].dictionary_id) === parseInt(p.id)) {
-          return _err('Справочник используется в атрибуте "' + attrs[i].name + '". Удаление невозможно.');
-        }
-      }
-      _delete(SH.MDM_DICTS, p.id);
-      _cDel(['mdm_dicts']);
-      return _ok({});
-    } catch(e) { return _err(e.message); }
-  });
-}
+// Таблицы БД, доступные как справочники для атрибутов типа «reference»
+var MDM_REF_TABLES = {
+  brands:     { sheet: 'BRANDS',     label: 'Бренды' },
+  models:     { sheet: 'MODELS',     label: 'Модели' },
+  suppliers:  { sheet: 'SUPPLIERS',  label: 'Поставщики' },
+  managers:   { sheet: 'MANAGERS',   label: 'Менеджеры' },
+  currencies: { sheet: 'CURRENCIES', label: 'Валюты' },
+  wallets:    { sheet: 'WALLETS',    label: 'Кошельки' },
+  warehouses: { sheet: 'WAREHOUSES', label: 'Склады' },
+  cats:       { sheet: 'CATS',       label: 'Категории' },
+  articles:   { sheet: 'ARTICLES',   label: 'Статьи' },
+};
 
 // ══════════════════════════════════════════════════════════════════════
 //  ШАБЛОНЫ (Templates) + АТРИБУТЫ (Attributes)
@@ -135,7 +64,7 @@ function getTemplates() {
         is_required:   (a.is_required === 'TRUE' || a.is_required === true),
         display_style: a.display_style || '',
         options:       a.options || '',
-        dictionary_id: a.dictionary_id ? parseInt(a.dictionary_id) : null,
+        ref_table:     a.ref_table || '',
         formula:       a.formula || '',
         sort_order:    parseInt(a.sort_order) || 0,
       });
@@ -161,7 +90,7 @@ function getTemplates() {
  * Создать/обновить шаблон вместе с атрибутами (Upsert)
  * @param {Object} p  { name, description, attributes: [] }
  *   Каждый атрибут: { name, type, description, is_required, display_style,
- *                     options, dictionary_id, formula, sort_order }
+ *                     options, ref_table, formula, sort_order }
  */
 function saveTemplate(p) {
   return _withLock(function() {
@@ -174,7 +103,7 @@ function saveTemplate(p) {
         var a = attrs[i];
         if (!(a.name || '').trim()) return _err('Атрибут #' + (i + 1) + ': не указано название');
         if (MDM_ATTR_TYPES.indexOf(a.type) === -1) return _err('Атрибут "' + a.name + '": неизвестный тип "' + a.type + '"');
-        if (a.type === 'reference' && !a.dictionary_id) return _err('Атрибут "' + a.name + '": укажите справочник');
+        if (a.type === 'reference' && !a.ref_table) return _err('Атрибут "' + a.name + '": укажите таблицу-справочник');
         if (a.type === 'calculated' && !(a.formula || '').trim()) return _err('Атрибут "' + a.name + '": укажите формулу');
         if ((a.type === 'enum_radio' || a.type === 'enum_checkbox') && !(a.options || '').trim()) {
           return _err('Атрибут "' + a.name + '": укажите варианты выбора');
@@ -204,7 +133,7 @@ function saveTemplate(p) {
           is_required:   at.is_required ? 'TRUE' : 'FALSE',
           display_style: at.display_style || '',
           options:       at.options || '',
-          dictionary_id: at.dictionary_id ? parseInt(at.dictionary_id) : '',
+          ref_table:     at.ref_table || '',
           formula:       at.formula || '',
           sort_order:    j + 1,
         });
@@ -435,14 +364,12 @@ function _validateProductAttrs(templateId, attrValues) {
           }
           break;
         case 'reference':
-          if (a.dictionary_id) {
-            var dict = _findById(SH.MDM_DICTS, parseInt(a.dictionary_id));
-            if (dict) {
-              var items = [];
-              try { items = JSON.parse(dict.items || '[]'); } catch(e) {}
-              if (items.length && items.indexOf(val) === -1) {
-                return 'Поле "' + a.name + '": значение "' + val + '" отсутствует в справочнике';
-              }
+          if (a.ref_table && MDM_REF_TABLES[a.ref_table]) {
+            var shKey = MDM_REF_TABLES[a.ref_table].sheet;
+            var refRows = _rows(SH[shKey]).filter(function(r) { return r.name; });
+            var names = refRows.map(function(r) { return String(r.name); });
+            if (names.length && names.indexOf(String(val)) === -1) {
+              return 'Поле "' + a.name + '": значение "' + val + '" отсутствует в справочнике';
             }
           }
           break;
@@ -553,21 +480,23 @@ function _splitFormulaArgs(str) {
 
 /**
  * Полный MDM-контекст для страницы номенклатуры:
- *   dictionaries, templates (с атрибутами), products (с именами)
+ *   refTables, templates (с атрибутами), products
  */
 function getMDMContext(p) {
   try {
     var cached = _cGet('mdm_context');
     if (cached) return _ok(cached);
 
-    // Справочники
-    var dicts = _rows(SH.MDM_DICTS)
-      .filter(function(r) { return r.id; })
-      .map(function(r) {
-        var items = [];
-        try { items = JSON.parse(r.items || '[]'); } catch(e) {}
-        return { id: parseInt(r.id), name: r.name || '', items: items };
-      });
+    // Справочные таблицы БД
+    var refTables = {};
+    Object.keys(MDM_REF_TABLES).forEach(function(key) {
+      var cfg = MDM_REF_TABLES[key];
+      var rows = _rows(SH[cfg.sheet]).filter(function(r) { return r.id && r.name; });
+      refTables[key] = {
+        label: cfg.label,
+        items: rows.map(function(r) { return { id: parseInt(r.id), name: String(r.name) }; })
+      };
+    });
 
     // Шаблоны + атрибуты
     var tRows = _rows(SH.MDM_TEMPLATES).filter(function(r) { return r.id; });
@@ -586,7 +515,7 @@ function getMDMContext(p) {
         is_required:   (a.is_required === 'TRUE' || a.is_required === true),
         display_style: a.display_style || '',
         options:       a.options || '',
-        dictionary_id: a.dictionary_id ? parseInt(a.dictionary_id) : null,
+        ref_table:     a.ref_table || '',
         formula:       a.formula || '',
         sort_order:    parseInt(a.sort_order) || 0,
       });
@@ -618,9 +547,9 @@ function getMDMContext(p) {
       });
 
     var result = {
-      dictionaries: dicts,
-      templates:    templates,
-      products:     products,
+      refTables:  refTables,
+      templates:  templates,
+      products:   products,
     };
 
     _cSet('mdm_context', result, CACHE_TX);
