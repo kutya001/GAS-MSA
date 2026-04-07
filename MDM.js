@@ -70,11 +70,13 @@ function getTemplates() {
       });
     }
 
+    // Создание плоского списка с parent_id
     var result = tRows.map(function(t) {
       var tid = parseInt(t.id);
       var attrs = (attrMap[tid] || []).sort(function(a, b) { return a.sort_order - b.sort_order; });
       return {
         id:          tid,
+        parent_id:   t.parent_id ? parseInt(t.parent_id) : null,
         name:        t.name || '',
         description: t.description || '',
         attributes:  attrs,
@@ -114,12 +116,14 @@ function saveTemplate(p) {
       if (p.id) {
         // Обновление существующего шаблона
         templateId = parseInt(p.id);
-        _update(SH.MDM_TEMPLATES, p.id, { name: p.name.trim(), description: p.description || '' });
+        var upd = { name: p.name.trim(), description: p.description || '' };
+        if (p.parent_id !== undefined) upd.parent_id = p.parent_id || '';
+        _update(SH.MDM_TEMPLATES, p.id, upd);
         // Удаляем старые атрибуты этого шаблона
         _deleteAttrsByTemplate(templateId);
       } else {
         // Новый шаблон
-        templateId = _append(SH.MDM_TEMPLATES, { name: p.name.trim(), description: p.description || '' });
+        templateId = _append(SH.MDM_TEMPLATES, { parent_id: p.parent_id || '', name: p.name.trim(), description: p.description || '' });
       }
 
       // Создаём атрибуты
@@ -154,6 +158,14 @@ function deleteTemplate(p) {
     try {
       if (!p.id) return _err('Не указан id шаблона');
       var tid = parseInt(p.id);
+
+      // Проверяем: нет ли дочерних категорий
+      var allTpl = _rows(SH.MDM_TEMPLATES);
+      for (var c = 0; c < allTpl.length; c++) {
+        if (parseInt(allTpl[c].parent_id) === tid) {
+          return _err('Невозможно удалить: есть дочерние категории (' + allTpl[c].name + ')');
+        }
+      }
 
       // Проверяем: нет ли товаров с этим шаблоном
       var products = _rows(SH.MDM_PRODUCTS);
@@ -524,6 +536,7 @@ function getMDMContext(p) {
       var tid = parseInt(t.id);
       return {
         id:          tid,
+        parent_id:   t.parent_id ? parseInt(t.parent_id) : null,
         name:        t.name || '',
         description: t.description || '',
         attributes:  (attrMap[tid] || []).sort(function(a, b) { return a.sort_order - b.sort_order; }),

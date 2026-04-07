@@ -15,6 +15,20 @@
 .mdm-kpi-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:12px 16px;flex:1;min-width:140px;text-align:center}
 .mdm-kpi-card .kpi-val{font-size:1.5rem;font-weight:900;margin-bottom:2px}
 .mdm-kpi-card .kpi-lbl{font-size:.72rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+/* Дерево категорий */
+.mdm-tree{font-size:.88rem}
+.mdm-tree ul{list-style:none;padding-left:20px;margin:0}
+.mdm-tree>ul{padding-left:0}
+.mdm-tree li{position:relative}
+.mdm-tree-node{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:var(--r);cursor:pointer;transition:background var(--t)}
+.mdm-tree-node:hover{background:var(--bg2)}
+.mdm-tree-toggle{width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--tx3);cursor:pointer;user-select:none;transition:transform .15s}
+.mdm-tree-toggle.open{transform:rotate(90deg)}
+.mdm-tree-icon{font-size:1rem}
+.mdm-tree-name{font-weight:600;flex:1}
+.mdm-tree-info{font-size:.76rem;color:var(--tx3);display:flex;gap:8px}
+.mdm-tree-acts{opacity:0;display:flex;gap:4px;transition:opacity var(--t)}
+.mdm-tree-node:hover .mdm-tree-acts{opacity:1}
 </style>
 
 <div class="page" id="page-mdm">
@@ -34,11 +48,12 @@
   <!-- Tab: Шаблоны -->
   <div class="tp on" id="mdm-templates">
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn btn-p btn-sm" onclick="mdmOpenTplModal(null)">+ Категория / Шаблон</button>
       <button class="btn btn-g btn-sm" onclick="mdmOpenJsonHelp()">📋 Описание JSON</button>
       <button class="btn btn-g btn-sm" onclick="mdmOpenJsonImport()">📥 Импорт JSON</button>
       <button class="btn btn-g btn-sm" onclick="mdmExportAllJson()">📤 Экспорт JSON</button>
     </div>
-    <div id="mdmTplTable"></div>
+    <div class="mdm-tree" id="mdmTreeContainer"></div>
   </div>
 
   <!-- Tab: Номенклатура -->
@@ -58,10 +73,14 @@
     <div class="mbody">
       <div class="fg2 g1" style="margin-bottom:12px">
         <div class="fgrp">
-          <label class="req">Название шаблона</label>
+          <label class="req">Название</label>
           <input id="mdmTplName" type="text" placeholder="Например: Смартфоны">
         </div>
         <div class="fgrp">
+          <label>Родительская категория</label>
+          <select id="mdmTplParent"></select>
+        </div>
+        <div class="fgrp full">
           <label>Описание</label>
           <textarea id="mdmTplDesc" rows="2" placeholder="Описание категории товаров"></textarea>
         </div>
@@ -217,68 +236,152 @@ async function loadMDM() {
 function _mdmRenderKpi() {
   var d = ST.mdm;
   var refCount = Object.keys(d.refTables).length;
+  var leaves = _mdmGetLeaves();
+  var catCount = d.templates.length - leaves.length;
   var html =
     '<div class="mdm-kpi-card"><div class="kpi-val">' + refCount + '</div><div class="kpi-lbl">Справочников БД</div></div>' +
-    '<div class="mdm-kpi-card"><div class="kpi-val">' + (d.templates.length) + '</div><div class="kpi-lbl">Шаблонов</div></div>' +
+    '<div class="mdm-kpi-card"><div class="kpi-val">' + catCount + '</div><div class="kpi-lbl">Категорий</div></div>' +
+    '<div class="mdm-kpi-card"><div class="kpi-val">' + leaves.length + '</div><div class="kpi-lbl">Шаблонов (листья)</div></div>' +
     '<div class="mdm-kpi-card"><div class="kpi-val">' + (d.products.length) + '</div><div class="kpi-lbl">Товаров</div></div>';
   document.getElementById('mdmKpi').innerHTML = html;
 }
 
 // ════════════════════════════════════════════════════════════════
-//  ШАБЛОНЫ (Templates) — DT + custom modal
+//  ШАБЛОНЫ (Templates) — Дерево категорий
 // ════════════════════════════════════════════════════════════════
-var _mdmTplDT = null;
-function _mdmTplDTinit() {
-  if (_mdmTplDT) return _mdmTplDT;
-  _mdmTplDT = new DT({
-    id: 'mdmTpl', containerId: 'mdmTplTable',
-    addLabel: '+ Шаблон',
-    onAdd: function() { mdmOpenTplModal(null); },
-    onRowClick: function(r) {
-      var tpl = ST.mdm.templates.find(function(t) { return t.id === r.id; });
-      if (tpl) mdmOpenTplModal(tpl);
-    },
-    cols: [
-      { key: 'id', label: 'ID', w: '56px', mono: true,
-        render: function(v) { return '<span class="muted">#' + v + '</span>'; }
-      },
-      { key: 'name', label: 'Название',
-        render: function(v) { return '<b>' + esc(v) + '</b>'; }
-      },
-      { key: 'description', label: 'Описание',
-        render: function(v) { return '<span class="muted">' + esc(v || '—') + '</span>'; }
-      },
-      { key: '_attr_count', label: 'Атрибутов', w: '100px',
-        render: function(v) { return '<span class="badge bp">' + v + '</span>'; }
-      },
-      { key: '_prod_count', label: 'Товаров', w: '90px',
-        render: function(v) { return '<span class="badge bg">' + v + '</span>'; }
-      }
-    ]
+
+// Построить дерево из плоского массива
+function _mdmBuildTree(flat) {
+  var map = {};
+  flat.forEach(function(t) { map[t.id] = Object.assign({}, t, { children: [] }); });
+  var tree = [];
+  flat.forEach(function(t) {
+    var node = map[t.id];
+    if (t.parent_id && map[t.parent_id]) {
+      map[t.parent_id].children.push(node);
+    } else {
+      tree.push(node);
+    }
   });
-  return _mdmTplDT;
+  return tree;
 }
 
+// Проверить, является ли узел конечным (leaf)
+function _mdmIsLeaf(nodeId) {
+  return !ST.mdm.templates.some(function(t) { return t.parent_id === nodeId; });
+}
+
+// Получить все leaf-узлы
+function _mdmGetLeaves() {
+  var parentIds = {};
+  ST.mdm.templates.forEach(function(t) { if (t.parent_id) parentIds[t.parent_id] = true; });
+  return ST.mdm.templates.filter(function(t) { return !parentIds[t.id]; });
+}
+
+// Состояние раскрытых узлов
+var _mdmTreeOpen = {};
+
 function _mdmRenderTemplates() {
-  var rows = ST.mdm.templates.map(function(t) {
-    var prodCount = ST.mdm.products.filter(function(p) { return p.template_id === t.id; }).length;
-    return {
-      id: t.id, name: t.name, description: t.description,
-      _attr_count: (t.attributes || []).length,
-      _prod_count: prodCount
-    };
-  });
-  _mdmTplDTinit().setData(rows);
+  var tree = _mdmBuildTree(ST.mdm.templates);
+  var html = '<ul>' + tree.map(function(n) { return _mdmTreeNodeHtml(n, 0); }).join('') + '</ul>';
+  if (!ST.mdm.templates.length) {
+    html = '<div class="empty" style="padding:24px">Нет категорий. Нажмите «+ Категория / Шаблон» для создания.</div>';
+  }
+  document.getElementById('mdmTreeContainer').innerHTML = html;
+}
+
+function _mdmTreeNodeHtml(node, depth) {
+  var hasChildren = node.children && node.children.length > 0;
+  var isLeaf = !hasChildren;
+  var isOpen = _mdmTreeOpen[node.id];
+  var attrCount = (node.attributes || []).length;
+  var prodCount = ST.mdm.products.filter(function(p) { return p.template_id === node.id; }).length;
+
+  var html = '<li>';
+  html += '<div class="mdm-tree-node" onclick="mdmTreeClick(' + node.id + ')" style="padding-left:' + (depth * 8) + 'px">';
+
+  // Toggle стрелка
+  if (hasChildren) {
+    html += '<span class="mdm-tree-toggle' + (isOpen ? ' open' : '') + '" onclick="event.stopPropagation();mdmTreeToggle(' + node.id + ')">▶</span>';
+  } else {
+    html += '<span class="mdm-tree-toggle" style="visibility:hidden">▶</span>';
+  }
+
+  // Иконка
+  html += '<span class="mdm-tree-icon">' + (isLeaf ? '📄' : (isOpen ? '📂' : '📁')) + '</span>';
+
+  // Название
+  html += '<span class="mdm-tree-name">' + esc(node.name) + '</span>';
+
+  // Инфо-бейджи
+  html += '<span class="mdm-tree-info">';
+  if (attrCount > 0) html += '<span class="badge bp" title="Атрибутов">' + attrCount + ' атр.</span>';
+  if (isLeaf && prodCount > 0) html += '<span class="badge bg" title="Товаров">' + prodCount + '</span>';
+  if (!isLeaf) html += '<span class="badge bgr" title="Подкатегорий">' + node.children.length + '</span>';
+  html += '</span>';
+
+  // Кнопки действий
+  html += '<span class="mdm-tree-acts">';
+  if (!isLeaf) html += '<button class="btn btn-g btn-sm" style="font-size:.7rem;padding:2px 6px" onclick="event.stopPropagation();mdmOpenTplModal(null,' + node.id + ')" title="Добавить подкатегорию">+</button>';
+  html += '</span>';
+
+  html += '</div>';
+
+  // Дочерние
+  if (hasChildren && isOpen) {
+    html += '<ul>' + node.children.map(function(c) { return _mdmTreeNodeHtml(c, depth + 1); }).join('') + '</ul>';
+  }
+
+  html += '</li>';
+  return html;
+}
+
+function mdmTreeToggle(id) {
+  _mdmTreeOpen[id] = !_mdmTreeOpen[id];
+  _mdmRenderTemplates();
+}
+
+function mdmTreeClick(id) {
+  var tpl = ST.mdm.templates.find(function(t) { return t.id === id; });
+  if (tpl) mdmOpenTplModal(tpl);
 }
 
 // ── Открытие модалки шаблона ────────────────────────────────────
-function mdmOpenTplModal(tpl) {
+function mdmOpenTplModal(tpl, presetParentId) {
   _mdmTplEditId = tpl ? tpl.id : null;
-  document.getElementById('mdmTplModalTitle').textContent = tpl ? 'Редактировать шаблон' : 'Новый шаблон';
+  document.getElementById('mdmTplModalTitle').textContent = tpl ? 'Редактировать категорию / шаблон' : 'Новая категория / шаблон';
   document.getElementById('mdmTplName').value = tpl ? tpl.name : '';
   document.getElementById('mdmTplDesc').value = tpl ? (tpl.description || '') : '';
   document.getElementById('mdmTplDelBtn').style.display = tpl ? '' : 'none';
   document.getElementById('mdmTplJsonBtn').style.display = tpl ? '' : 'none';
+
+  // Заполняем выбор родителя (исключаем себя и своих потомков)
+  var parentSel = document.getElementById('mdmTplParent');
+  var excludeIds = {};
+  if (tpl) {
+    excludeIds[tpl.id] = true;
+    var collectChildren = function(pid) {
+      ST.mdm.templates.forEach(function(t) {
+        if (t.parent_id === pid && !excludeIds[t.id]) {
+          excludeIds[t.id] = true;
+          collectChildren(t.id);
+        }
+      });
+    };
+    collectChildren(tpl.id);
+  }
+  var optHtml = '<option value="">— Корневой уровень —</option>';
+  ST.mdm.templates.forEach(function(t) {
+    if (excludeIds[t.id]) return;
+    // Строим путь для наглядности
+    var path = _mdmNodePath(t.id);
+    optHtml += '<option value="' + t.id + '">' + esc(path) + '</option>';
+  });
+  parentSel.innerHTML = optHtml;
+
+  // Устанавливаем текущего родителя
+  var curParent = tpl ? (tpl.parent_id || '') : (presetParentId || '');
+  parentSel.value = String(curParent);
 
   // Клонируем атрибуты для редактирования
   if (tpl && tpl.attributes) {
@@ -295,6 +398,21 @@ function mdmOpenTplModal(tpl) {
   }
   _mdmRenderAttrList();
   openM('ovMdmTpl');
+}
+
+// Построить путь к узлу: «Устройства › Смартфоны»
+function _mdmNodePath(id) {
+  var parts = [];
+  var cur = id;
+  var safety = 0;
+  while (cur && safety < 10) {
+    var node = ST.mdm.templates.find(function(t) { return t.id === cur; });
+    if (!node) break;
+    parts.unshift(node.name);
+    cur = node.parent_id;
+    safety++;
+  }
+  return parts.join(' › ');
 }
 
 function mdmAddAttr() {
@@ -400,6 +518,7 @@ async function mdmSaveTemplate() {
   var data = {
     name: name,
     description: document.getElementById('mdmTplDesc').value.trim(),
+    parent_id: document.getElementById('mdmTplParent').value || '',
     attributes: _mdmTplAttrs.map(function(a, i) {
       return {
         name: a.name.trim(), type: a.type, description: a.description || '',
@@ -433,21 +552,23 @@ async function mdmDeleteTemplate() {
 var _mdmProdDT = null;
 
 function _mdmRenderProducts() {
-  // Рендер табов шаблонов
+  // Показываем только конечные узлы (листья) — к ним привязаны товары
+  var leaves = _mdmGetLeaves();
   var tabsHtml = '';
-  ST.mdm.templates.forEach(function(t, i) {
+  leaves.forEach(function(t, i) {
     var cnt = ST.mdm.products.filter(function(p) { return p.template_id === t.id; }).length;
     var isOn = ST.mdm.curTplId ? (ST.mdm.curTplId === t.id) : (i === 0);
-    tabsHtml += '<button class="ptab' + (isOn ? ' on' : '') + '" onclick="_mdmSelectTpl(' + t.id + ',this)">' + esc(t.name) + ' <span class="badge bgr" style="margin-left:4px">' + cnt + '</span></button>';
+    var path = _mdmNodePath(t.id);
+    tabsHtml += '<button class="ptab' + (isOn ? ' on' : '') + '" onclick="_mdmSelectTpl(' + t.id + ',this)" title="' + esc(path) + '">' + esc(t.name) + ' <span class="badge bgr" style="margin-left:4px">' + cnt + '</span></button>';
   });
-  if (!ST.mdm.templates.length) {
-    tabsHtml = '<span class="muted" style="font-size:.82rem">Сначала создайте шаблон во вкладке «Шаблоны»</span>';
+  if (!leaves.length) {
+    tabsHtml = '<span class="muted" style="font-size:.82rem">Сначала создайте конечный шаблон (лист дерева) во вкладке «Шаблоны»</span>';
   }
   document.getElementById('mdmProdTplTabs').innerHTML = tabsHtml;
 
   // Автовыбор первого шаблона
-  if (!ST.mdm.curTplId && ST.mdm.templates.length) {
-    ST.mdm.curTplId = ST.mdm.templates[0].id;
+  if ((!ST.mdm.curTplId || !leaves.find(function(l) { return l.id === ST.mdm.curTplId; })) && leaves.length) {
+    ST.mdm.curTplId = leaves[0].id;
   }
   _mdmRenderProdTable();
 }
@@ -749,6 +870,7 @@ var _MDM_JSON_SCHEMA = {
 // ── Конвертация: внутренний формат → JSON ───────────────────────
 function _mdmTplToJson(tpl) {
   var obj = { name: tpl.name, description: tpl.description || '' };
+  if (tpl.parent_id) obj.parent_id = tpl.parent_id;
   obj.attributes = (tpl.attributes || []).map(function(a) {
     var attr = { name: a.name, type: a.type };
     if (a.description) attr.description = a.description;
@@ -813,6 +935,7 @@ function mdmEditTplAsJson() {
     id: _mdmTplEditId,
     name: document.getElementById('mdmTplName').value,
     description: document.getElementById('mdmTplDesc').value,
+    parent_id: parseInt(document.getElementById('mdmTplParent').value) || null,
     attributes: _mdmTplAttrs.slice()
   };
   closeM('ovMdmTpl');
@@ -909,6 +1032,7 @@ async function mdmJsonImport(isEdit) {
     var data = {
       name: t.name.trim(),
       description: t.description || '',
+      parent_id: t.parent_id || '',
       attributes: _mdmJsonToAttrs(t.attributes)
     };
     // При редактировании одного шаблона — передаём id

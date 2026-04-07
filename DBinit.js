@@ -125,10 +125,10 @@ var SCHEMA = {
     note: 'Справочники MDM. items — JSON-массив строковых значений',
   },
   'MDM_Шаблоны': {
-    headers: ['id','name','description'],
+    headers: ['id','parent_id','name','description'],
     color: '#E0F7FA', tabColor: '#00838F',
-    widths: [50,250,400],
-    note: 'Шаблоны (категории) номенклатуры',
+    widths: [50,80,250,400],
+    note: 'Дерево категорий и шаблонов. parent_id = пусто для корневых классов',
   },
   'MDM_Атрибуты': {
     headers: ['id','template_id','name','type','description','is_required','display_style','options','ref_table','formula','sort_order'],
@@ -423,10 +423,24 @@ function _seedMDM(ss) {
     [5,'RAM',          JSON.stringify(['4GB','6GB','8GB','12GB','16GB'])],
   ]);
 
-  // ── Шаблоны ──────────────────────────────────────────────────────────
+  // ── Шаблоны (дерево категорий) ─────────────────────────────────────
   _seedSheet(ss, 'MDM_Шаблоны', [
-    ['id','name','description'],
-    [1,'Смартфоны','Шаблон для мобильных телефонов и смартфонов'],
+    ['id','parent_id','name','description'],
+    // Уровень 1 (Корневой)
+    [1, '', 'Устройства', 'Глобальный класс устройств'],
+    [2, '', 'Аксессуары', 'Глобальный класс аксессуаров'],
+    [3, '', 'Услуги', 'Сервисное обслуживание'],
+    // Уровень 2 (Тип продукта)
+    [4, 1, 'Смартфоны', 'Шаблон для мобильных телефонов'],
+    [5, 1, 'Планшеты', ''],
+    [6, 2, 'Аудио', 'Акустика и наушники'],
+    [7, 2, 'Защита', 'Чехлы и стекла'],
+    [8, 2, 'Питание и кабели', ''],
+    // Уровень 3 (Конечные узлы с атрибутами)
+    [9, 7, 'Чехлы', ''],
+    [10, 7, 'Защитные стекла', ''],
+    [11, 6, 'TWS наушники', 'Беспроводные'],
+    [12, 8, 'Сетевые ЗУ', ''],
   ]);
 
   // ── Атрибуты (шаблон «Смартфоны») ───────────────────────────────────
@@ -434,33 +448,38 @@ function _seedMDM(ss) {
   //          color_rgb|enum_radio|enum_checkbox|reference|calculated
   _seedSheet(ss, 'MDM_Атрибуты', [
     ['id','template_id','name','type','description','is_required','display_style','options','ref_table','formula','sort_order'],
-    [1,1,'Бренд',          'reference',      'Производитель устройства',        'TRUE', 'dropdown','','brands','',1],
-    [2,1,'Модель',         'string',         'Название модели',                 'TRUE', '','','','',2],
-    [3,1,'Объём памяти',   'enum_radio',     'Встроенная память (ROM)',          'TRUE', 'list','64GB,128GB,256GB,512GB,1TB','','',3],
-    [4,1,'RAM',            'enum_radio',     'Оперативная память',              'FALSE','list','4GB,6GB,8GB,12GB,16GB','','',4],
-    [5,1,'Цвет',           'enum_radio',     'Основной цвет корпуса',           'FALSE','list','Чёрный,Белый,Серый,Голубой,Красный,Зелёный,Синий,Фиолетовый,Лавандовый,Серебристый,Золотой','','',5],
-    [6,1,'IMEI',           'string',         'Международный идентификатор',     'FALSE','','','','',6],
-    [7,1,'Полное название', 'calculated',    'Автогенерация наименования',      'FALSE','','','','СЦЕПИТЬ({Бренд}," ",{Модель}," ",{Объём памяти})',7],
+    // Смартфоны (id=4)
+    [1,4,'Бренд',          'reference',      'Производитель устройства',        'TRUE', 'dropdown','','brands','',1],
+    [2,4,'Модель',         'string',         'Название модели',                 'TRUE', '','','','',2],
+    [3,4,'Объём памяти',   'enum_radio',     'Встроенная память (ROM)',          'TRUE', 'list','64GB,128GB,256GB,512GB,1TB','','',3],
+    [4,4,'RAM',            'enum_radio',     'Оперативная память',              'FALSE','list','4GB,6GB,8GB,12GB,16GB','','',4],
+    [5,4,'Цвет',           'enum_radio',     'Основной цвет корпуса',           'FALSE','list','Чёрный,Белый,Серый,Голубой,Красный,Зелёный,Синий,Фиолетовый,Лавандовый,Серебристый,Золотой','','',5],
+    [6,4,'IMEI',           'string',         'Международный идентификатор',     'FALSE','','','','',6],
+    [7,4,'Полное название', 'calculated',    'Автогенерация наименования',      'FALSE','','','','СЦЕПИТЬ({Бренд}," ",{Модель}," ",{Объём памяти})',7],
+    // Чехлы (id=9)
+    [8,9,'Бренд',          'reference',      'Производитель',                   'TRUE', 'dropdown','','brands','',1],
+    [9,9,'Совместимость',  'string',         'Модель устройства',               'TRUE', '','','','',2],
+    [10,9,'Материал',      'enum_radio',     '',                                'FALSE','list','Силикон,Пластик,Кожа,Ткань','','',3],
   ]);
 
   // ── Номенклатура (примеры карточек из текущих закупок) ────────────────
   var today = _ds(new Date());
   _seedSheet(ss, 'MDM_Номенклатура', [
     ['id','template_id','sku','name','attribute_values','created_at'],
-    [1, 1,'IP15PM-256',    'iPhone 15 Pro Max 256GB',     JSON.stringify({'1':'Apple','2':'iPhone 15 Pro Max','3':'256GB','5':'Чёрный'}),           today],
-    [2, 1,'IP15P-128',     'iPhone 15 Pro 128GB',         JSON.stringify({'1':'Apple','2':'iPhone 15 Pro','3':'128GB','5':'Белый'}),                today],
-    [3, 1,'IP15-128',      'iPhone 15 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 15','3':'128GB','5':'Голубой'}),                  today],
-    [4, 1,'IP14-128',      'iPhone 14 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 14','3':'128GB','5':'Фиолетовый'}),              today],
-    [5, 1,'IP13-128',      'iPhone 13 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 13','3':'128GB','5':'Красный'}),                 today],
-    [6, 1,'GS24U-256',     'Galaxy S24 Ultra 12/256GB',   JSON.stringify({'1':'Samsung','2':'Galaxy S24 Ultra','3':'256GB','4':'12GB','5':'Серый'}),today],
-    [7, 1,'GS24-256',      'Galaxy S24 8/256GB',          JSON.stringify({'1':'Samsung','2':'Galaxy S24','3':'256GB','4':'8GB','5':'Белый'}),       today],
-    [8, 1,'GA55-128',      'Galaxy A55 8/128GB',          JSON.stringify({'1':'Samsung','2':'Galaxy A55','3':'128GB','4':'8GB','5':'Лавандовый'}),  today],
-    [9, 1,'GA35-128',      'Galaxy A35 6/128GB',          JSON.stringify({'1':'Samsung','2':'Galaxy A35','3':'128GB','4':'6GB','5':'Чёрный'}),      today],
-    [10,1,'RN14P-256',     'Redmi Note 14 Pro 8/256GB',   JSON.stringify({'1':'Xiaomi','2':'Redmi Note 14 Pro','3':'256GB','4':'8GB','5':'Синий'}), today],
-    [11,1,'RN14-128',      'Redmi Note 14 6/128GB',       JSON.stringify({'1':'Xiaomi','2':'Redmi Note 14','3':'128GB','4':'6GB','5':'Зелёный'}),  today],
-    [12,1,'POCOX6P-256',   'POCO X6 Pro 8/256GB',         JSON.stringify({'1':'Xiaomi','2':'POCO X6 Pro','3':'256GB','4':'8GB','5':'Чёрный'}),     today],
-    [13,1,'HON200P-256',   'Honor 200 Pro 12/256GB',      JSON.stringify({'1':'Honor','2':'Honor 200 Pro','3':'256GB','4':'12GB','5':'Серебристый'}),today],
-    [14,1,'TSPARK30-128',  'Tecno Spark 30 4/128GB',      JSON.stringify({'1':'Tecno','2':'Tecno Spark 30','3':'128GB','4':'4GB','5':'Синий'}),     today],
+    [1, 4,'IP15PM-256',    'iPhone 15 Pro Max 256GB',     JSON.stringify({'1':'Apple','2':'iPhone 15 Pro Max','3':'256GB','5':'Чёрный'}),           today],
+    [2, 4,'IP15P-128',     'iPhone 15 Pro 128GB',         JSON.stringify({'1':'Apple','2':'iPhone 15 Pro','3':'128GB','5':'Белый'}),                today],
+    [3, 4,'IP15-128',      'iPhone 15 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 15','3':'128GB','5':'Голубой'}),                  today],
+    [4, 4,'IP14-128',      'iPhone 14 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 14','3':'128GB','5':'Фиолетовый'}),              today],
+    [5, 4,'IP13-128',      'iPhone 13 128GB',             JSON.stringify({'1':'Apple','2':'iPhone 13','3':'128GB','5':'Красный'}),                 today],
+    [6, 4,'GS24U-256',     'Galaxy S24 Ultra 12/256GB',   JSON.stringify({'1':'Samsung','2':'Galaxy S24 Ultra','3':'256GB','4':'12GB','5':'Серый'}),today],
+    [7, 4,'GS24-256',      'Galaxy S24 8/256GB',          JSON.stringify({'1':'Samsung','2':'Galaxy S24','3':'256GB','4':'8GB','5':'Белый'}),       today],
+    [8, 4,'GA55-128',      'Galaxy A55 8/128GB',          JSON.stringify({'1':'Samsung','2':'Galaxy A55','3':'128GB','4':'8GB','5':'Лавандовый'}),  today],
+    [9, 4,'GA35-128',      'Galaxy A35 6/128GB',          JSON.stringify({'1':'Samsung','2':'Galaxy A35','3':'128GB','4':'6GB','5':'Чёрный'}),      today],
+    [10,4,'RN14P-256',     'Redmi Note 14 Pro 8/256GB',   JSON.stringify({'1':'Xiaomi','2':'Redmi Note 14 Pro','3':'256GB','4':'8GB','5':'Синий'}), today],
+    [11,4,'RN14-128',      'Redmi Note 14 6/128GB',       JSON.stringify({'1':'Xiaomi','2':'Redmi Note 14','3':'128GB','4':'6GB','5':'Зелёный'}),  today],
+    [12,4,'POCOX6P-256',   'POCO X6 Pro 8/256GB',         JSON.stringify({'1':'Xiaomi','2':'POCO X6 Pro','3':'256GB','4':'8GB','5':'Чёрный'}),     today],
+    [13,4,'HON200P-256',   'Honor 200 Pro 12/256GB',      JSON.stringify({'1':'Honor','2':'Honor 200 Pro','3':'256GB','4':'12GB','5':'Серебристый'}),today],
+    [14,4,'TSPARK30-128',  'Tecno Spark 30 4/128GB',      JSON.stringify({'1':'Tecno','2':'Tecno Spark 30','3':'128GB','4':'4GB','5':'Синий'}),     today],
   ]);
   Logger.log('✅ MDM демо-данные залиты');
 }
