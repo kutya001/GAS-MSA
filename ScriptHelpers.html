@@ -245,6 +245,18 @@ document.querySelectorAll('.bn').forEach(b=>{if(b.dataset.p) b.addEventListener(
 // ════════════════════════════════════════════════════════════════
 function openSb(){document.getElementById('sidebar').classList.add('open');document.getElementById('sbOv').classList.add('open');document.body.classList.add('locked')}
 function closeSb(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sbOv').classList.remove('open');document.body.classList.remove('locked')}
+function toggleSidebar(){
+  var sb=document.getElementById('sidebar');
+  var collapsed=sb.classList.toggle('collapsed');
+  document.documentElement.style.setProperty('--sbw',collapsed?'56px':'240px');
+  localStorage.setItem('sb_collapsed',collapsed?'1':'0');
+}
+function applySidebarState(){
+  if(localStorage.getItem('sb_collapsed')==='1'){
+    document.getElementById('sidebar').classList.add('collapsed');
+    document.documentElement.style.setProperty('--sbw','56px');
+  }
+}
 
 // ════════════════════════════════════════════════════════════════
 //  MODALS
@@ -282,6 +294,7 @@ const g=id=>document.getElementById(id)?.value||'';
 const fmtN=n=>isNaN(n)?'0':Math.round(+n).toLocaleString('ru-RU');
 const fmtD=d=>d?new Date(d).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
 const today=()=>new Date().toISOString().slice(0,10);
+var CUR='KGS'; // код базовой валюты — загружается из настроек
 const eRow=(n,msg='Нет данных')=>`<tr><td colspan="${n}" class="empty">${msg}</td></tr>`;
 const isDark=()=>document.documentElement.dataset.theme==='dark';
 
@@ -311,13 +324,14 @@ function _setHTML(el, html) {
 //  MASTER DATA
 // ════════════════════════════════════════════════════════════════
 async function loadMasterData(){
-  const [refs,wallets,whs,cats,arts,mdm]=await Promise.all([api('getRefData'),api('getWallets'),api('getWarehouses'),api('getCats'),api('getArticles'),api('getMDMContext')]);
+  const [refs,wallets,whs,cats,arts,mdm,settings]=await Promise.all([api('getRefData'),api('getWallets'),api('getWarehouses'),api('getCats'),api('getArticles'),api('getMDMContext'),api('getSettings')]);
   if(refs) ST.refs=refs;
   if(wallets) ST.wallets=wallets;
   if(whs) ST.warehouses=whs;
   if(cats) ST.cats=cats;
   if(arts) ST.articles=arts;
   if(mdm) ST.mdm=mdm;
+  if(settings && settings.base_currency) CUR=settings.base_currency;
   populateAllSelects();
 }
 
@@ -354,6 +368,7 @@ function redrawCharts(){if(ST.page==='dashboard') loadDashGeneral()}
 // ════════════════════════════════════════════════════════════════
 function init(){
   applyTheme();
+  applySidebarState();
   document.getElementById('tbDate').textContent=new Date().toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'});
   const h=(location.hash||'#dashboard').replace('#','');
   nav(PAGE_TITLE[h]?h:'dashboard'); // сразу показываем страницу

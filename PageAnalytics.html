@@ -14,11 +14,11 @@
     <div class="tw"><div class="ttb"><span class="fw7" style="font-size:.74rem">🥇 Топ по кол-ву</span></div>
       <table><thead><tr><th>Модель</th><th>Шт.</th></tr></thead><tbody id="anTC"></tbody></table></div>
     <div class="tw"><div class="ttb"><span class="fw7" style="font-size:.74rem">💰 Топ по прибыли</span></div>
-      <table><thead><tr><th>Модель</th><th>Прибыль ₸</th></tr></thead><tbody id="anTP"></tbody></table></div>
+      <table><thead><tr><th>Модель</th><th>Прибыль</th></tr></thead><tbody id="anTP"></tbody></table></div>
   </div>
   <div class="tw"><div class="ttb"><span class="fw7" style="font-size:.74rem">📋 Сводка по брендам</span></div>
     <div class="tscr"><table>
-      <thead><tr><th>Бренд</th><th>Продано</th><th>Выручка ₸</th><th>Прибыль ₸</th><th>Маржа %</th></tr></thead>
+      <thead><tr><th>Бренд</th><th>Продано</th><th>Выручка</th><th>Прибыль</th><th>Маржа %</th></tr></thead>
       <tbody id="anBS"></tbody>
     </table></div>
   </div>
@@ -36,7 +36,7 @@ async function loadAnalytics(){
   const bs=d.brandStats||[];
   ST.charts.anb=mkDoughnut(document.getElementById('chAnB'),bs.map(x=>x.brand),bs.map(x=>x.rev));
   document.getElementById('anTC').innerHTML=(d.topByCount||[]).map(x=>`<tr><td>${esc(x.model)}</td><td class="fw7">${x.cnt}</td></tr>`).join('')||eRow(2);
-  document.getElementById('anTP').innerHTML=(d.topByProfit||[]).map(x=>`<tr><td>${esc(x.model)}</td><td class="mono tg fw7">${fmtN(x.profit)}₸</td></tr>`).join('')||eRow(2);
-  document.getElementById('anBS').innerHTML=bs.map(x=>`<tr><td class="fw7">${esc(x.brand)}</td><td>${x.sold}</td><td class="mono">${fmtN(x.rev)}₸</td><td class="mono tg fw7">${fmtN(x.profit)}₸</td><td class="fw7">${x.margin}%</td></tr>`).join('')||eRow(5);
+  document.getElementById('anTP').innerHTML=(d.topByProfit||[]).map(x=>`<tr><td>${esc(x.model)}</td><td class="mono tg fw7">${fmtN(x.profit)} ${CUR}</td></tr>`).join('')||eRow(2);
+  document.getElementById('anBS').innerHTML=bs.map(x=>`<tr><td class="fw7">${esc(x.brand)}</td><td>${x.sold}</td><td class="mono">${fmtN(x.rev)} ${CUR}</td><td class="mono tg fw7">${fmtN(x.profit)} ${CUR}</td><td class="fw7">${x.margin}%</td></tr>`).join('')||eRow(5);
 }
 </script>

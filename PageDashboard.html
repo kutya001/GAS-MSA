@@ -20,12 +20,12 @@
   </div>
   <div class="tp" id="rt-opr">
     <div class="kgrid" id="oprKpi"></div>
-    <div class="tw"><div class="tscr"><table><thead><tr><th>Период</th><th>Кол-во</th><th>Сумма $</th><th>Сумма ₸</th><th>Поставщик</th></tr></thead><tbody id="oprBody"></tbody></table></div></div>
+    <div class="tw"><div class="tscr"><table><thead><tr><th>Период</th><th>Кол-во</th><th>Сумма $</th><th>Сумма</th><th>Поставщик</th></tr></thead><tbody id="oprBody"></tbody></table></div></div>
   </div>
   <div class="tp" id="rt-opp">
     <div class="kgrid" id="oppKpi"></div>
     <div class="ccard" style="margin-bottom:10px"><h3>👤 По менеджерам</h3><div class="cwrap"><canvas id="chMgr"></canvas></div></div>
-    <div class="tw"><div class="tscr"><table><thead><tr><th>Менеджер</th><th>Продаж</th><th>Выручка ₸</th><th>Ср. чек</th><th>Доля %</th></tr></thead><tbody id="oppBody"></tbody></table></div></div>
+    <div class="tw"><div class="tscr"><table><thead><tr><th>Менеджер</th><th>Продаж</th><th>Выручка</th><th>Ср. чек</th><th>Доля %</th></tr></thead><tbody id="oppBody"></tbody></table></div></div>
   </div>
   <div class="tp" id="rt-opu">
     <div class="kgrid" id="opuKpi"></div>
@@ -43,7 +43,7 @@
   </div>
   <div class="tp" id="rt-ops">
     <div class="kgrid" id="opsKpi"></div>
-    <div class="tw"><div class="tscr"><table><thead><tr><th>Склад</th><th>Товаров</th><th>Себестоим. ₸</th><th>Залежалых</th></tr></thead><tbody id="opsBody"></tbody></table></div></div>
+    <div class="tw"><div class="tscr"><table><thead><tr><th>Склад</th><th>Товаров</th><th>Себестоим.</th><th>Залежалых</th></tr></thead><tbody id="opsBody"></tbody></table></div></div>
   </div>
 </div>
 
@@ -63,16 +63,16 @@ async function loadDashGeneral(){
   if(!d) return; if(wallets) ST.wallets=wallets;
   const K=d.kpi;
   _setHTML(document.getElementById('kpiGrid'),[
-    {l:'Выручка сегодня',v:fmtN(K.revenueToday)+'₸',kc:'var(--ac)'},
-    {l:'Выручка за месяц',v:fmtN(K.revenueMonth)+'₸',kc:'var(--gn)'},
+    {l:'Выручка сегодня',v:fmtN(K.revenueToday)+' '+CUR,kc:'var(--ac)'},
+    {l:'Выручка за месяц',v:fmtN(K.revenueMonth)+' '+CUR,kc:'var(--gn)'},
     {l:'Продаж за месяц',v:K.soldMonth+' шт.',kc:'var(--bl)'},
-    {l:'Прибыль (итого)',v:fmtN(K.profitTotal)+'₸',kc:'var(--tl)'},
-    {l:'Долг покупателей',v:fmtN(K.debtTotal)+'₸',kc:'var(--rd)'},
+    {l:'Прибыль (итого)',v:fmtN(K.profitTotal)+' '+CUR,kc:'var(--tl)'},
+    {l:'Долг покупателей',v:fmtN(K.debtTotal)+' '+CUR,kc:'var(--rd)'},
     {l:'Залежалых товаров',v:K.staleItems+' шт.',kc:'var(--am)'},
   ].map(k=>`<div class="kpi" style="--kc:${k.kc}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join(''));
   killChart('monthly');killChart('brands');
   const m=d.monthly||[];
-  ST.charts.monthly=mkBar(document.getElementById('chMonthly'),m.map(x=>x.m),[{label:'Выручка ₸',data:m.map(x=>x.rev)},{label:'Прибыль ₸',data:m.map(x=>x.prof||0)}]);
+  ST.charts.monthly=mkBar(document.getElementById('chMonthly'),m.map(x=>x.m),[{label:'Выручка '+CUR,data:m.map(x=>x.rev)},{label:'Прибыль '+CUR,data:m.map(x=>x.prof||0)}]);
   const br=d.brands||[];
   ST.charts.brands=mkDoughnut(document.getElementById('chBrands'),br.map(x=>x.b),br.map(x=>x.v));
   _setHTML(document.getElementById('dashWallets'),ST.wallets.map(w=>`<div class="wcard" onclick="nav('wallets')">
@@ -83,7 +83,7 @@ async function loadDashGeneral(){
   </div>`).join(''));
   let alerts='';
   if(K.staleItems>0) alerts+=`<div class="alert al-w">⚠️ ${K.staleItems} товар(ов) залежались более 30 дней</div>`;
-  if(K.debtTotal>0)  alerts+=`<div class="alert al-i">💬 Общий долг покупателей: ${fmtN(K.debtTotal)} ₸</div>`;
+  if(K.debtTotal>0)  alerts+=`<div class="alert al-i">💬 Общий долг покупателей: ${fmtN(K.debtTotal)} ${CUR}</div>`;
   _setHTML(document.getElementById('dashAlerts'), alerts);
 }
 
@@ -92,23 +92,23 @@ async function loadOPR(){
   const tUsd=rows.reduce((a,r)=>a+(+r.cost_usd||0)*((r.has_imei?1:+r.qty)||1),0);
   const tKgs=rows.reduce((a,r)=>a+(+r.cost_kgs||0)*((r.has_imei?1:+r.qty)||1),0);
   _setHTML(document.getElementById('oprKpi'),[
-    {l:'Закупок',v:rows.length,kc:'var(--bl)'},{l:'Сумма USD',v:'$'+fmtN(tUsd),kc:'var(--gn)'},{l:'Сумма KGS',v:fmtN(tKgs)+'₸',kc:'var(--ac)'},
+    {l:'Закупок',v:rows.length,kc:'var(--bl)'},{l:'Сумма USD',v:'$'+fmtN(tUsd),kc:'var(--gn)'},{l:'Сумма '+CUR,v:fmtN(tKgs)+' '+CUR,kc:'var(--ac)'},
   ].map(k=>`<div class="kpi" style="--kc:${k.kc}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join(''));
   const grp={};rows.forEach(r=>{const k=r.supplier_name||'—';if(!grp[k])grp[k]={cnt:0,usd:0,kgs:0};const q=r.has_imei?1:(+r.qty||1);grp[k].cnt+=q;grp[k].usd+=(+r.cost_usd||0)*q;grp[k].kgs+=(+r.cost_kgs||0)*q});
-  _setHTML(document.getElementById('oprBody'),Object.entries(grp).map(([s,v])=>`<tr><td>—</td><td>${v.cnt}</td><td>$${fmtN(v.usd)}</td><td>${fmtN(v.kgs)}₸</td><td>${esc(s)}</td></tr>`).join('')||eRow(5));
+  _setHTML(document.getElementById('oprBody'),Object.entries(grp).map(([s,v])=>`<tr><td>—</td><td>${v.cnt}</td><td>$${fmtN(v.usd)}</td><td>${fmtN(v.kgs)} ${CUR}</td><td>${esc(s)}</td></tr>`).join('')||eRow(5));
 }
 
 async function loadOPP(){
   const d=await api('getSales',{page:1,size:999}); const rows=(d&&d.rows)||[];
   const tRev=rows.reduce((a,r)=>a+(+r.total_kgs||0),0);
   _setHTML(document.getElementById('oppKpi'),[
-    {l:'Продаж',v:rows.length},{l:'Выручка',v:fmtN(tRev)+'₸'},{l:'Ср. чек',v:fmtN(tRev/(rows.length||1))+'₸'},
+    {l:'Продаж',v:rows.length},{l:'Выручка',v:fmtN(tRev)+' '+CUR},{l:'Ср. чек',v:fmtN(tRev/(rows.length||1))+' '+CUR},
   ].map(k=>`<div class="kpi"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join(''));
   const grp={};rows.forEach(r=>{const k=r.manager_name||'—';if(!grp[k])grp[k]={cnt:0,rev:0};grp[k].cnt++;grp[k].rev+=(+r.total_kgs||0)});
   killChart('mgr');
-  ST.charts.mgr=mkBar(document.getElementById('chMgr'),Object.keys(grp),[{label:'Выручка ₸',data:Object.values(grp).map(v=>v.rev)}]);
+  ST.charts.mgr=mkBar(document.getElementById('chMgr'),Object.keys(grp),[{label:'Выручка '+CUR,data:Object.values(grp).map(v=>v.rev)}]);
   const tot=rows.length||1;
-  _setHTML(document.getElementById('oppBody'),Object.entries(grp).map(([m,v])=>`<tr><td>${esc(m)}</td><td>${v.cnt}</td><td>${fmtN(v.rev)}₸</td><td>${fmtN(Math.round(v.rev/v.cnt))}₸</td><td>${Math.round(v.cnt/tot*100)}%</td></tr>`).join('')||eRow(5));
+  _setHTML(document.getElementById('oppBody'),Object.entries(grp).map(([m,v])=>`<tr><td>${esc(m)}</td><td>${v.cnt}</td><td>${fmtN(v.rev)} ${CUR}</td><td>${fmtN(Math.round(v.rev/v.cnt))} ${CUR}</td><td>${Math.round(v.cnt/tot*100)}%</td></tr>`).join('')||eRow(5));
 }
 
 async function loadOPU(){
@@ -118,21 +118,21 @@ async function loadOPU(){
   const exp=cash.reduce((a,r)=>a+(+r.amount||0),0);
   const profit=rev-exp;
   _setHTML(document.getElementById('opuKpi'),[
-    {l:'Выручка',v:fmtN(rev)+'₸',kc:'var(--gn)'},{l:'Расходы',v:fmtN(exp)+'₸',kc:'var(--rd)'},{l:'Прибыль',v:fmtN(profit)+'₸',kc:profit>=0?'var(--tl)':'var(--rd)'},
+    {l:'Выручка',v:fmtN(rev)+' '+CUR,kc:'var(--gn)'},{l:'Расходы',v:fmtN(exp)+' '+CUR,kc:'var(--rd)'},{l:'Прибыль',v:fmtN(profit)+' '+CUR,kc:profit>=0?'var(--tl)':'var(--rd)'},
   ].map(k=>`<div class="kpi" style="--kc:${k.kc}"><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join(''));
   killChart('pnl');
   ST.charts.pnl=mkBar(document.getElementById('chPnl'),['Текущий период'],[{label:'Выручка',data:[rev]},{label:'Расходы',data:[exp]},{label:'Прибыль',data:[profit]}]);
-  _setHTML(document.getElementById('opuBody'),`<tr><td>Период</td><td>${fmtN(rev)}₸</td><td>—</td><td>${fmtN(exp)}₸</td><td class="${profit>=0?'tg':'tr'} fw7">${fmtN(profit)}₸</td><td>${rev>0?Math.round(profit/rev*100):0}%</td></tr>`);
+  _setHTML(document.getElementById('opuBody'),`<tr><td>Период</td><td>${fmtN(rev)} ${CUR}</td><td>—</td><td>${fmtN(exp)} ${CUR}</td><td class="${profit>=0?'tg':'tr'} fw7">${fmtN(profit)} ${CUR}</td><td>${rev>0?Math.round(profit/rev*100):0}%</td></tr>`);
 }
 
 async function loadOPEXP(){
   const d=await api('getCashOps',{op_type:'Расход',page:1,size:999}); const rows=(d&&d.rows)||[];
   const total=rows.reduce((a,r)=>a+(+r.amount||0),0)||1;
   const grp={};rows.forEach(r=>{const k=r.cat_name||'—';if(!grp[k])grp[k]=0;grp[k]+=(+r.amount||0)});
-  _setHTML(document.getElementById('opexpKpi'),`<div class="kpi" style="--kc:var(--rd)"><div class="kpi-lbl">Всего расходов</div><div class="kpi-val">${fmtN(total)}₸</div></div>`);
+  _setHTML(document.getElementById('opexpKpi'),`<div class="kpi" style="--kc:var(--rd)"><div class="kpi-lbl">Всего расходов</div><div class="kpi-val">${fmtN(total)} ${CUR}</div></div>`);
   killChart('exp');
   ST.charts.exp=mkDoughnut(document.getElementById('chExp'),Object.keys(grp),Object.values(grp));
-  _setHTML(document.getElementById('opexpBody'),rows.slice(0,50).map(r=>`<tr><td>${esc(r.cat_name||'—')}</td><td>${esc(r.article_name||'—')}</td><td>${esc(r.wallet_name||'—')}</td><td>${fmtN(r.amount)}₸</td><td>${Math.round((+r.amount||0)/total*100)}%</td></tr>`).join('')||eRow(5));
+  _setHTML(document.getElementById('opexpBody'),rows.slice(0,50).map(r=>`<tr><td>${esc(r.cat_name||'—')}</td><td>${esc(r.article_name||'—')}</td><td>${esc(r.wallet_name||'—')}</td><td>${fmtN(r.amount)} ${CUR}</td><td>${Math.round((+r.amount||0)/total*100)}%</td></tr>`).join('')||eRow(5));
 }
 
 async function loadODDS(){
@@ -144,10 +144,10 @@ async function loadODDS(){
 async function loadOPS(){
   const d=await api('getStock'); if(!d) return;
   _setHTML(document.getElementById('opsKpi'),[
-    {l:'Товаров',v:d.totalItems},{l:'Себест. ₸',v:fmtN(d.totalCostKgs)+'₸'},{l:'Залежалых',v:d.staleCount+' шт.',kc:'var(--am)'},
+    {l:'Товаров',v:d.totalItems},{l:'Себест.',v:fmtN(d.totalCostKgs)+' '+CUR},{l:'Залежалых',v:d.staleCount+' шт.',kc:'var(--am)'},
   ].map(k=>`<div class="kpi"${k.kc?` style="--kc:${k.kc}"`:''}><div class="kpi-lbl">${k.l}</div><div class="kpi-val">${k.v}</div></div>`).join(''));
   const whMap={};
   (d.groups||[]).forEach(g=>{if(!whMap[g.wh_name])whMap[g.wh_name]={cnt:0,kgs:0,stale:0};whMap[g.wh_name].cnt+=g.count;whMap[g.wh_name].kgs+=g.cost_kgs;whMap[g.wh_name].stale+=(g.items||[]).filter(x=>x.stale).length});
-  _setHTML(document.getElementById('opsBody'),Object.entries(whMap).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.cnt}</td><td>${fmtN(v.kgs)}₸</td><td>${v.stale?`<span class="stale">${v.stale}</span>`:'—'}</td></tr>`).join('')||eRow(4));
+  _setHTML(document.getElementById('opsBody'),Object.entries(whMap).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.cnt}</td><td>${fmtN(v.kgs)} ${CUR}</td><td>${v.stale?`<span class="stale">${v.stale}</span>`:'—'}</td></tr>`).join('')||eRow(4));
 }
 </script>

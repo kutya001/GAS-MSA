@@ -49,23 +49,36 @@ input,select,textarea{font-family:var(--fn)}
 ::-webkit-scrollbar-track{background:transparent}
 ::selection{background:var(--acd)}
 /* ══ SIDEBAR ══════════════════════════════════════════════════════ */
-.sb{width:var(--sbw);background:var(--surf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;inset:0 auto 0 0;z-index:400;transition:transform var(--t) var(--ez)}
-.sb-logo{padding:11px 13px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:9px;flex-shrink:0}
+.sb{width:var(--sbw);background:var(--surf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;inset:0 auto 0 0;z-index:400;transition:width var(--t) var(--ez),transform var(--t) var(--ez)}
+.sb-logo{padding:11px 13px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:9px;flex-shrink:0;overflow:hidden}
 .sb-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--ac),var(--ach));display:grid;place-items:center;color:#fff;font-size:.88rem;font-weight:900;flex-shrink:0;letter-spacing:-.04em}
+.sb-txt{overflow:hidden;white-space:nowrap;transition:opacity var(--t)}
 .sb-txt .sbn{font-size:.75rem;font-weight:800;color:var(--tx);letter-spacing:-.02em;line-height:1.2}
 .sb-txt .sbs{font-size:.58rem;color:var(--tx3);margin-top:1px}
 .sb-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:5px 0;scrollbar-width:none}
 .sb-nav::-webkit-scrollbar{display:none}
-.sb-sec{padding:7px 11px 2px;font-size:.57rem;font-weight:700;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase}
+.sb-sec{padding:7px 11px 2px;font-size:.57rem;font-weight:700;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;overflow:hidden;transition:opacity var(--t)}
 .sb-item{display:flex;align-items:center;gap:8px;padding:9px 12px 9px 14px;margin:1px 4px;border-radius:var(--r1);font-size:.86rem;font-weight:500;color:var(--tx2);transition:all var(--t);width:calc(100% - 8px);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .sb-item:hover{background:var(--bg2);color:var(--tx)}
 .sb-item.on{background:var(--acbg);color:var(--ac);font-weight:700}
 .sb-item svg{width:18px;height:18px;flex-shrink:0;opacity:.5;transition:opacity var(--t)}
 .sb-item:hover svg,.sb-item.on svg{opacity:1}
-.sb-foot{padding:7px 9px;border-top:1px solid var(--bdr);flex-shrink:0}
+.sb-foot{padding:7px 9px;border-top:1px solid var(--bdr);flex-shrink:0;display:flex;gap:4px}
+.sb-foot .btn{overflow:hidden;white-space:nowrap}
+.sb-toggle{display:flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;border-radius:var(--r1);border:1px solid var(--bdr);color:var(--tx2);cursor:pointer;transition:all var(--t);flex-shrink:0}
+.sb-toggle:hover{background:var(--bg2);color:var(--tx)}
+.sb-toggle svg{width:14px;height:14px;transition:transform var(--t)}
+/* ── Collapsed sidebar ── */
+.sb.collapsed{width:56px}
+.sb.collapsed .sb-txt{opacity:0;width:0}
+.sb.collapsed .sb-sec{opacity:0;height:0;padding:0;margin:0}
+.sb.collapsed .sb-item{justify-content:center;padding:9px 0;width:calc(100% - 8px)}
+.sb.collapsed .sb-foot .btn{font-size:0;padding:6px;justify-content:center}
+.sb.collapsed .sb-foot .btn span{font-size:.82rem}
+.sb.collapsed .sb-toggle svg{transform:rotate(180deg)}
 .sb-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:399;backdrop-filter:blur(3px)}
 /* ══ MAIN LAYOUT ══════════════════════════════════════════════════ */
-.main{margin-left:var(--sbw);flex:1;display:flex;flex-direction:column;min-width:0;min-height:100dvh}
+.main{margin-left:var(--sbw);flex:1;display:flex;flex-direction:column;min-width:0;min-height:100dvh;transition:margin-left var(--t) var(--ez)}
 .topbar{height:var(--barh);background:var(--surf);border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 14px;gap:9px;position:sticky;top:0;z-index:300;flex-shrink:0}
 .topbar-title{font-size:1rem;font-weight:800;color:var(--tx);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.02em}
 .topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0}

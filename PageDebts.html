@@ -6,7 +6,7 @@
     <button class="ptab" onclick="showDebtTab('s',this)">🏭 Поставщики</button>
   </div>
   <div id="dBuyers"><div class="tw"><div class="tscr"><table>
-    <thead><tr><th>Покупатель</th><th>Долг ₸</th><th>Посл. оплата</th><th>Кол-во оплат</th></tr></thead>
+    <thead><tr><th>Покупатель</th><th>Долг</th><th>Посл. оплата</th><th>Кол-во оплат</th></tr></thead>
     <tbody id="dBBody"></tbody>
   </table></div></div></div>
   <div id="dSups" style="display:none"><div class="tw"><div class="tscr"><table>
@@ -21,7 +21,7 @@
 // ════════════════════════════════════════════════════════════════
 async function loadDebts(){
   const d=await api('getDebts'); if(!d) return;
-  _setHTML(document.getElementById('dBBody'),(d.buyers||[]).map(r=>`<tr><td>${esc(r.buyer)}</td><td class="mono tr fw7">${fmtN(r.debt_kgs)}₸</td><td>${fmtD(r.last_pay)}</td><td>${r.pay_count}</td></tr>`).join('')||eRow(4,'Долгов нет'));
+  _setHTML(document.getElementById('dBBody'),(d.buyers||[]).map(r=>`<tr><td>${esc(r.buyer)}</td><td class="mono tr fw7">${fmtN(r.debt_kgs)} ${CUR}</td><td>${fmtD(r.last_pay)}</td><td>${r.pay_count}</td></tr>`).join('')||eRow(4,'Долгов нет'));
   _setHTML(document.getElementById('dSBody'),(d.suppliers||[]).map(r=>`<tr><td>${esc(r.name)}</td><td>${fmtN(r.total)}</td><td>${fmtN(r.paid)}</td><td class="mono${+r.rest>0?' tr fw7':' tg'}">${fmtN(r.rest)}</td><td><span class="badge bb">${esc(r.currency)}</span></td><td><span class="badge ${+r.rest>0?'br':'bg'}">${esc(r.status)}</span></td></tr>`).join('')||eRow(6,'Долгов нет'));
 }
 function showDebtTab(tab,el){

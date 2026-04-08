@@ -44,7 +44,7 @@ function addPayment(p) {
       var amt     = parseFloat(p.amount)      || 0;
       var curDebt = parseFloat(sale.debt_kgs) || 0;
       var curPaid = parseFloat(sale.paid_kgs) || 0;
-      if (amt > curDebt + 0.01) return _err('Сумма превышает остаток долга (' + Math.round(curDebt) + ' ₸)');
+      if (amt > curDebt + 0.01) return _err('Сумма превышает остаток долга (' + Math.round(curDebt) + ')');
 
       var newDebt = Math.max(0, curDebt - amt);
       var newId   = _append(SH.PAYMENTS, {

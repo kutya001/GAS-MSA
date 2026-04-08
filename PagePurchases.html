@@ -12,17 +12,15 @@
 function _pCalcKgs(form) {
   var usd  = parseFloat(form.getVal('cost_usd')) || 0;
   var rate = parseFloat(form.getVal('rate'))     || 88;
-  form.setCalc('cost_kgs', fmtN(usd * rate) + ' ₸');
+  form.setCalc('cost_kgs', fmtN(usd * rate) + ' ' + CUR);
 }
 
-// ── поиск шаблона MDM по class/type ────────────────────────────
-function _findPurchaseTemplate(classId, typeId) {
+// ── поиск шаблона MDM по id ────────────────────────────────────
+function _findTemplateById(tplId) {
   var tpls = (ST.mdm && ST.mdm.templates) ? ST.mdm.templates : [];
-  var cId = parseInt(classId)  || 0;
-  var tId = parseInt(typeId)   || 0;
+  var id = parseInt(tplId) || 0;
   for (var i = 0; i < tpls.length; i++) {
-    var t = tpls[i];
-    if (t.class_id === cId && t.type_id === tId) return t;
+    if (tpls[i].id === id) return tpls[i];
   }
   return null;
 }
@@ -135,9 +133,9 @@ function _renderPurchasePayments(containerId, purchaseId, mode) {
       rows.forEach(function(r) {
         totalPaid += r.amount;
         html += '<tr><td>' + fmtD(r.pay_date) + '</td><td>' + esc(r.wallet_name) + '</td>';
-        html += '<td class="mono tar">' + fmtN(r.amount) + ' ₸</td><td>' + esc(r.note || '') + '</td></tr>';
+        html += '<td class="mono tar">' + fmtN(r.amount) + ' ' + CUR + '</td><td>' + esc(r.note || '') + '</td></tr>';
       });
-      html += '</tbody><tfoot><tr><td colspan="2"><b>Итого оплачено</b></td><td class="mono tar fw7">' + fmtN(totalPaid) + ' ₸</td><td></td></tr></tfoot></table>';
+      html += '</tbody><tfoot><tr><td colspan="2"><b>Итого оплачено</b></td><td class="mono tar fw7">' + fmtN(totalPaid) + ' ' + CUR + '</td><td></td></tr></tfoot></table>';
     } else {
       html += '<div class="muted ta-c" style="margin-bottom:8px">Оплат пока нет</div>';
     }
@@ -177,14 +175,34 @@ async function _addPurchasePayment(purchaseId) {
   _renderPurchasePayments('mfPurchase-payments_block', purchaseId, 'view');
 }
 
-// ── обновление Block 2 при смене class/type ────────────────────
+// ── обновление Block 2 при смене template_id ──────────────────
 function _pUpdateBlock2(form, existingVals) {
-  var cId = form.getVal('class_id');
-  var tId = form.getVal('type_id');
-  var tpl = _findPurchaseTemplate(cId, tId);
+  var tplId = form.getVal('template_id');
+  var tpl = _findTemplateById(tplId);
   var isEdit = form._mode !== 'view';
   _renderTplAttrs('mfPurchase-tpl_attrs', tpl, existingVals || {}, isEdit);
   form._currentTpl = tpl;
+}
+
+// ── обновление списка «Назначение» при смене class/type ────────
+function _pUpdateTemplates(form) {
+  var cId = parseInt(form.getVal('class_id')) || 0;
+  var tId = parseInt(form.getVal('type_id'))  || 0;
+  var tpls = (ST.mdm && ST.mdm.templates) ? ST.mdm.templates : [];
+  var filtered = tpls.filter(function(t) { return t.class_id === cId && t.type_id === tId; });
+  form.fillField('template_id', filtered, 'id', 'name', '— Выберите назначение —');
+  // Сбросить номенклатуру
+  form.fillField('product_id', [], 'id', 'name', '— Выберите товар —');
+  _pUpdateBlock2(form, null);
+}
+
+// ── обновление списка номенклатуры при смене template ───────────
+function _pUpdateProducts(form) {
+  var tplId = parseInt(form.getVal('template_id')) || 0;
+  var prods = (ST.mdm && ST.mdm.products) ? ST.mdm.products : [];
+  var filtered = prods.filter(function(p) { return p.template_id === tplId; });
+  form.fillField('product_id', filtered, 'id', 'name', '— Выберите товар —');
+  _pUpdateBlock2(form, null);
 }
 
 // ── форма закупки ────────────────────────────────────────────────
@@ -237,16 +255,32 @@ var purchaseForm = new MainForm({
       onChange: function(v, f) {
         var t = ST.refs.prod_types.filter(function(x) { return !v || x.class_id === +v; });
         f.fillField('type_id', t, 'id', 'name', '—');
-        _pUpdateBlock2(f, null);
+        _pUpdateTemplates(f);
       },
       renderView: function(v, r) { return esc(r.class_name || '—'); }
     },
     { key: 'type_id', label: 'Тип продукта', type: 'select', required: true,
       getOptions: function() { return ST.refs.prod_types; },
       onChange: function(v, f) {
-        _pUpdateBlock2(f, null);
+        _pUpdateTemplates(f);
       },
       renderView: function(v, r) { return esc(r.type_name || '—'); }
+    },
+    { key: 'template_id', label: 'Назначение', type: 'select', required: true,
+      getOptions: function() { return []; },
+      onChange: function(v, f) {
+        _pUpdateProducts(f);
+      },
+      renderView: function(v, r) {
+        var tpl = _findTemplateById(v);
+        return esc(tpl ? tpl.name : '—');
+      }
+    },
+    { key: 'product_id', label: 'Номенклатура (MDM)', type: 'select',
+      getOptions: function() { return []; },
+      renderView: function(v, r) {
+        return r.product_name ? '<span class="fw7">' + esc(r.product_name) + '</span>' : '<span class="muted">—</span>';
+      }
     },
     { key: 'cost_usd', label: 'Себестоимость USD', type: 'number', min: 0, step: 0.01, required: true,
       onChange: function(v, f) { _pCalcKgs(f); },
@@ -257,13 +291,8 @@ var purchaseForm = new MainForm({
       renderView: function(v) { return esc(String(v || 88)); }
     },
     { key: 'cost_kgs', label: 'Себестоимость KGS (авторасчёт)', type: 'calc', span: 2,
-      calcInit: '0 ₸',
-      renderView: function(v) { return '<span class="mono fw7 tg">' + fmtN(v) + ' ₸</span>'; }
-    },
-    { key: 'product_name', label: 'Товар (MDM)', viewOnly: true,
-      renderView: function(v, r) {
-        return v ? '<span class="fw7">' + esc(v) + '</span>' : '<span class="muted">—</span>';
-      }
+      calcInit: '0',
+      renderView: function(v) { return '<span class="mono fw7 tg">' + fmtN(v) + ' ' + CUR + '</span>'; }
     },
     { key: 'status', label: 'Статус', viewOnly: true,
       renderView: function(v) {
@@ -277,8 +306,8 @@ var purchaseForm = new MainForm({
     { key: '_b2', label: '⚙️ Характеристики товара', type: 'group' },
     { key: 'tpl_attrs', type: 'container', span: 2,
       renderView: function(v, rec, form) {
-        if (!rec || !rec.product_id) return '<div class="muted ta-c">Нет характеристик</div>';
-        var tpl = _findPurchaseTemplate(rec.class_id, rec.type_id);
+        if (!rec || !rec.template_id) return '<div class="muted ta-c">Нет характеристик</div>';
+        var tpl = _findTemplateById(rec.template_id);
         if (!tpl || !tpl.attributes || !tpl.attributes.length) return '<div class="muted ta-c">Нет характеристик для этого шаблона</div>';
         var vals = rec.attribute_values || {};
         var html = '<div class="fg2">';
@@ -317,6 +346,8 @@ var purchaseForm = new MainForm({
     var data = {
       wh_id: +values.wh_id, supplier_id: +values.supplier_id || null,
       class_id: +values.class_id || null, type_id: +values.type_id || null,
+      template_id: +values.template_id || null,
+      product_id: +values.product_id || null,
       has_imei: values.has_imei,
       imei: values.has_imei ? (values.imei || '') : '',
       qty:  values.has_imei ? 1 : (+values.qty || 1),
@@ -324,14 +355,12 @@ var purchaseForm = new MainForm({
       purchase_date: values.purchase_date,
       cost_usd: +values.cost_usd, rate: +values.rate || 88,
       note: values.note,
-      template_id: tpl ? tpl.id : null,
       attribute_values: attrVals,
       product_name: productName,
     };
 
     if (editId) {
       data.id = editId;
-      data.product_id = form._rec ? form._rec.product_id : null;
       await api('updatePurchase', data);
     } else {
       await api('addPurchase', data);
@@ -351,13 +380,26 @@ var purchaseForm = new MainForm({
     form.fillField('supplier_id', ST.refs.suppliers, 'id', 'name', '—');
     if (rec) { var sEl = document.getElementById(form.id + '-supplier_id'); if (sEl) sEl.value = rec.supplier_id || ''; }
 
-    // Block 1 — каскадные селекты
+    // Block 1 — каскадные селекты: Класс → Тип → Назначение → Номенклатура
     form.fillField('class_id', ST.refs.classes, 'id', 'name', '—');
     if (rec) { var cEl = document.getElementById(form.id + '-class_id'); if (cEl) cEl.value = rec.class_id || ''; }
     var cid = +(form.getVal('class_id'));
     form.fillField('type_id', ST.refs.prod_types.filter(function(t) { return !cid || t.class_id === cid; }), 'id', 'name', '—');
     if (rec) { var tEl = document.getElementById(form.id + '-type_id'); if (tEl) tEl.value = rec.type_id || ''; }
     var tid = +(form.getVal('type_id'));
+
+    // Назначение (шаблон)
+    var tpls = (ST.mdm && ST.mdm.templates) ? ST.mdm.templates : [];
+    var filteredTpls = tpls.filter(function(t) { return t.class_id === cid && t.type_id === tid; });
+    form.fillField('template_id', filteredTpls, 'id', 'name', '— Выберите назначение —');
+    if (rec) { var tmEl = document.getElementById(form.id + '-template_id'); if (tmEl) tmEl.value = rec.template_id || ''; }
+    var tmId = +(form.getVal('template_id'));
+
+    // Номенклатура (продукт)
+    var prods = (ST.mdm && ST.mdm.products) ? ST.mdm.products : [];
+    var filteredProds = prods.filter(function(p) { return p.template_id === tmId; });
+    form.fillField('product_id', filteredProds, 'id', 'name', '— Выберите товар —');
+    if (rec) { var pEl = document.getElementById(form.id + '-product_id'); if (pEl) pEl.value = rec.product_id || ''; }
 
     // Block 2 — атрибуты шаблона
     var existingVals = (rec && rec.attribute_values) ? rec.attribute_values : {};
@@ -415,8 +457,8 @@ function _pDTinit() {
       { key: 'cost_usd', label: '$ USD', align: 'right', mono: true,
         render: function(v) { return '$' + fmtN(v); }
       },
-      { key: 'cost_kgs', label: '₸ KGS', align: 'right', mono: true,
-        render: function(v) { return fmtN(v) + '₸'; }
+      { key: 'cost_kgs', label: CUR, align: 'right', mono: true,
+        render: function(v) { return fmtN(v) + ' ' + CUR; }
       },
       { key: 'status', label: 'Статус',
         render: function(v) {

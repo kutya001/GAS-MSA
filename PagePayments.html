@@ -27,7 +27,7 @@ var paymentForm = new MainForm({
   validate: function(values, form) {
     var ctx = form._rec;
     if (ctx && +values.amount > (+ctx._debt + 0.01)) {
-      return 'Сумма превышает остаток долга (' + fmtN(ctx._debt) + ' ₸)';
+      return 'Сумма превышает остаток долга (' + fmtN(ctx._debt) + ' ' + CUR + ')';
     }
     return null;
   },
@@ -51,7 +51,7 @@ var paymentForm = new MainForm({
     var bEl = document.getElementById(form.id + '-_buyer');
     var dEl = document.getElementById(form.id + '-_debt');
     if (bEl && rec) bEl.textContent = rec._buyer || '—';
-    if (dEl && rec) dEl.textContent = fmtN(rec._debt || 0) + ' ₸';
+    if (dEl && rec) dEl.textContent = fmtN(rec._debt || 0) + ' ' + CUR;
     form.fillField('wallet_id', ST.wallets, 'id', 'name', '—');
     var d = document.getElementById(form.id + '-pay_date');
     if (d && mode === 'create') d.value = today();
@@ -69,11 +69,11 @@ function _payDTinit() {
       { key: 'pay_date',    label: 'Дата',       w: '84px', render: function(v) { return fmtD(v); } },
       { key: 'buyer',       label: 'Покупатель' },
       { key: 'amount',      label: 'Сумма',      align: 'right', mono: true,
-        render: function(v) { return '<span class="tg fw7">' + fmtN(v) + '₸</span>'; }
+        render: function(v) { return '<span class="tg fw7">' + fmtN(v) + ' ' + CUR + '</span>'; }
       },
       { key: 'wallet_name', label: 'Кошелёк' },
       { key: 'debt_after',  label: 'Ост. долга', align: 'right', mono: true,
-        render: function(v) { return +v > 0 ? '<span class="tr">' + fmtN(v) + '₸</span>' : '<span class="tg">0₸</span>'; }
+        render: function(v) { return +v > 0 ? '<span class="tr">' + fmtN(v) + ' ' + CUR + '</span>' : '<span class="tg">0 ' + CUR + '</span>'; }
       },
       { key: 'note', label: 'Примечание', sortable: false }
     ]
@@ -83,7 +83,7 @@ function _payDTinit() {
 
 // Мини-тост при клике на строку оплаты
 function _payViewDetail(r) {
-  toast('Оплата от ' + esc(r.buyer) + ': ' + fmtN(r.amount) + ' ₸ — ' + fmtD(r.pay_date), 'i');
+  toast('Оплата от ' + esc(r.buyer) + ': ' + fmtN(r.amount) + ' ' + CUR + ' — ' + fmtD(r.pay_date), 'i');
 }
 
 async function loadPayments() {
