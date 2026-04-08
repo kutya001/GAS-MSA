@@ -167,6 +167,7 @@ class MainForm {
     var cur = { label: null, html: '' };
     this.cfg.fields.forEach(function(f) {
       if (f.editOnly) return;
+      if (f.showIf && !f.showIf(self)) return;
       if (f.type === 'group') {
         blocks.push(cur);
         cur = { label: f.label, html: '' };
