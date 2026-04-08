@@ -501,9 +501,10 @@ class MainForm {
       toast('Заполните поля: ' + missing.map(function(f) { return f.label; }).join(', '), 'e');
       return;
     }
-    // Кастомная валидация
+    // Кастомная валидация (поддержка async — Promise)
     if (this.cfg.validate) {
       var err = this.cfg.validate(values, this);
+      if (err && typeof err.then === 'function') err = await err;
       if (err) { toast(err, 'e'); return; }
     }
     // Закрываем форму сразу, синхронизация фоном

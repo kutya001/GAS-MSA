@@ -87,6 +87,21 @@ function getPurchases(p) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+//  ПРОВЕРКА УНИКАЛЬНОСТИ IMEI
+// ──────────────────────────────────────────────────────────────────────
+function checkImeiUnique(p) {
+  try {
+    var imei = String(p.imei || '').trim();
+    if (!imei || !/^\d{15}$/.test(imei)) return _ok({ unique: true });
+    var excludeId = parseInt(p.exclude_id) || 0;
+    var found = _rows(SH.PURCHASES).some(function(r) {
+      return r.imei === imei && r.status !== 'Удалено' && parseInt(r.id) !== excludeId;
+    });
+    return _ok({ unique: !found });
+  } catch(e) { return _err(e.message); }
+}
+
+// ──────────────────────────────────────────────────────────────────────
 //  СОЗДАНИЕ ЗАКУПКИ (+ создание MDM-продукта)
 // ──────────────────────────────────────────────────────────────────────
 function addPurchase(p) {
@@ -97,6 +112,14 @@ function addPurchase(p) {
       var rate    = parseFloat(p.rate)     || 88;
       var costKgs = Math.round(costUsd * rate);
       var qty     = hasImei ? 1 : (parseInt(p.qty) || 1);
+
+      // IMEI uniqueness check (server-side)
+      if (hasImei && p.imei) {
+        var dup = _rows(SH.PURCHASES).find(function(r) {
+          return r.imei === p.imei && r.status !== 'Удалено';
+        });
+        if (dup) return _err('IMEI ' + p.imei + ' уже существует (Закупка #' + dup.id + ')');
+      }
 
       // Создаём или привязываем продукт MDM
       var productId = parseInt(p.product_id) || 0;
@@ -131,6 +154,29 @@ function addPurchase(p) {
       // Атомарно обновляем склад (Materialized Stock)
       if (parseInt(p.wh_id)) _adjustWarehouse(parseInt(p.wh_id), qty, costKgs, true);
 
+      // Моментальная оплата поставщику (если передана)
+      if (p.pay_wallet_id && p.pay_amount) {
+        var payAmt = parseFloat(p.pay_amount) || 0;
+        if (payAmt > 0) {
+          _append(SH.PURCHASE_PAYMENTS, {
+            purchase_id: newId,
+            wallet_id: parseInt(p.pay_wallet_id),
+            amount: payAmt,
+            pay_date: p.purchase_date || _today(),
+            note: 'Оплата при закупке',
+            created_at: _today(),
+          });
+          var catId = _findOrCreateCat('Закуп товара', 'Расход');
+          _appendCashOp({
+            wallet_id: parseInt(p.pay_wallet_id), op_type: 'Расход',
+            cat_id: catId, article_id: '', amount: Math.round(payAmt),
+            op_date: p.purchase_date || _today(),
+            counterpart: '', comment: 'Оплата за закупку #' + newId,
+          });
+          _adjustBalance(parseInt(p.pay_wallet_id), Math.round(payAmt), false);
+        }
+      }
+
       _cDel(['purchases_all']);
       return _ok({ id: newId, product_id: productId });
     } catch(e) { return _err(e.message); }
@@ -146,6 +192,14 @@ function updatePurchase(p) {
       var hasImei = (p.has_imei === true || p.has_imei === 'TRUE' || p.has_imei === 1);
       var costUsd = parseFloat(p.cost_usd) || 0;
       var rate    = parseFloat(p.rate)     || 88;
+
+      // IMEI uniqueness check (server-side, excluding self)
+      if (hasImei && p.imei) {
+        var dup = _rows(SH.PURCHASES).find(function(r) {
+          return r.imei === p.imei && r.status !== 'Удалено' && parseInt(r.id) !== parseInt(p.id);
+        });
+        if (dup) return _err('IMEI ' + p.imei + ' уже существует (Закупка #' + dup.id + ')');
+      }
 
       // Обновляем MDM-продукт если переданы атрибуты
       if (p.product_id && p.attribute_values) {

@@ -172,25 +172,90 @@ function _sUpdateTemplates(form) {
   if (cnt) cnt.innerHTML = '<div class="muted ta-c">Выберите назначение</div>';
 }
 
+// ── рендер блока оплат продажи (Block 3) — view/edit mode ────────
+function _renderSalePayments(containerId, sale) {
+  var cnt = document.getElementById(containerId);
+  if (!cnt || !sale || !sale.id) return;
+  cnt.innerHTML = '<div class="muted ta-c">Загрузка оплат...</div>';
+  api('getSalePayments', { sale_id: sale.id }).then(function(payments) {
+    var rows = payments || [];
+    var paymentsSum = rows.reduce(function(s, r) { return s + r.amount; }, 0);
+    var paidKgs  = parseFloat(sale.paid_kgs)  || 0;
+    var totalKgs = parseFloat(sale.total_kgs) || 0;
+    var initialPaid = Math.max(0, paidKgs - paymentsSum);
+    var debtKgs  = Math.max(0, totalKgs - paidKgs);
+    var fullyPaid = totalKgs > 0 && debtKgs <= 0;
+
+    var allRows = [];
+    if (initialPaid > 0) {
+      allRows.push({ pay_date: sale.sale_date || '', wallet_name: sale.wallet_name || '—',
+        amount: initialPaid, note: 'Оплата при продаже' });
+    }
+    rows.forEach(function(r) { allRows.push(r); });
+
+    var html = '';
+    if (allRows.length) {
+      html += '<table class="pay-tbl"><thead><tr><th>Дата</th><th>Кошелёк</th><th>Сумма</th><th>Заметка</th></tr></thead><tbody>';
+      allRows.forEach(function(r) {
+        html += '<tr><td>' + fmtD(r.pay_date) + '</td><td>' + esc(r.wallet_name) + '</td>';
+        html += '<td class="mono tar">' + fmtN(r.amount) + ' ' + CUR + '</td><td>' + esc(r.note || '') + '</td></tr>';
+      });
+      html += '</tbody><tfoot><tr><td colspan="2"><b>Итого оплачено</b></td>';
+      html += '<td class="mono tar fw7">' + fmtN(paidKgs) + ' ' + CUR + '</td><td></td></tr></tfoot></table>';
+    } else {
+      html += '<div class="muted ta-c" style="margin-bottom:8px">Оплат пока нет</div>';
+    }
+
+    if (fullyPaid) {
+      html += '<div class="alert al-s" style="margin:6px 0 0"><span>✅</span><span>Оплачено полностью</span></div>';
+    } else if (debtKgs > 0) {
+      html += '<div class="alert al-w" style="margin:6px 0 8px"><span>⏳</span><span>Остаток долга: ' + fmtN(debtKgs) + ' ' + CUR + '</span></div>';
+      html += '<div class="pay-add-row">';
+      html += '<select class="fin" id="sp-wallet"><option value="">Кошелёк</option></select>';
+      html += '<input class="fin" type="number" id="sp-amount" placeholder="Сумма" min="1" value="' + debtKgs + '" style="max-width:120px">';
+      html += '<input class="fin" type="date" id="sp-date" value="' + today() + '">';
+      html += '<input class="fin" type="text" id="sp-note" placeholder="Заметка" style="max-width:140px">';
+      html += '<button class="btn btn-p btn-sm" onclick="_addSalePayment(' + sale.id + ')">+ Оплата</button>';
+      html += '</div>';
+    }
+    cnt.innerHTML = html;
+    if (!fullyPaid && debtKgs > 0) {
+      var sel = document.getElementById('sp-wallet');
+      if (sel && ST.wallets) {
+        ST.wallets.forEach(function(w) {
+          var o = document.createElement('option');
+          o.value = w.id; o.textContent = w.name;
+          sel.appendChild(o);
+        });
+      }
+    }
+  });
+}
+
+async function _addSalePayment(saleId) {
+  var walletId = document.getElementById('sp-wallet').value;
+  var amount   = document.getElementById('sp-amount').value;
+  var date     = document.getElementById('sp-date').value;
+  var note     = document.getElementById('sp-note').value;
+  if (!walletId || !amount) { toast('Укажите кошелёк и сумму', 'e'); return; }
+  var result = await api('addPayment', {
+    sale_id: saleId, wallet_id: +walletId, amount: +amount,
+    pay_date: date || today(), note: note
+  });
+  toast('Оплата добавлена', 's');
+  var sale = saleForm._rec;
+  var newDebt = result.newDebt || 0;
+  sale.paid_kgs = sale.total_kgs - newDebt;
+  sale.debt_kgs = newDebt;
+  _renderSalePayments('mfSale-sale_payments', sale);
+  loadSales();
+}
+
 // ── форма продажи (4 блока) ──────────────────────────────────────
 var saleForm = new MainForm({
   id:    'mfSale',
   title: 'Продажа',
   size:  'lg',
-  canEdit: function() { return false; },
-  viewActions: [
-    {
-      label: '+ Внести оплату',
-      show:  function(rec) { return rec && rec.debt_kgs > 0; },
-      onClick: function(rec) {
-        paymentForm.openCreate({
-          sale_id: rec.id,
-          _buyer:  rec.buyer,
-          _debt:   rec.debt_kgs
-        });
-      }
-    }
-  ],
   fields: [
     // ═══ BLOCK 0 — Документ ═══
     { key: '_b0', label: '📋 Документ', type: 'group' },
@@ -239,7 +304,18 @@ var saleForm = new MainForm({
         return '<span class="mf-vl">Товар</span><div class="mf-vv">' + label +
           (cat ? '<br><span class="muted" style="font-size:.72rem">' + esc(cat) + '</span>' : '') + '</div>';
       },
-      renderEdit: function() {
+      renderEdit: function(rec, form) {
+        if (form._mode === 'edit' && rec) {
+          var label = rec.has_imei
+            ? '<span class="imeic">' + esc(rec.imei || '') + '</span> — ' + esc(rec.product_name || 'Товар')
+            : '<span class="fw7">' + esc(rec.product_name || 'Товар') + '</span>';
+          var cat = [rec.class_name, rec.type_name].filter(Boolean).join(' → ');
+          return '<div class="mf-vf full"><span class="mf-vl">Товар (нельзя изменить)</span>' +
+            '<div class="mf-vv">' + label +
+            (cat ? '<br><span class="muted" style="font-size:.72rem">' + esc(cat) + '</span>' : '') +
+            '</div></div>' +
+            '<input type="hidden" id="mfSale-purchase_id" value="' + (rec.purchase_id || '') + '">';
+        }
         return '<div class="fgrp full"><label><span class="req">IMEI / Товар</span></label>' +
           '<div class="imei-srch">' +
           '<input class="fin" style="width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r1);padding:9px 11px;font-size:.86rem" ' +
@@ -334,40 +410,40 @@ var saleForm = new MainForm({
     // ═══ BLOCK 3 — Оплата ═══
     { key: '_b3', label: '💰 Оплата', type: 'group' },
     { key: 'is_installment', label: '📅 Рассрочка (оплата позже)', type: 'checkbox', span: 2,
-      default: false,
+      default: false, editOnly: true,
+      showIf: function(f) { return f._mode === 'create'; },
       onChange: function(v, f) { f.refreshVis(); },
-      renderView: function(v) {
-        return v ? '<span class="badge ba">Рассрочка</span>' : '<span class="badge bg">Полная оплата</span>';
-      }
     },
     { key: 'wallet_id', label: 'Кошелёк оплаты', type: 'select', required: true,
-      showIf: function(f) { return !f.getVal('is_installment'); },
+      editOnly: true,
+      showIf: function(f) { return f._mode === 'create' && !f.getVal('is_installment'); },
       getOptions: function() { return ST.wallets; },
-      renderView: function(v, r) { return esc(r.wallet_name || '—'); }
     },
     { key: 'paid_kgs', label: 'Оплачено сейчас KGS', type: 'number', min: 0, default: 0,
-      showIf: function(f) { return !f.getVal('is_installment'); },
+      editOnly: true,
+      showIf: function(f) { return f._mode === 'create' && !f.getVal('is_installment'); },
       onChange: function(v, f) { _sCalcDebt(f); },
-      renderView: function(v) { return '<span class="mono tg">' + fmtN(v) + ' ' + CUR + '</span>'; }
     },
     { key: '_debt', label: 'Остаток долга (авто)', type: 'calc', span: 2,
+      editOnly: true,
+      showIf: function(f) { return f._mode === 'create'; },
       calcInit: '0',
-      renderView: function(v, r) {
-        return +r.debt_kgs > 0
-          ? '<span class="mono tr fw7">' + fmtN(r.debt_kgs) + ' ' + CUR + '</span>'
-          : '<span class="tg">0 ' + CUR + '</span>';
-      }
+    },
+    { key: 'sale_payments', type: 'container', span: 2,
+      renderView: function(v, rec, form) { return ''; },
+      renderEdit: function(rec, form) { return ''; }
     },
   ],
   validate: function(values, form) {
     var hasImei = !!values.has_imei;
     var purchaseId = document.getElementById('mfSale-purchase_id');
     var pid = purchaseId ? parseInt(purchaseId.value) : 0;
-    if (hasImei && !pid) return 'Выберите товар (IMEI)';
+    // В режиме редактирования товар не меняется, пропускаем проверку
+    if (form._mode !== 'edit' && hasImei && !pid) return 'Выберите товар (IMEI)';
     var price = +values.total_kgs || 0;
     var isInstallment = !!values.is_installment;
     var paid = isInstallment ? 0 : (+values.paid_kgs || 0);
-    if (paid > price) return 'Оплата не может превышать цену';
+    if (form._mode === 'create' && paid > price) return 'Оплата не может превышать цену';
     return null;
   },
   onSave: async function(values, editId) {
@@ -379,54 +455,101 @@ var saleForm = new MainForm({
     var price = +values.total_kgs || 0;
     var paid = isInstallment ? 0 : (+values.paid_kgs || 0);
 
-    var data = {
-      purchase_id: pid || null,
-      buyer: values.buyer, wa: values.wa,
-      sale_date: values.sale_date,
-      manager_id: +values.manager_id,
-      has_imei: hasImei,
-      is_installment: isInstallment,
-      class_id: +values.class_id || null,
-      type_id: +values.type_id || null,
-      template_id: +values.template_id || null,
-      total_kgs: price, paid_kgs: paid, debt_kgs: price - paid,
-      wallet_id: isInstallment ? null : +values.wallet_id,
-      note: values.note
-    };
-    await api('addSale', data);
-    toast('Продажа добавлена', 's');
-    loadSales(); loadPurchases();
+    if (editId) {
+      // Редактирование: обновляем только документные поля + цену
+      await api('updateSale', {
+        id: editId,
+        buyer: values.buyer, wa: values.wa,
+        sale_date: values.sale_date,
+        manager_id: +values.manager_id,
+        total_kgs: price,
+        note: values.note
+      });
+      toast('Продажа обновлена', 's');
+      loadSales();
+    } else {
+      var data = {
+        purchase_id: pid || null,
+        buyer: values.buyer, wa: values.wa,
+        sale_date: values.sale_date,
+        manager_id: +values.manager_id,
+        has_imei: hasImei,
+        is_installment: isInstallment,
+        class_id: +values.class_id || null,
+        type_id: +values.type_id || null,
+        template_id: +values.template_id || null,
+        total_kgs: price, paid_kgs: paid, debt_kgs: price - paid,
+        wallet_id: isInstallment ? null : +values.wallet_id,
+        note: values.note
+      };
+      await api('addSale', data);
+      toast('Продажа добавлена', 's');
+      loadSales(); loadPurchases();
+    }
   },
   afterMount: function(mode, rec, form) {
+    // ── VIEW mode ────────────────────────────────────────────
     if (mode === 'view') {
-      // Block 2 — атрибуты из закупки
       if (rec && rec.template_id) _sUpdateBlock2(rec);
+      if (rec && rec.id) _renderSalePayments('mfSale-sale_payments', rec);
       return;
     }
-    // edit/create
+
+    // ── EDIT / CREATE common setup ───────────────────────────
     form._selectedPurchase = null;
     form._selectedCost = 0;
     form.fillField('manager_id', ST.refs.managers, 'id', 'name', '—');
-    form.fillField('wallet_id', ST.wallets, 'id', 'name', '—');
 
-    // Каскадные селекты Block 1
-    form.fillField('class_id', ST.refs.classes, 'id', 'name', '—');
-    form.fillField('type_id', [], 'id', 'name', '—');
-    form.fillField('template_id', [], 'id', 'name', '— Выберите назначение —');
+    if (mode === 'edit' && rec) {
+      // Заполняем документные поля
+      var mEl = document.getElementById(form.id + '-manager_id');
+      if (mEl) mEl.value = rec.manager_id || '';
 
-    if (mode === 'create') {
+      form._selectedCost = rec.cost_kgs || 0;
+
+      // Блокируем has_imei в режиме редактирования
+      var imeiCb = document.getElementById(form.id + '-has_imei');
+      if (imeiCb) imeiCb.disabled = true;
+
+      // Товар — read-only (заполняется через renderEdit контейнера imei_search)
+      _sAutoFillSelects(rec);
+
+      // Display поля — товар и себестоимость
+      var infoEl = document.getElementById(form.id + '-_pinfo');
+      if (infoEl) infoEl.textContent = rec.product_name || '—';
+      var costEl = document.getElementById(form.id + '-_cost');
+      if (costEl) costEl.textContent = fmtN(rec.cost_kgs || 0) + ' ' + CUR;
+
+      // Block 2 — атрибуты из закупки
+      if (rec.template_id) _sUpdateBlock2(rec);
+
+      // Block 3 — таблица оплат (справочно)
+      if (rec.id) _renderSalePayments('mfSale-sale_payments', rec);
+
+      // Пересчёт прибыли
+      _sCalcProfit(form);
+      form.refreshVis();
+
+    } else {
+      // CREATE mode
+      form.fillField('wallet_id', ST.wallets, 'id', 'name', '—');
+      form.fillField('class_id', ST.refs.classes, 'id', 'name', '—');
+      form.fillField('type_id', [], 'id', 'name', '—');
+      form.fillField('template_id', [], 'id', 'name', '— Выберите назначение —');
+
       var d = document.getElementById(form.id + '-sale_date');
       if (d) d.value = today();
-    }
-    _sCalcProfit(form);
-    _sCalcDebt(form);
-    form.refreshVis();
 
-    // Закрываем дропдаун при клике вне
-    document.addEventListener('click', function _closeDD(e) {
-      var dd = document.getElementById('mfSale-imei-dd');
-      if (dd && !e.target.closest('.imei-srch')) dd.style.display = 'none';
-    }, { once: false });
+      _sCalcProfit(form);
+      _sCalcDebt(form);
+      form.refreshVis();
+
+      // Закрываем дропдаун IMEI при клике вне
+      document.addEventListener('click', function _closeDD(e) {
+        var dd = document.getElementById('mfSale-imei-dd');
+        if (dd && !e.target.closest('.imei-srch')) dd.style.display = 'none';
+      }, { once: false });
+    }
   }
 });
 

@@ -124,3 +124,56 @@ function addSale(p) {
     } catch(e) { return _err(e.message); }
   });
 }
+
+// ──────────────────────────────────────────────────────────────────────
+//  ОБНОВЛЕНИЕ ПРОДАЖИ
+// ──────────────────────────────────────────────────────────────────────
+function updateSale(p) {
+  return _withLock(function() {
+    try {
+      var sale = _findById(SH.SALES, p.id);
+      if (!sale) return _err('Продажа #' + p.id + ' не найдена');
+
+      var newTotal = parseFloat(p.total_kgs) || 0;
+      var curPaid  = parseFloat(sale.paid_kgs) || 0;
+      var newDebt  = Math.max(0, newTotal - curPaid);
+
+      _update(SH.SALES, p.id, {
+        buyer: p.buyer || '',
+        wa: p.wa || '',
+        sale_date: p.sale_date || '',
+        manager_id: parseInt(p.manager_id) || '',
+        total_kgs: newTotal,
+        debt_kgs: Math.round(newDebt),
+        note: p.note || '',
+      });
+
+      _cDel(['sales_all', 'dashboard']);
+      return _ok({});
+    } catch(e) { return _err(e.message); }
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  ОПЛАТЫ ПО ПРОДАЖАМ — получение для конкретной продажи
+// ──────────────────────────────────────────────────────────────────────
+function getSalePayments(p) {
+  try {
+    var walletMap = _buildMap(SH.WALLETS, 'id', 'name');
+    var rows = _rows(SH.PAYMENTS)
+      .filter(function(r) { return r.id && parseInt(r.sale_id) === parseInt(p.sale_id); })
+      .map(function(r) {
+        return {
+          id:          parseInt(r.id),
+          sale_id:     parseInt(r.sale_id),
+          wallet_id:   parseInt(r.wallet_id),
+          wallet_name: walletMap[parseInt(r.wallet_id)] || '',
+          amount:      parseFloat(r.amount) || 0,
+          pay_date:    r.pay_date || '',
+          note:        r.note || '',
+        };
+      });
+    rows.sort(function(a, b) { return (a.pay_date || '').localeCompare(b.pay_date || ''); });
+    return _ok(rows);
+  } catch(e) { return _err(e.message); }
+}

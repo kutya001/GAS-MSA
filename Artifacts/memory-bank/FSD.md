@@ -93,9 +93,22 @@
 ### Оплаты по закупкам (`ОплатыЗакупок`)
 - id, purchase_id, wallet_id, amount, pay_date, note, created_at
 
+### Моментальная оплата при создании
+При создании закупки, если не отмечена рассрочка (`supplier_installment`), можно сразу оплатить поставщику: передаются `pay_wallet_id` и `pay_amount` → `addPurchase` создаёт запись в ОплатыЗакупок + КассовуюОперацию (Расход) + корректирует баланс кошелька.
+
+### IMEI-уникальность
+- `checkImeiUnique({imei, exclude_id})` — серверная проверка по всей таблице Закупки (status ≠ Удалено).
+- `addPurchase` и `updatePurchase` проверяют IMEI на дубликаты серверной стороне.
+- Фронтенд `validate()` вызывает `checkImeiUnique` асинхронно (Promise) перед сохранением.
+
+### Форма закупки — Block 3 (Оплаты поставщику)
+- **Режим создания**: чекбокс `supplier_installment` («📅 Рассрочка»); если не отмечен — поля `pay_wallet_id` и `pay_amount` (автозаполнение из cost_kgs).
+- **Режим view/edit**: таблица оплат через `_renderPurchasePayments(id, purchaseId, costKgs)` — fully-paid badge (✅), остаток, inline-форма добавления оплаты; `_addPurchasePayment` — валидация суммы ≤ себестоимости.
+
 ### API
 - `getPurchases(p)`, `addPurchase(p)`, `updatePurchase(p)`, `deletePurchase(p)`, `getStock(p)`
 - `getPurchasePayments(p)`, `addPurchasePayment(p)`
+- `checkImeiUnique(p)`
 
 ---
 
@@ -113,7 +126,18 @@
 2. **Ручной режим** (has_imei = false): каскад Class→Type→Template; пользователь выбирает шаблон вручную, рендерятся редактируемые характеристики (`_sUpdateBlock2Manual(tpl)`).
 
 ### Рассрочка
-Чекбокс `is_installment` в блоке «💰 Оплата»: при включении поля `wallet_id` и `paid_kgs` скрываются (не обязательны), `debt_kgs = total_kgs`. Оплата производится позже через модуль Оплаты (Payments).
+Чекбокс `is_installment` в блоке «💰 Оплата» (create-only): при включении поля `wallet_id` и `paid_kgs` скрываются (не обязательны), `debt_kgs = total_kgs`. Оплата производится позже через inline-форму или модуль Оплаты.
+
+### Редактирование продажи
+Кнопка «✏️ Редактировать» доступна в view-режиме. В edit-режиме:
+- Товар (purchase_id, IMEI) — read-only, нельзя изменить.
+- Редактируются: buyer, wa, sale_date, manager_id, total_kgs, note.
+- `updateSale(p)` пересчитывает `debt_kgs = max(0, newTotal - curPaid)`.
+
+### Block 3 — Оплата (view/edit)
+В view/edit режиме показывается `_renderSalePayments(containerId, sale)`: таблица всех оплат (начальная оплата при продаже + записи из Оплаты), fully-paid badge (✅), остаток долга, inline-форма добавления оплаты (`_addSalePayment` → `addPayment` API).
+
+В create-режиме: is_installment, wallet_id, paid_kgs, _debt — стандартные edit-поля.
 
 Каскадные операции при создании продажи:
 1. Обновление статуса закупки → «Продано»
@@ -122,7 +146,8 @@
 4. Обновление баланса кошелька
 
 ### API
-- `getSales(p)`, `addSale(p)`, `updateSale(p)`, `deleteSale(p)`
+- `getSales(p)`, `addSale(p)`, `updateSale(p)`
+- `getSalePayments(p)`
 
 ---
 
@@ -216,8 +241,9 @@ Overlay-клик проверяет `mousedown` + `mouseup`: оба должны
 
 ### Валидация
 1. Required-поля: пропускаются если `showIf` возвращает `false` (скрытые поля).
-2. Кастомная: `cfg.validate(values, form)` → строка ошибки или `null`.
-3. Валидация выполняется ДО закрытия формы; `onSave` вызывается только если валидация пройдена.
+2. Кастомная: `cfg.validate(values, form)` → строка ошибки, `null`, или **Promise** (async validate — например, IMEI uniqueness).
+3. `_save()` поддерживает `await` для Promise из validate: `if (err && typeof err.then === 'function') err = await err;`
+4. Валидация выполняется ДО закрытия формы; `onSave` вызывается только если валидация пройдена.
 
 ### Toast-уведомления
 Позиция: **верхний правый угол** (`top:16px; right:14px`). Типы: `s` (успех), `e` (ошибка), `i` (инфо), `w` (предупреждение).
@@ -233,3 +259,4 @@ Overlay-клик проверяет `mousedown` + `mouseup`: оба должны
 | 2026-04-08 | Закупки: каскад template_id(Назначение)→product_id(Номенклатура); Продажи: двойной режим IMEI/ручной; Настройки: base_currency → CUR |
 | 2026-04-08 | Закупки: `_pAutoFillAttrs` — авто-заполнение характеристик из MDM; Продажи: рассрочка `is_installment` |
 | 2026-04-08 | FormEngine rewrite: бейдж режима, drag-safe overlay, unsaved changes tracking, background sync, стандартные кнопки, toast top-right |
+| 2026-04-08 | FormEngine async validate (Promise support); Purchases: checkImeiUnique, моментальная оплата, IMEI server-side validate, Block 3 рассрочка/inline payment; Sales: updateSale, getSalePayments, редактирование, inline таблица оплат, edit mode |

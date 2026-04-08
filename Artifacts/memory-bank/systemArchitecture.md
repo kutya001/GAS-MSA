@@ -92,7 +92,7 @@ CHUNK = 80000        — размер чанка кэша (байт)
 |----------|---------------------|-----------------|
 | Кошельки | `current_balance`, `total_in`, `total_out` | `_adjustBalance(walletId, amount, type)` |
 | Склады | `current_items`, `current_cost_kgs` | `_adjustWarehouse(whId, qty, cost, direction)` |
-| Продажи | `debt_kgs` | Обновление при `addPayment()` |
+| Продажи | `debt_kgs` | Обновление при `addPayment()`, `updateSale()` |
 
 ## 4. Кэширование
 
@@ -130,11 +130,12 @@ CHUNK = 80000        — размер чанка кэша (байт)
 ### 6.3 Каскады форм
 
 Шаблон каскадного заполнения select'ов через `FormEngine.fillField()`:
-- **Закупки**: Класс → Тип → Назначение (`template_id`) → Номенклатура (`product_id`). Хелперы: `_pUpdateTemplates()`, `_pUpdateProducts()`, `_pAutoFillAttrs()`, `_findTemplateById()`. При выборе продукта характеристики авто-заполняются из MDM.
+- **Закупки**: Класс → Тип → Назначение (`template_id`) → Номенклатура (`product_id`). Хелперы: `_pUpdateTemplates()`, `_pUpdateProducts()`, `_pAutoFillAttrs()`, `_findTemplateById()`. При выборе продукта характеристики авто-заполняются из MDM. Block 3: supplier_installment (рассрочка) + inline pay_wallet_id/pay_amount (только create); view/edit — `_renderPurchasePayments(id, pid, costKgs)` с fully-paid badge и inline add-form.
 - **Продажи**: Двойной режим через `has_imei`:
   - IMEI-режим: `_sAutoFillSelects(pur)` заполняет и блокирует Class/Type/Template.
   - Ручной: каскад Class → Type → Template; `_sUpdateBlock2Manual(tpl)` рендерит характеристики.
-  - Рассрочка (`is_installment`): скрывает wallet_id/paid_kgs, debt = полная цена.
+  - Редактирование: товар read-only, редактируются документные поля + цена.
+  - Block 3: create — is_installment/wallet_id/paid_kgs/_debt; view/edit — `_renderSalePayments(containerId, sale)` с inline таблицей оплат, fully-paid, inline add-payment.
 
 ### 6.4 FormEngine — движок форм
 
@@ -152,7 +153,19 @@ CHUNK = 80000        — размер чанка кэша (байт)
 - **Unsaved changes**: `_initSnap` → `_hasChanges()` → `_highlightChanged()` (`.mf-changed`) → `_showUnsavedDialog()` (`.mf-unsaved-ov`)
 - **Background sync**: `_save()` вызывает `close()` ДО `onSave()`; `_delete()` аналогично
 - **showIf-aware required**: `_save()` пропускает required для полей с `showIf=false`
+- **Async validate**: `_save()` поддерживает Promise из `validate()`: `if (err && typeof err.then === 'function') err = await err;` — для асинхронных проверок (IMEI uniqueness)
 - **Стандартные кнопки**: View → Удалить|spacer|Закрыть|Редактировать; Edit/Create → Отмена|Сохранить
+
+### 6.5 IMEI-уникальность
+
+- **Сервер**: `checkImeiUnique({imei, exclude_id})` — проверка по таблице Закупки (не Удалено). Дополнительно проверка в `addPurchase`/`updatePurchase`.
+- **Фронт**: validate() возвращает Promise от `api('checkImeiUnique')` — FormEngine автоматически `await`'s it.
+
+### 6.6 Inline-оплаты
+
+В view/edit режиме Закупок и Продаж отображается таблица оплат с возможностью добавлять новые:
+- **Закупки**: `_renderPurchasePayments(containerId, purchaseId, costKgs)` + `_addPurchasePayment(purchaseId, costKgs)`. Валидация: сумма оплат ≤ себестоимости. Fully-paid → форма добавления скрыта.
+- **Продажи**: `_renderSalePayments(containerId, sale)` + `_addSalePayment(saleId)`. Показывает начальную оплату (при продаже) + последующие из таблицы Оплаты. Fully-paid badge. Валидация через `addPayment` API (серверная: amt ≤ curDebt).
 
 **Toast-уведомления**: верхний правый угол (`top:16px;right:14px`), 4 типа: s/e/i/w.
 
@@ -173,3 +186,4 @@ clasp deploy  — публикация Web App
 | 2026-04-08 | Добавлены: CUR-переменная, сворачиваемый сайдбар, каскады форм Закупок/Продаж |
 | 2026-04-08 | Закупки: _pAutoFillAttrs; Продажи: рассрочка is_installment; FormEngine: showIf-aware валидация |
 | 2026-04-08 | FormEngine rewrite: бейдж режима, drag-safe overlay, unsaved changes, background sync, toast top-right, стандартные кнопки |
+| 2026-04-08 | Async validate, IMEI uniqueness (сервер+фронт), inline оплаты закупок/продаж, редактирование продаж, моментальная оплата поставщику при создании |

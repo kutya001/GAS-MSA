@@ -12,7 +12,11 @@
 function _pCalcKgs(form) {
   var usd  = parseFloat(form.getVal('cost_usd')) || 0;
   var rate = parseFloat(form.getVal('rate'))     || 88;
-  form.setCalc('cost_kgs', fmtN(usd * rate) + ' ' + CUR);
+  var costKgs = usd * rate;
+  form.setCalc('cost_kgs', fmtN(costKgs) + ' ' + CUR);
+  // Подставляем в сумму оплаты (только при создании)
+  var payEl = document.getElementById(form.id + '-pay_amount');
+  if (payEl && form._mode === 'create') payEl.value = Math.round(costKgs);
 }
 
 // ── поиск шаблона MDM по id ────────────────────────────────────
@@ -115,8 +119,8 @@ function _buildProductName(tpl, attrVals) {
   return parts.join(' ');
 }
 
-// ── рендер блока оплат (Block 3) ──────────────────────────────
-function _renderPurchasePayments(containerId, purchaseId, mode) {
+// ── рендер блока оплат (Block 3) — view mode ──────────────────
+function _renderPurchasePayments(containerId, purchaseId, costKgs) {
   var cnt = document.getElementById(containerId);
   if (!cnt) return;
   if (!purchaseId) {
@@ -126,9 +130,9 @@ function _renderPurchasePayments(containerId, purchaseId, mode) {
   cnt.innerHTML = '<div class="muted ta-c">Загрузка оплат...</div>';
   api('getPurchasePayments', { purchase_id: purchaseId }).then(function(data) {
     var rows = data || [];
+    var totalPaid = 0;
     var html = '';
     if (rows.length) {
-      var totalPaid = 0;
       html += '<table class="pay-tbl"><thead><tr><th>Дата</th><th>Кошелёк</th><th>Сумма</th><th>Заметка</th></tr></thead><tbody>';
       rows.forEach(function(r) {
         totalPaid += r.amount;
@@ -139,40 +143,59 @@ function _renderPurchasePayments(containerId, purchaseId, mode) {
     } else {
       html += '<div class="muted ta-c" style="margin-bottom:8px">Оплат пока нет</div>';
     }
-    // Кнопка добавления оплаты
-    html += '<div class="pay-add-row">';
-    html += '<select class="fin" id="pp-wallet"><option value="">Кошелёк</option></select>';
-    html += '<input class="fin" type="number" id="pp-amount" placeholder="Сумма" min="1" style="max-width:120px">';
-    html += '<input class="fin" type="date" id="pp-date" value="' + today() + '">';
-    html += '<input class="fin" type="text" id="pp-note" placeholder="Заметка" style="max-width:140px">';
-    html += '<button class="btn btn-p btn-sm" onclick="_addPurchasePayment(' + purchaseId + ')">+ Оплата</button>';
-    html += '</div>';
+    var cost = costKgs || 0;
+    var fullyPaid = cost > 0 && totalPaid >= cost;
+    if (fullyPaid) {
+      html += '<div class="alert al-s" style="margin:6px 0 0"><span>✅</span><span>Оплачено полностью</span></div>';
+    } else {
+      var remaining = Math.max(0, cost - totalPaid);
+      if (cost > 0 && totalPaid > 0) {
+        html += '<div class="alert al-w" style="margin:6px 0 8px"><span>⏳</span><span>Остаток: ' + fmtN(remaining) + ' ' + CUR + '</span></div>';
+      }
+      // Форма добавления оплаты
+      html += '<div class="pay-add-row">';
+      html += '<select class="fin" id="pp-wallet"><option value="">Кошелёк</option></select>';
+      html += '<input class="fin" type="number" id="pp-amount" placeholder="Сумма" min="1" value="' + (remaining > 0 ? remaining : '') + '" style="max-width:120px">';
+      html += '<input class="fin" type="date" id="pp-date" value="' + today() + '">';
+      html += '<input class="fin" type="text" id="pp-note" placeholder="Заметка" style="max-width:140px">';
+      html += '<button class="btn btn-p btn-sm" onclick="_addPurchasePayment(' + purchaseId + ',' + cost + ')">+ Оплата</button>';
+      html += '</div>';
+    }
     cnt.innerHTML = html;
     // Заполняем кошельки
-    var sel = document.getElementById('pp-wallet');
-    if (sel && ST.wallets) {
-      ST.wallets.forEach(function(w) {
-        var o = document.createElement('option');
-        o.value = w.id; o.textContent = w.name;
-        sel.appendChild(o);
-      });
+    if (!fullyPaid) {
+      var sel = document.getElementById('pp-wallet');
+      if (sel && ST.wallets) {
+        ST.wallets.forEach(function(w) {
+          var o = document.createElement('option');
+          o.value = w.id; o.textContent = w.name;
+          sel.appendChild(o);
+        });
+      }
     }
   });
 }
 
-async function _addPurchasePayment(purchaseId) {
+async function _addPurchasePayment(purchaseId, costKgs) {
   var walletId = document.getElementById('pp-wallet').value;
   var amount   = document.getElementById('pp-amount').value;
   var date     = document.getElementById('pp-date').value;
   var note     = document.getElementById('pp-note').value;
   if (!walletId || !amount) { toast('Укажите кошелёк и сумму', 'e'); return; }
+  // Проверим что не превышаем себестоимость
+  var res = await api('getPurchasePayments', { purchase_id: purchaseId });
+  var totalPaid = (res || []).reduce(function(s, r) { return s + r.amount; }, 0);
+  if (totalPaid + (+amount) > costKgs + 0.01) {
+    toast('Сумма оплат превысит себестоимость (' + fmtN(costKgs) + ' ' + CUR + ')', 'e');
+    return;
+  }
   await api('addPurchasePayment', {
     purchase_id: purchaseId,
     wallet_id: +walletId, amount: +amount,
     pay_date: date || today(), note: note
   });
   toast('Оплата добавлена', 's');
-  _renderPurchasePayments('mfPurchase-payments_block', purchaseId, 'view');
+  _renderPurchasePayments('mfPurchase-payments_block', purchaseId, costKgs);
 }
 
 // ── обновление Block 2 при смене template_id ──────────────────
@@ -341,6 +364,20 @@ var purchaseForm = new MainForm({
 
     // ═══ BLOCK 3 — Оплаты поставщику ═══
     { key: '_b3', label: '💰 Оплаты поставщику', type: 'group' },
+    { key: 'supplier_installment', label: '📅 Рассрочка (оплата позже поставщику)', type: 'checkbox', span: 2,
+      default: false, editOnly: true,
+      showIf: function(f) { return f._mode === 'create'; },
+      onChange: function(v, f) { f.refreshVis(); },
+    },
+    { key: 'pay_wallet_id', label: 'Кошелёк оплаты', type: 'select', required: true,
+      editOnly: true,
+      showIf: function(f) { return f._mode === 'create' && !f.getVal('supplier_installment'); },
+      getOptions: function() { return ST.wallets; },
+    },
+    { key: 'pay_amount', label: 'Сумма оплаты', type: 'number', min: 0, required: true,
+      editOnly: true,
+      showIf: function(f) { return f._mode === 'create' && !f.getVal('supplier_installment'); },
+    },
     { key: 'payments_block', type: 'container', span: 2,
       renderView: function(v, rec, form) { return ''; },
       renderEdit: function(rec, form) { return ''; }
@@ -349,6 +386,13 @@ var purchaseForm = new MainForm({
   validate: function(values) {
     if (values.has_imei && values.imei && !/^\d{15}$/.test(values.imei)) {
       return 'IMEI должен быть 15 цифр';
+    }
+    // Проверка уникальности IMEI (асинхронная)
+    if (values.has_imei && values.imei && /^\d{15}$/.test(values.imei)) {
+      var editId = purchaseForm._mode === 'edit' ? (purchaseForm._rec && purchaseForm._rec.id) : null;
+      return api('checkImeiUnique', { imei: values.imei, exclude_id: editId }).then(function(r) {
+        return r.unique ? null : 'IMEI ' + values.imei + ' уже используется в другой закупке';
+      });
     }
     return null;
   },
@@ -375,6 +419,12 @@ var purchaseForm = new MainForm({
       attribute_values: attrVals,
       product_name: productName,
     };
+
+    // Моментальная оплата поставщику (при создании)
+    if (!editId && !values.supplier_installment && values.pay_wallet_id) {
+      data.pay_wallet_id = +values.pay_wallet_id;
+      data.pay_amount = +values.pay_amount || 0;
+    }
 
     if (editId) {
       data.id = editId;
@@ -423,11 +473,11 @@ var purchaseForm = new MainForm({
     _pUpdateBlock2(form, existingVals);
 
     // Block 3 — оплаты
-    if (rec && rec.id) {
-      _renderPurchasePayments(form.id + '-payments_block', rec.id, mode);
+    if (rec && rec.id && (mode === 'view' || mode === 'edit')) {
+      _renderPurchasePayments(form.id + '-payments_block', rec.id, rec.cost_kgs || 0);
     } else {
       var payC = document.getElementById(form.id + '-payments_block');
-      if (payC) payC.innerHTML = '<div class="muted ta-c">Сохраните закупку, чтобы добавить оплаты</div>';
+      if (payC) payC.innerHTML = '';
     }
 
     // Date init + recalc
