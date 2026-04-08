@@ -2,11 +2,10 @@
 .git/**
 .github/**
 
-# Docs & meta
+# Docs, artifacts & meta
 **/*.md
 LICENSE
-README.md
-FSD MDM Интеграция.md
+Artifacts/**
 
 # Dev tools / scripts
 _write_te.py
@@ -22,7 +21,6 @@ Thumbs.db
 # clasp config
 .clasp.json
 .claspignore
-.claspignor
 
 # Node / misc
 node_modules/**
