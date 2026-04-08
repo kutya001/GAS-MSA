@@ -27,7 +27,7 @@
 
 ## 2. Справочники (Refs)
 
-8 типов справочников:
+7 типов справочников:
 - **Бренды** (`Ref_Бренды`): id, name, info
 - **Модели** (`Ref_Модели`): id, name, brand_id → Бренды, info
 - **Поставщики** (`Ref_Поставщики`): id, name, info
@@ -35,7 +35,6 @@
 - **Валюты** (`Ref_Валюты`): id, name, info
 - **Классы** (`Ref_Классы`): id, name, info — 1-й уровень иерархии
 - **Типы продуктов** (`Ref_ТипыПродуктов`): id, class_id, name, info — 2-й уровень
-- **Назначения** (`Ref_Назначения`): id, type_id, name, info — 3-й уровень
 
 Дополнительно: **Категории** и **Статьи** для кассовых операций.
 
@@ -80,7 +79,7 @@
 - id, purchase_date, wh_id, supplier_id
 - cost_usd, rate, cost_kgs (вычисляемое)
 - has_imei, imei, qty, condition
-- class_id, type_id, purpose_id, **product_id** → MDM_Номенклатура
+- class_id, type_id, **product_id** → MDM_Номенклатура
 - status (В наличии / Продано / Удалено)
 - note, created_at
 
@@ -142,7 +141,7 @@ EAV-модель для гибких атрибутов номенклатуры
 
 ### Сущности
 - **MDM_Справочники**: id, name, items (JSON-массив строк)
-- **MDM_Шаблоны**: id, class_id, type_id, purpose_id, name, description
+- **MDM_Шаблоны**: id, class_id, type_id, name, description
 - **MDM_Атрибуты**: id, template_id, name, type, description, is_required, display_style, options, ref_table, formula, sort_order
 - **MDM_Номенклатура**: id, template_id, sku, name, attribute_values (JSON), created_at
 
@@ -174,3 +173,4 @@ string, integer, float, boolean, date, time, datetime, color_rgb, enum_radio, en
 | Дата | Изменение |
 |------|-----------|
 | 2026-04-08 | Первоначальное создание FSD на основе существующей кодовой базы |
+| 2026-04-08 | Удаление Ref_Назначения: 8→7 справочников, purpose_id удалён из Закупок и MDM_Шаблонов |

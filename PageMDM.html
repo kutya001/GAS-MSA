@@ -86,10 +86,6 @@
           <label>Тип</label>
           <select id="mdmTplType" onchange="_mdmOnTplTypeChange()"></select>
         </div>
-        <div class="fgrp">
-          <label>Назначение</label>
-          <select id="mdmTplPurpose"></select>
-        </div>
         <div class="fgrp full">
           <label>Описание</label>
           <textarea id="mdmTplDesc" rows="2" placeholder="Описание шаблона"></textarea>
@@ -224,7 +220,7 @@ function _mdmLoadTab(tab) {
 // ════════════════════════════════════════════════════════════════
 async function loadMDM() {
   if (!ST.mdm) {
-    ST.mdm = { refTables: {}, classes: [], types: [], purposes: [], templates: [], products: [], curTab: 'templates' };
+    ST.mdm = { refTables: {}, classes: [], types: [], templates: [], products: [], curTab: 'templates' };
   }
 
   try {
@@ -233,7 +229,6 @@ async function loadMDM() {
       ST.mdm.refTables  = ctx.refTables  || {};
       ST.mdm.classes    = ctx.classes     || [];
       ST.mdm.types      = ctx.types       || [];
-      ST.mdm.purposes   = ctx.purposes    || [];
       ST.mdm.templates  = ctx.templates   || [];
       ST.mdm.products   = ctx.products    || [];
     }
@@ -266,7 +261,6 @@ var _mdmTreeOpen = {};
 function _mdmRenderTemplates() {
   var classes  = ST.mdm.classes  || [];
   var types    = ST.mdm.types    || [];
-  var purposes = ST.mdm.purposes || [];
   var tpls     = ST.mdm.templates || [];
 
   if (!tpls.length && !classes.length) {
@@ -275,7 +269,7 @@ function _mdmRenderTemplates() {
     return;
   }
 
-  // 3-level tree: Class → Type → Purpose=Template (leaf)
+  // 2-level tree: Class → Type, Templates are leaves under Type
   var html = '<ul>';
   classes.forEach(function(cls) {
     var cKey = 'c' + cls.id;
@@ -300,7 +294,6 @@ function _mdmRenderTemplates() {
       clsTypes.forEach(function(typ) {
         var tKey = 't' + typ.id;
         var tOpen = _mdmTreeOpen[tKey];
-        var typPurposes = purposes.filter(function(p) { return p.type_id === typ.id; });
         var typTpls = tpls.filter(function(t) { return t.type_id === typ.id; });
         var typProdCount = _mdmCountProducts(typTpls);
 
@@ -317,39 +310,9 @@ function _mdmRenderTemplates() {
 
         if (tOpen) {
           html += '<ul>';
-
-          // Templates without purpose → leaf directly under type
-          var noPurpTpls = typTpls.filter(function(t) { return !t.purpose_id; });
-          noPurpTpls.forEach(function(tpl) {
+          typTpls.forEach(function(tpl) {
             html += _mdmTplNodeHtml(tpl, 16);
           });
-
-          // Purposes = Templates (level 3 leaf)
-          typPurposes.forEach(function(purp) {
-            var purpTpl = typTpls.find(function(t) { return t.purpose_id === purp.id; });
-            var attrCount = purpTpl ? (purpTpl.attributes || []).length : 0;
-            var prodCount = purpTpl ? _mdmCountProducts([purpTpl]) : 0;
-
-            html += '<li>';
-            if (purpTpl) {
-              // Purpose has a template — click opens editor
-              html += '<div class="mdm-tree-node" onclick="mdmOpenTplModal(ST.mdm.templates.find(function(t){return t.id===' + purpTpl.id + '}))" style="padding-left:16px">';
-            } else {
-              // No template yet — click creates new for this purpose
-              html += '<div class="mdm-tree-node" onclick="_mdmCreateTplForPurpose(' + cls.id + ',' + typ.id + ',' + purp.id + ')" style="padding-left:16px">';
-            }
-            html += '<span class="mdm-tree-toggle" style="visibility:hidden">▶</span>';
-            html += '<span class="mdm-tree-icon">📄</span>';
-            html += '<span class="mdm-tree-name mdm-tree-purp">' + esc(purp.name) + '</span>';
-            html += '<span class="mdm-tree-info">';
-            if (attrCount > 0) html += '<span class="badge bp" title="Атрибутов">' + attrCount + ' атр.</span>';
-            if (prodCount > 0) html += '<span class="badge bg" title="Товаров">' + prodCount + '</span>';
-            if (!purpTpl) html += '<span class="badge bgr">нет шаблона</span>';
-            html += '</span>';
-            html += '</div>';
-            html += '</li>';
-          });
-
           html += '</ul>';
         }
         html += '</li>';
@@ -380,17 +343,6 @@ function _mdmRenderTemplates() {
   document.getElementById('mdmTreeContainer').innerHTML = html;
 }
 
-// ── Create template for purpose (pre-filled) ────────────────────
-function _mdmCreateTplForPurpose(classId, typeId, purposeId) {
-  var purp = (ST.mdm.purposes || []).find(function(p) { return p.id === purposeId; });
-  var fakeTpl = {
-    id: null, name: purp ? purp.name : '',
-    class_id: classId, type_id: typeId, purpose_id: purposeId,
-    description: '', attributes: []
-  };
-  mdmOpenTplModal(fakeTpl);
-}
-
 function _mdmTplNodeHtml(tpl, pad) {
   var attrCount = (tpl.attributes || []).length;
   var prodCount = ST.mdm.products.filter(function(p) { return p.template_id === tpl.id; }).length;
@@ -414,7 +366,7 @@ function _mdmCountProducts(tplsArr) {
   return ST.mdm.products.filter(function(p) { return ids[p.template_id]; }).length;
 }
 
-// Построить путь Класс → Тип → Назначение для шаблона
+// Построить путь Класс → Тип для шаблона
 function _mdmTplPath(tpl) {
   var parts = [];
   if (tpl.class_id) {
@@ -424,10 +376,6 @@ function _mdmTplPath(tpl) {
   if (tpl.type_id) {
     var typ = (ST.mdm.types || []).find(function(t) { return t.id === tpl.type_id; });
     if (typ) parts.push(typ.name);
-  }
-  if (tpl.purpose_id) {
-    var purp = (ST.mdm.purposes || []).find(function(p) { return p.id === tpl.purpose_id; });
-    if (purp) parts.push(purp.name);
   }
   return parts.join(' › ');
 }
@@ -442,10 +390,9 @@ function mdmOpenTplModal(tpl) {
   document.getElementById('mdmTplDelBtn').style.display = isEdit ? '' : 'none';
   document.getElementById('mdmTplJsonBtn').style.display = isEdit ? '' : 'none';
 
-  // Заполняем каскадные селекты: Класс → Тип → Назначение
+  // Заполняем каскадные селекты: Класс → Тип
   var classSel   = document.getElementById('mdmTplClass');
   var typeSel    = document.getElementById('mdmTplType');
-  var purposeSel = document.getElementById('mdmTplPurpose');
 
   // Классы
   var classHtml = '<option value="">— Выберите класс —</option>';
@@ -458,10 +405,6 @@ function mdmOpenTplModal(tpl) {
   // Типы (фильтр по классу)
   _mdmFillTplTypes(tpl ? tpl.class_id : null);
   typeSel.value = tpl && tpl.type_id ? String(tpl.type_id) : '';
-
-  // Назначения (фильтр по типу)
-  _mdmFillTplPurposes(tpl ? tpl.type_id : null);
-  purposeSel.value = tpl && tpl.purpose_id ? String(tpl.purpose_id) : '';
 
   // Клонируем атрибуты для редактирования
   if (tpl && tpl.attributes) {
@@ -485,13 +428,10 @@ function _mdmOnTplClassChange() {
   var classId = parseInt(document.getElementById('mdmTplClass').value) || null;
   _mdmFillTplTypes(classId);
   document.getElementById('mdmTplType').value = '';
-  _mdmOnTplTypeChange();
 }
 
 function _mdmOnTplTypeChange() {
-  var typeId = parseInt(document.getElementById('mdmTplType').value) || null;
-  _mdmFillTplPurposes(typeId);
-  document.getElementById('mdmTplPurpose').value = '';
+  // No cascading needed, type is the last level
 }
 
 function _mdmFillTplTypes(classId) {
@@ -500,17 +440,6 @@ function _mdmFillTplTypes(classId) {
   if (classId) {
     (ST.mdm.types || []).filter(function(t) { return t.class_id === classId; }).forEach(function(t) {
       html += '<option value="' + t.id + '">' + esc(t.name) + '</option>';
-    });
-  }
-  sel.innerHTML = html;
-}
-
-function _mdmFillTplPurposes(typeId) {
-  var sel = document.getElementById('mdmTplPurpose');
-  var html = '<option value="">— не выбрано —</option>';
-  if (typeId) {
-    (ST.mdm.purposes || []).filter(function(p) { return p.type_id === typeId; }).forEach(function(p) {
-      html += '<option value="' + p.id + '">' + esc(p.name) + '</option>';
     });
   }
   sel.innerHTML = html;
@@ -623,7 +552,6 @@ async function mdmSaveTemplate() {
     description: document.getElementById('mdmTplDesc').value.trim(),
     class_id:    classId,
     type_id:     document.getElementById('mdmTplType').value || '',
-    purpose_id:  document.getElementById('mdmTplPurpose').value || '',
     attributes: _mdmTplAttrs.map(function(a, i) {
       return {
         name: a.name.trim(), type: a.type, description: a.description || '',
@@ -652,7 +580,7 @@ async function mdmDeleteTemplate() {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  НОМЕНКЛАТУРА (Products) — Иерархия Класс → Тип → Назначение
+//  НОМЕНКЛАТУРА (Products) — Иерархия Класс → Тип
 // ════════════════════════════════════════════════════════════════
 var _mdmProdDTs = {};
 var _mdmProdTreeOpen = {};
@@ -660,7 +588,6 @@ var _mdmProdTreeOpen = {};
 function _mdmRenderProducts() {
   var classes  = ST.mdm.classes  || [];
   var types    = ST.mdm.types    || [];
-  var purposes = ST.mdm.purposes || [];
   var tpls     = ST.mdm.templates || [];
   var prods    = ST.mdm.products  || [];
 
@@ -715,23 +642,13 @@ function _mdmRenderProducts() {
         if (tOpen) {
           html += '<ul>';
 
-          // Templates without purpose — product table directly under type
-          var noPurpTpls = tpls.filter(function(t) { return t.type_id === typ.id && !t.purpose_id; });
-          noPurpTpls.forEach(function(tpl) {
+          // All templates under this type — product tables
+          var typTpls = tpls.filter(function(t) { return t.type_id === typ.id; });
+          typTpls.forEach(function(tpl) {
             var tplProds = prods.filter(function(p) { return p.template_id === tpl.id; });
             if (tplProds.length) {
               html += '<li style="padding-left:16px;margin:6px 0"><div id="mdmPTbl_' + tpl.id + '"></div></li>';
             }
-          });
-
-          // Purpose = Template — product table directly under purpose leaf
-          var typPurposes = purposes.filter(function(p) { return p.type_id === typ.id; });
-          typPurposes.forEach(function(purp) {
-            var purpTpl = tpls.find(function(t) { return t.type_id === typ.id && t.purpose_id === purp.id; });
-            if (!purpTpl) return;
-            var tplProds = prods.filter(function(p) { return p.template_id === purpTpl.id; });
-            if (!tplProds.length) return;
-            html += '<li style="padding-left:16px;margin:6px 0"><div id="mdmPTbl_' + purpTpl.id + '"></div></li>';
           });
 
           html += '</ul>';
@@ -833,7 +750,7 @@ function mdmOpenProdModal(product) {
   var av = product ? (product.attribute_values || {}) : {};
 
   var html = '';
-  // ── Общие характеристики: Класс / Тип / Назначение / Шаблон ──
+  // ── Общие характеристики: Класс / Тип / Шаблон ──
   html += '<div class="sh" style="margin-bottom:8px"><h2 style="font-size:.92rem">Общие характеристики</h2></div>';
   html += '<div class="fg2" style="margin-bottom:12px">';
 
@@ -856,18 +773,8 @@ function mdmOpenProdModal(product) {
   });
   html += '</select></div>';
 
-  // Назначение
-  var filteredPurposes = tpl && tpl.type_id ? (ST.mdm.purposes || []).filter(function(p) { return p.type_id === tpl.type_id; }) : [];
-  html += '<div class="fgrp"><label>Назначение</label><select id="mdmP_purpose" onchange="_mdmProdOnPurposeChange()">';
-  html += '<option value="">— не выбрано —</option>';
-  filteredPurposes.forEach(function(p) {
-    var sel = (tpl && tpl.purpose_id === p.id) ? ' selected' : '';
-    html += '<option value="' + p.id + '"' + sel + '>' + esc(p.name) + '</option>';
-  });
-  html += '</select></div>';
-
   // Шаблон
-  var filteredTpls = tpl ? _mdmFilterTemplates(tpl.class_id, tpl.type_id, tpl.purpose_id) : [];
+  var filteredTpls = tpl ? _mdmFilterTemplates(tpl.class_id, tpl.type_id) : [];
   html += '<div class="fgrp"><label class="req">Шаблон</label><select id="mdmP_template" onchange="_mdmProdOnTemplateChange()">';
   html += '<option value="">— выберите шаблон —</option>';
   filteredTpls.forEach(function(t) {
@@ -901,12 +808,11 @@ function mdmOpenProdModal(product) {
   openM('ovMdmProd');
 }
 
-// Фильтрация шаблонов по выбранным class/type/purpose
-function _mdmFilterTemplates(classId, typeId, purposeId) {
+// Фильтрация шаблонов по выбранным class/type
+function _mdmFilterTemplates(classId, typeId) {
   return (ST.mdm.templates || []).filter(function(t) {
     if (classId && t.class_id !== classId) return false;
     if (typeId && t.type_id !== typeId) return false;
-    if (purposeId && t.purpose_id !== purposeId) return false;
     return true;
   });
 }
@@ -926,25 +832,11 @@ function _mdmProdOnClassChange() {
 }
 
 function _mdmProdOnTypeChange() {
-  var typeId = parseInt(document.getElementById('mdmP_type').value) || null;
-  var purposeSel = document.getElementById('mdmP_purpose');
-  var html = '<option value="">— не выбрано —</option>';
-  if (typeId) {
-    (ST.mdm.purposes || []).filter(function(p) { return p.type_id === typeId; }).forEach(function(p) {
-      html += '<option value="' + p.id + '">' + esc(p.name) + '</option>';
-    });
-  }
-  purposeSel.innerHTML = html;
-  _mdmProdOnPurposeChange();
-}
-
-function _mdmProdOnPurposeChange() {
-  var classId   = parseInt(document.getElementById('mdmP_class').value) || null;
-  var typeId    = parseInt(document.getElementById('mdmP_type').value) || null;
-  var purposeId = parseInt(document.getElementById('mdmP_purpose').value) || null;
+  var classId = parseInt(document.getElementById('mdmP_class').value) || null;
+  var typeId  = parseInt(document.getElementById('mdmP_type').value) || null;
 
   var tplSel = document.getElementById('mdmP_template');
-  var filtered = _mdmFilterTemplates(classId, typeId, purposeId);
+  var filtered = _mdmFilterTemplates(classId, typeId);
   var html = '<option value="">— выберите шаблон —</option>';
   filtered.forEach(function(t) {
     html += '<option value="' + t.id + '">' + esc(t.name) + '</option>';
@@ -1114,7 +1006,6 @@ async function _mdmReloadAll() {
       ST.mdm.refTables  = ctx.refTables  || {};
       ST.mdm.classes    = ctx.classes     || [];
       ST.mdm.types      = ctx.types       || [];
-      ST.mdm.purposes   = ctx.purposes    || [];
       ST.mdm.templates  = ctx.templates   || [];
       ST.mdm.products   = ctx.products    || [];
     }
@@ -1146,7 +1037,6 @@ var _MDM_JSON_SCHEMA = {
     "description": "Строка (Необязательное описание)",
     "class_id": "Число (ID класса из Ref_Классы — обязательно)",
     "type_id": "Число (ID типа из Ref_ТипыПродуктов — необязательно)",
-    "purpose_id": "Число (ID назначения из Ref_Назначения — необязательно)",
     "attributes": [
       {
         "name": "Строка (Название атрибута — обязательно)",
@@ -1178,7 +1068,6 @@ function _mdmTplToJson(tpl) {
   var obj = { name: tpl.name, description: tpl.description || '' };
   if (tpl.class_id)   obj.class_id   = tpl.class_id;
   if (tpl.type_id)    obj.type_id    = tpl.type_id;
-  if (tpl.purpose_id) obj.purpose_id = tpl.purpose_id;
   obj.attributes = (tpl.attributes || []).map(function(a) {
     var attr = { name: a.name, type: a.type };
     if (a.description) attr.description = a.description;
@@ -1245,7 +1134,6 @@ function mdmEditTplAsJson() {
     description: document.getElementById('mdmTplDesc').value,
     class_id:   parseInt(document.getElementById('mdmTplClass').value) || null,
     type_id:    parseInt(document.getElementById('mdmTplType').value) || null,
-    purpose_id: parseInt(document.getElementById('mdmTplPurpose').value) || null,
     attributes: _mdmTplAttrs.slice()
   };
   closeM('ovMdmTpl');
@@ -1344,7 +1232,6 @@ async function mdmJsonImport(isEdit) {
       description: t.description || '',
       class_id:   t.class_id   || '',
       type_id:    t.type_id    || '',
-      purpose_id: t.purpose_id || '',
       attributes: _mdmJsonToAttrs(t.attributes)
     };
     // При редактировании одного шаблона — передаём id

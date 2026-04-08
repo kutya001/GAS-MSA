@@ -14,7 +14,6 @@ var SH = {
   CURRENCIES: 'Ref_Валюты',
   CLASSES:    'Ref_Классы',
   PROD_TYPES: 'Ref_ТипыПродуктов',
-  PURPOSES:   'Ref_Назначения',
   WALLETS:    'Кошельки',
   CASH_OPS:   'КассовыеОперации',
   WAREHOUSES: 'Склады',

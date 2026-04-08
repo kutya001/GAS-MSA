@@ -85,7 +85,7 @@ function _sSelectPurchase(purchaseId) {
   }
 
   // Авто-заполнение информации
-  var cat = [pur.class_name, pur.type_name, pur.purpose_name].filter(Boolean).join(' → ');
+  var cat = [pur.class_name, pur.type_name].filter(Boolean).join(' → ');
   var infoEl = document.getElementById('mfSale-_pinfo');
   if (infoEl) infoEl.textContent = (pur.product_name || 'Товар #' + pur.id) + (cat ? ' (' + cat + ')' : '');
 
@@ -166,7 +166,7 @@ var saleForm = new MainForm({
         var label = rec.has_imei
           ? '<span class="imeic">' + esc(rec.imei) + '</span> — <span class="fw7">' + esc(rec.product_name) + '</span>'
           : '<span class="fw7">' + esc(rec.product_name || '—') + '</span>';
-        var cat = [rec.class_name, rec.type_name, rec.purpose_name].filter(Boolean).join(' → ');
+        var cat = [rec.class_name, rec.type_name].filter(Boolean).join(' → ');
         return '<span class="mf-vl">Товар</span><div class="mf-vv">' + label +
           (cat ? '<br><span class="muted" style="font-size:.72rem">' + esc(cat) + '</span>' : '') + '</div>';
       },

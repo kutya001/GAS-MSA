@@ -9,7 +9,6 @@ function getSales(p) {
     var whMap  = _buildMap(SH.WAREHOUSES, 'id', 'name');
     var clMap  = _buildMap(SH.CLASSES,    'id', 'name');
     var tpMap  = _buildMap(SH.PROD_TYPES, 'id', 'name');
-    var prMap  = _buildMap(SH.PURPOSES,   'id', 'name');
 
     // Карта продуктов MDM
     var prodMap = {};
@@ -37,10 +36,8 @@ function getSales(p) {
           product_sku:  prod.sku  || '',
           class_id:     parseInt(pur.class_id)   || 0,
           type_id:      parseInt(pur.type_id)    || 0,
-          purpose_id:   parseInt(pur.purpose_id) || 0,
           class_name:   clMap[parseInt(pur.class_id)]   || '',
           type_name:    tpMap[parseInt(pur.type_id)]    || '',
-          purpose_name: prMap[parseInt(pur.purpose_id)] || '',
           has_imei:     hasImei,
           imei:         hasImei ? (pur.imei || '') : '',
           cost_kgs:     costKgs,

@@ -15,23 +15,14 @@ function _pCalcKgs(form) {
   form.setCalc('cost_kgs', fmtN(usd * rate) + ' ₸');
 }
 
-// ── поиск шаблона MDM по class/type/purpose ────────────────────
-function _findPurchaseTemplate(classId, typeId, purposeId) {
+// ── поиск шаблона MDM по class/type ────────────────────────────
+function _findPurchaseTemplate(classId, typeId) {
   var tpls = (ST.mdm && ST.mdm.templates) ? ST.mdm.templates : [];
   var cId = parseInt(classId)  || 0;
   var tId = parseInt(typeId)   || 0;
-  var pId = parseInt(purposeId)|| 0;
-  // 1) Точное совпадение
   for (var i = 0; i < tpls.length; i++) {
     var t = tpls[i];
-    if (t.class_id === cId && t.type_id === tId && (t.purpose_id || 0) === pId) return t;
-  }
-  // 2) class + type (purpose==null)
-  if (pId) {
-    for (var j = 0; j < tpls.length; j++) {
-      var t2 = tpls[j];
-      if (t2.class_id === cId && t2.type_id === tId && !t2.purpose_id) return t2;
-    }
+    if (t.class_id === cId && t.type_id === tId) return t;
   }
   return null;
 }
@@ -186,12 +177,11 @@ async function _addPurchasePayment(purchaseId) {
   _renderPurchasePayments('mfPurchase-payments_block', purchaseId, 'view');
 }
 
-// ── обновление Block 2 при смене class/type/purpose ────────────
+// ── обновление Block 2 при смене class/type ────────────────────
 function _pUpdateBlock2(form, existingVals) {
   var cId = form.getVal('class_id');
   var tId = form.getVal('type_id');
-  var pId = form.getVal('purpose_id');
-  var tpl = _findPurchaseTemplate(cId, tId, pId);
+  var tpl = _findPurchaseTemplate(cId, tId);
   var isEdit = form._mode !== 'view';
   _renderTplAttrs('mfPurchase-tpl_attrs', tpl, existingVals || {}, isEdit);
   form._currentTpl = tpl;
@@ -247,7 +237,6 @@ var purchaseForm = new MainForm({
       onChange: function(v, f) {
         var t = ST.refs.prod_types.filter(function(x) { return !v || x.class_id === +v; });
         f.fillField('type_id', t, 'id', 'name', '—');
-        f.fillField('purpose_id', [], 'id', 'name', '—');
         _pUpdateBlock2(f, null);
       },
       renderView: function(v, r) { return esc(r.class_name || '—'); }
@@ -255,16 +244,9 @@ var purchaseForm = new MainForm({
     { key: 'type_id', label: 'Тип продукта', type: 'select', required: true,
       getOptions: function() { return ST.refs.prod_types; },
       onChange: function(v, f) {
-        var p = ST.refs.purposes.filter(function(x) { return !v || x.type_id === +v; });
-        f.fillField('purpose_id', p, 'id', 'name', '—');
         _pUpdateBlock2(f, null);
       },
       renderView: function(v, r) { return esc(r.type_name || '—'); }
-    },
-    { key: 'purpose_id', label: 'Назначение', type: 'select',
-      getOptions: function() { return ST.refs.purposes; },
-      onChange: function(v, f) { _pUpdateBlock2(f, null); },
-      renderView: function(v, r) { return esc(r.purpose_name || '—'); }
     },
     { key: 'cost_usd', label: 'Себестоимость USD', type: 'number', min: 0, step: 0.01, required: true,
       onChange: function(v, f) { _pCalcKgs(f); },
@@ -296,7 +278,7 @@ var purchaseForm = new MainForm({
     { key: 'tpl_attrs', type: 'container', span: 2,
       renderView: function(v, rec, form) {
         if (!rec || !rec.product_id) return '<div class="muted ta-c">Нет характеристик</div>';
-        var tpl = _findPurchaseTemplate(rec.class_id, rec.type_id, rec.purpose_id);
+        var tpl = _findPurchaseTemplate(rec.class_id, rec.type_id);
         if (!tpl || !tpl.attributes || !tpl.attributes.length) return '<div class="muted ta-c">Нет характеристик для этого шаблона</div>';
         var vals = rec.attribute_values || {};
         var html = '<div class="fg2">';
@@ -334,7 +316,7 @@ var purchaseForm = new MainForm({
 
     var data = {
       wh_id: +values.wh_id, supplier_id: +values.supplier_id || null,
-      class_id: +values.class_id || null, type_id: +values.type_id || null, purpose_id: +values.purpose_id || null,
+      class_id: +values.class_id || null, type_id: +values.type_id || null,
       has_imei: values.has_imei,
       imei: values.has_imei ? (values.imei || '') : '',
       qty:  values.has_imei ? 1 : (+values.qty || 1),
@@ -376,8 +358,6 @@ var purchaseForm = new MainForm({
     form.fillField('type_id', ST.refs.prod_types.filter(function(t) { return !cid || t.class_id === cid; }), 'id', 'name', '—');
     if (rec) { var tEl = document.getElementById(form.id + '-type_id'); if (tEl) tEl.value = rec.type_id || ''; }
     var tid = +(form.getVal('type_id'));
-    form.fillField('purpose_id', ST.refs.purposes.filter(function(p) { return !tid || p.type_id === tid; }), 'id', 'name', '—');
-    if (rec) { var pEl = document.getElementById(form.id + '-purpose_id'); if (pEl) pEl.value = rec.purpose_id || ''; }
 
     // Block 2 — атрибуты шаблона
     var existingVals = (rec && rec.attribute_values) ? rec.attribute_values : {};

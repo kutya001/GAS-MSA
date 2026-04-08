@@ -5,11 +5,11 @@
 // ════════════════════════════════════════════════════════════════
 const ST = {
   page:'dashboard', rtab:'general',
-  refs:{brands:[],models:[],suppliers:[],managers:[],currencies:[],classes:[],prod_types:[],purposes:[]},
+  refs:{brands:[],models:[],suppliers:[],managers:[],currencies:[],classes:[],prod_types:[]},
   wallets:[],warehouses:[],cats:[],articles:[],
   charts:{},
   wdWalletId:null,
-  mdm:{refTables:{},classes:[],types:[],purposes:[],templates:[],products:[],curTab:'templates'},
+  mdm:{refTables:{},classes:[],types:[],templates:[],products:[],curTab:'templates'},
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -44,7 +44,6 @@ const MOCK={
     currencies:[{id:1,name:'KGS',info:'Кыргызский сом'},{id:2,name:'USD',info:'Доллар'},{id:3,name:'RUB',info:'Рубль'}],
     classes:[{id:1,name:'Устройства',info:'Телефоны, планшеты и т.д.'},{id:2,name:'Аксессуары',info:'Дополнительные товары'},{id:3,name:'Комплектующие/Запчасти',info:'Запасные части'},{id:4,name:'Услуги',info:'Сервис и обслуживание'}],
     prod_types:[{id:1,name:'Смартфоны',class_id:1,class_name:'Устройства',info:''},{id:2,name:'Планшеты',class_id:1,class_name:'Устройства',info:''},{id:3,name:'Аудио',class_id:2,class_name:'Аксессуары',info:'Акустика и наушники'},{id:4,name:'Защита',class_id:2,class_name:'Аксессуары',info:'Чехлы и стекла'},{id:5,name:'Питание и кабели',class_id:2,class_name:'Аксессуары',info:''},{id:6,name:'Автомобильные аксессуары',class_id:2,class_name:'Аксессуары',info:''},{id:7,name:'Периферия',class_id:2,class_name:'Аксессуары',info:''}],
-    purposes:[{id:1,name:'TWS',type_id:3,type_name:'Аудио',info:'True Wireless'},{id:2,name:'Накладные наушники',type_id:3,type_name:'Аудио',info:''},{id:3,name:'Проводные наушники',type_id:3,type_name:'Аудио',info:''},{id:4,name:'Портативная акустика',type_id:3,type_name:'Аудио',info:''},{id:5,name:'Чехлы',type_id:4,type_name:'Защита',info:''},{id:6,name:'Защитные стекла',type_id:4,type_name:'Защита',info:''},{id:7,name:'Пленки',type_id:4,type_name:'Защита',info:''},{id:8,name:'Сетевые ЗУ',type_id:5,type_name:'Питание и кабели',info:''},{id:9,name:'Беспроводные ЗУ',type_id:5,type_name:'Питание и кабели',info:''},{id:10,name:'Power Bank',type_id:5,type_name:'Питание и кабели',info:''},{id:11,name:'Кабели синхронизации',type_id:5,type_name:'Питание и кабели',info:''}],
   }}),
   getWallets:()=>({status:'ok',data:[
     {id:1,name:'Основная касса',currency:'KGS',icon:'💰',balance:612000,total_in:950000,total_out:338000},
@@ -66,20 +65,20 @@ const MOCK={
     {id:8,name:'Менеджер',cat_id:5},{id:9,name:'Прочее',cat_id:6},
   ]}),
   getPurchases:()=>({status:'ok',data:{rows:[
-    {id:1,wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:1,product_name:'Apple 256GB Чёрный',product_sku:'IPH15PM-256-B',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},has_imei:true,imei:'352365010000001',qty:1,condition:'Новый',cost_usd:430,rate:88,cost_kgs:37840,status:'Продано',purchase_date:'2025-08-05',note:''},
-    {id:2,wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:2,product_name:'Apple 128GB Белый',product_sku:'',template_id:1,attribute_values:{'1':'Apple','2':'128GB','3':'Белый'},has_imei:true,imei:'352365010000002',qty:1,condition:'Новый',cost_usd:380,rate:88,cost_kgs:33440,status:'В наличии',purchase_date:'2025-08-10',note:''},
-    {id:3,wh_id:1,wh_name:'Основной склад',supplier_id:2,supplier_name:'Эрлис',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:3,product_name:'Xiaomi 128GB Синий',product_sku:'',template_id:1,attribute_values:{'1':'Xiaomi','2':'128GB','3':'Синий'},has_imei:true,imei:'860000030000009',qty:1,condition:'Новый',cost_usd:82,rate:88,cost_kgs:7216,status:'В наличии',purchase_date:'2025-09-15',note:''},
-    {id:4,wh_id:2,wh_name:'Онлайн-склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:4,product_name:'Samsung 256GB Серый',product_sku:'GS24-256-G',template_id:1,attribute_values:{'1':'Samsung','2':'256GB','3':'Серый'},has_imei:false,imei:'',qty:3,condition:'Новый',cost_usd:320,rate:88,cost_kgs:28160,status:'В наличии',purchase_date:'2025-10-01',note:'Партия'},
-    {id:5,wh_id:1,wh_name:'Основной склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:5,product_name:'Apple 256GB Фиолет.',product_sku:'',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Фиолет.'},has_imei:true,imei:'352365010000019',qty:1,condition:'Новый',cost_usd:300,rate:88,cost_kgs:26400,status:'В наличии',purchase_date:'2025-10-15',note:''},
+    {id:1,wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',product_id:1,product_name:'Apple 256GB Чёрный',product_sku:'IPH15PM-256-B',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},has_imei:true,imei:'352365010000001',qty:1,condition:'Новый',cost_usd:430,rate:88,cost_kgs:37840,status:'Продано',purchase_date:'2025-08-05',note:''},
+    {id:2,wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',product_id:2,product_name:'Apple 128GB Белый',product_sku:'',template_id:1,attribute_values:{'1':'Apple','2':'128GB','3':'Белый'},has_imei:true,imei:'352365010000002',qty:1,condition:'Новый',cost_usd:380,rate:88,cost_kgs:33440,status:'В наличии',purchase_date:'2025-08-10',note:''},
+    {id:3,wh_id:1,wh_name:'Основной склад',supplier_id:2,supplier_name:'Эрлис',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',product_id:3,product_name:'Xiaomi 128GB Синий',product_sku:'',template_id:1,attribute_values:{'1':'Xiaomi','2':'128GB','3':'Синий'},has_imei:true,imei:'860000030000009',qty:1,condition:'Новый',cost_usd:82,rate:88,cost_kgs:7216,status:'В наличии',purchase_date:'2025-09-15',note:''},
+    {id:4,wh_id:2,wh_name:'Онлайн-склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',product_id:4,product_name:'Samsung 256GB Серый',product_sku:'GS24-256-G',template_id:1,attribute_values:{'1':'Samsung','2':'256GB','3':'Серый'},has_imei:false,imei:'',qty:3,condition:'Новый',cost_usd:320,rate:88,cost_kgs:28160,status:'В наличии',purchase_date:'2025-10-01',note:'Партия'},
+    {id:5,wh_id:1,wh_name:'Основной склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',product_id:5,product_name:'Apple 256GB Фиолет.',product_sku:'',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Фиолет.'},has_imei:true,imei:'352365010000019',qty:1,condition:'Новый',cost_usd:300,rate:88,cost_kgs:26400,status:'В наличии',purchase_date:'2025-10-15',note:''},
   ],total:5}}),
   getPurchasePayments:()=>({status:'ok',data:[
     {id:1,purchase_id:1,wallet_id:1,wallet_name:'Основная касса',amount:37840,pay_date:'2025-08-05',note:'Полная оплата'},
   ]}),
   getSales:()=>({status:'ok',data:{rows:[
-    {id:1,purchase_id:1,product_name:'Apple 256GB Чёрный',product_sku:'IPH15PM-256-B',class_id:1,type_id:1,purpose_id:0,class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',has_imei:true,imei:'352365010000001',cost_kgs:37840,cost_usd:430,profit_kgs:107660,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},buyer:'Асель Токтогулова',total_kgs:145500,paid_kgs:145500,debt_kgs:0,sale_date:'2025-08-07',manager_id:1,manager_name:'Айдай',wa:'+996700001001',wallet_id:1,wallet_name:'Основная касса',note:''},
-    {id:2,purchase_id:2,product_name:'Apple 128GB Белый',product_sku:'',class_id:1,type_id:1,purpose_id:0,class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',has_imei:true,imei:'352365010000002',cost_kgs:33440,cost_usd:380,profit_kgs:91560,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Apple','2':'128GB','3':'Белый'},buyer:'Бакыт Осмонов',total_kgs:125000,paid_kgs:80000,debt_kgs:45000,sale_date:'2025-08-13',manager_id:2,manager_name:'Нурлан',wa:'+996555002002',wallet_id:1,wallet_name:'Основная касса',note:'Рассрочка'},
-    {id:3,purchase_id:4,product_name:'Samsung 256GB Серый',product_sku:'GS24-256-G',class_id:1,type_id:1,purpose_id:0,class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',has_imei:false,imei:'',cost_kgs:28160,cost_usd:320,profit_kgs:76840,wh_name:'Онлайн-склад',template_id:1,attribute_values:{'1':'Samsung','2':'256GB','3':'Серый'},buyer:'Данияр Иманов',total_kgs:105000,paid_kgs:105000,debt_kgs:0,sale_date:'2025-09-10',manager_id:3,manager_name:'Бакыт',wa:'',wallet_id:1,wallet_name:'Основная касса',note:''},
-    {id:4,purchase_id:3,product_name:'Xiaomi 128GB Синий',product_sku:'',class_id:1,type_id:1,purpose_id:0,class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',has_imei:true,imei:'860000030000009',cost_kgs:7216,cost_usd:82,profit_kgs:20784,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Xiaomi','2':'128GB','3':'Синий'},buyer:'Руслан Матисаков',total_kgs:28000,paid_kgs:20000,debt_kgs:8000,sale_date:'2025-11-05',manager_id:1,manager_name:'Айдай',wa:'+996312015015',wallet_id:3,wallet_name:'Карта Mbank',note:''},
+    {id:1,purchase_id:1,product_name:'Apple 256GB Чёрный',product_sku:'IPH15PM-256-B',class_id:1,type_id:1,class_name:'Устройства',type_name:'Смартфоны',has_imei:true,imei:'352365010000001',cost_kgs:37840,cost_usd:430,profit_kgs:107660,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},buyer:'Асель Токтогулова',total_kgs:145500,paid_kgs:145500,debt_kgs:0,sale_date:'2025-08-07',manager_id:1,manager_name:'Айдай',wa:'+996700001001',wallet_id:1,wallet_name:'Основная касса',note:''},
+    {id:2,purchase_id:2,product_name:'Apple 128GB Белый',product_sku:'',class_id:1,type_id:1,class_name:'Устройства',type_name:'Смартфоны',has_imei:true,imei:'352365010000002',cost_kgs:33440,cost_usd:380,profit_kgs:91560,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Apple','2':'128GB','3':'Белый'},buyer:'Бакыт Осмонов',total_kgs:125000,paid_kgs:80000,debt_kgs:45000,sale_date:'2025-08-13',manager_id:2,manager_name:'Нурлан',wa:'+996555002002',wallet_id:1,wallet_name:'Основная касса',note:'Рассрочка'},
+    {id:3,purchase_id:4,product_name:'Samsung 256GB Серый',product_sku:'GS24-256-G',class_id:1,type_id:1,class_name:'Устройства',type_name:'Смартфоны',has_imei:false,imei:'',cost_kgs:28160,cost_usd:320,profit_kgs:76840,wh_name:'Онлайн-склад',template_id:1,attribute_values:{'1':'Samsung','2':'256GB','3':'Серый'},buyer:'Данияр Иманов',total_kgs:105000,paid_kgs:105000,debt_kgs:0,sale_date:'2025-09-10',manager_id:3,manager_name:'Бакыт',wa:'',wallet_id:1,wallet_name:'Основная касса',note:''},
+    {id:4,purchase_id:3,product_name:'Xiaomi 128GB Синий',product_sku:'',class_id:1,type_id:1,class_name:'Устройства',type_name:'Смартфоны',has_imei:true,imei:'860000030000009',cost_kgs:7216,cost_usd:82,profit_kgs:20784,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Xiaomi','2':'128GB','3':'Синий'},buyer:'Руслан Матисаков',total_kgs:28000,paid_kgs:20000,debt_kgs:8000,sale_date:'2025-11-05',manager_id:1,manager_name:'Айдай',wa:'+996312015015',wallet_id:3,wallet_name:'Карта Mbank',note:''},
   ],total:4}}),
   getPayments:()=>({status:'ok',data:{rows:[
     {id:1,sale_id:1,buyer:'Асель Токтогулова',amount:145500,wallet_name:'Основная касса',debt_after:0,pay_date:'2025-08-07',note:'Полная оплата'},
@@ -146,13 +145,13 @@ const MOCK={
   deleteRef:()=>({status:'ok',data:{}}),
   // MDM mocks
   getTemplates:()=>({status:'ok',data:[
-    {id:1,class_id:1,type_id:1,purpose_id:null,name:'Смартфоны',description:'Мобильные телефоны',attributes:[
+    {id:1,class_id:1,type_id:1,name:'Смартфоны',description:'Мобильные телефоны',attributes:[
       {id:1,template_id:1,name:'Бренд',type:'reference',description:'',is_required:true,display_style:'',options:'',ref_table:'brands',formula:'',sort_order:1},
       {id:2,template_id:1,name:'Ёмкость',type:'enum_radio',description:'',is_required:true,display_style:'list',options:'64GB,128GB,256GB,512GB,1TB',ref_table:'',formula:'',sort_order:2},
       {id:3,template_id:1,name:'Цвет',type:'enum_radio',description:'',is_required:false,display_style:'list',options:'Чёрный,Белый,Синий,Красный,Зелёный,Серый',ref_table:'',formula:'',sort_order:3},
       {id:4,template_id:1,name:'Полное название',type:'calculated',description:'',is_required:false,display_style:'',options:'',ref_table:'',formula:'СЦЕПИТЬ({Бренд}, " ", {Ёмкость})',sort_order:4},
     ]},
-    {id:4,class_id:2,type_id:4,purpose_id:5,name:'Чехлы',description:'Защитные чехлы',attributes:[
+    {id:4,class_id:2,type_id:4,name:'Чехлы',description:'Защитные чехлы',attributes:[
       {id:5,template_id:4,name:'Тип',type:'enum_radio',description:'',is_required:true,display_style:'list',options:'Чехол,Зарядка,Наушники,Плёнка',ref_table:'',formula:'',sort_order:1},
       {id:6,template_id:4,name:'Совместимость',type:'string',description:'Модель устройства',is_required:false,display_style:'',options:'',ref_table:'',formula:'',sort_order:2},
     ]},
@@ -175,22 +174,21 @@ const MOCK={
     },
     classes:[{id:1,name:'Устройства'},{id:2,name:'Аксессуары'},{id:3,name:'Комплектующие/Запчасти'},{id:4,name:'Услуги'}],
     types:[{id:1,class_id:1,name:'Смартфоны'},{id:2,class_id:1,name:'Планшеты'},{id:3,class_id:2,name:'Аудио'},{id:4,class_id:2,name:'Защита'},{id:5,class_id:2,name:'Питание и кабели'}],
-    purposes:[{id:1,type_id:3,name:'TWS'},{id:2,type_id:3,name:'Накладные наушники'},{id:3,type_id:3,name:'Проводные наушники'},{id:4,type_id:3,name:'Портативная акустика'},{id:5,type_id:4,name:'Чехлы'},{id:6,type_id:4,name:'Защитные стекла'},{id:7,type_id:4,name:'Пленки'},{id:8,type_id:5,name:'Сетевые ЗУ'},{id:9,type_id:5,name:'Беспроводные ЗУ'},{id:10,type_id:5,name:'Power Bank'},{id:11,type_id:5,name:'Кабели синхронизации'}],
     templates:[
-      {id:1,class_id:1,type_id:1,purpose_id:null,name:'Смартфоны',description:'Шаблон для мобильных телефонов',attributes:[
+      {id:1,class_id:1,type_id:1,name:'Смартфоны',description:'Шаблон для мобильных телефонов',attributes:[
         {id:1,template_id:1,name:'Бренд',type:'reference',description:'',is_required:true,display_style:'',options:'',ref_table:'brands',formula:'',sort_order:1},
         {id:2,template_id:1,name:'Ёмкость',type:'enum_radio',description:'',is_required:true,display_style:'list',options:'64GB,128GB,256GB,512GB,1TB',ref_table:'',formula:'',sort_order:2},
         {id:3,template_id:1,name:'Цвет',type:'enum_radio',description:'',is_required:false,display_style:'list',options:'Чёрный,Белый,Синий,Красный,Зелёный,Серый',ref_table:'',formula:'',sort_order:3},
         {id:4,template_id:1,name:'Полное название',type:'calculated',description:'',is_required:false,display_style:'',options:'',ref_table:'',formula:'СЦЕПИТЬ({Бренд}, " ", {Ёмкость})',sort_order:4},
       ]},
-      {id:2,class_id:1,type_id:2,purpose_id:null,name:'Планшеты',description:'Шаблон для планшетов',attributes:[]},
-      {id:3,class_id:2,type_id:3,purpose_id:1,name:'TWS наушники',description:'Беспроводные наушники',attributes:[]},
-      {id:4,class_id:2,type_id:4,purpose_id:5,name:'Чехлы',description:'Защитные чехлы',attributes:[
+      {id:2,class_id:1,type_id:2,name:'Планшеты',description:'Шаблон для планшетов',attributes:[]},
+      {id:3,class_id:2,type_id:3,name:'TWS наушники',description:'Беспроводные наушники',attributes:[]},
+      {id:4,class_id:2,type_id:4,name:'Чехлы',description:'Защитные чехлы',attributes:[
         {id:5,template_id:4,name:'Тип',type:'enum_radio',description:'',is_required:true,display_style:'list',options:'Силикон,Пластик,Кожа,Ткань',ref_table:'',formula:'',sort_order:1},
         {id:6,template_id:4,name:'Совместимость',type:'string',description:'Модель устройства',is_required:false,display_style:'',options:'',ref_table:'',formula:'',sort_order:2},
       ]},
-      {id:5,class_id:2,type_id:4,purpose_id:6,name:'Защитные стекла',description:'Стёкла для экранов',attributes:[]},
-      {id:6,class_id:2,type_id:5,purpose_id:8,name:'Сетевые ЗУ',description:'Зарядные устройства',attributes:[]},
+      {id:5,class_id:2,type_id:4,name:'Защитные стекла',description:'Стёкла для экранов',attributes:[]},
+      {id:6,class_id:2,type_id:5,name:'Сетевые ЗУ',description:'Зарядные устройства',attributes:[]},
     ],
     products:[
       {id:1,template_id:1,sku:'IPH15PM-256-B',name:'iPhone 15 Pro Max 256GB',attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},created_at:'2025-08-15'},

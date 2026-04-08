@@ -11,7 +11,6 @@
     <button class="ptab" onclick="showRefTab('currencies',this)">Валюты</button>
     <button class="ptab" onclick="showRefTab('classes',this)">Классы</button>
     <button class="ptab" onclick="showRefTab('prod_types',this)">Типы продуктов</button>
-    <button class="ptab" onclick="showRefTab('purposes',this)">Назначения</button>
   </div>
   <div id="refsTable"></div>
 </div>
@@ -38,7 +37,7 @@ var refForm = new MainForm({
   id: 'mfRef',
   title: function(mode, rec) {
     var labels = { brands: 'Бренд', models: 'Модель', suppliers: 'Поставщик', managers: 'Менеджер', currencies: 'Валюта',
-      classes: 'Класс', prod_types: 'Тип продукта', purposes: 'Назначение' };
+      classes: 'Класс', prod_types: 'Тип продукта' };
     return labels[_curRef] || 'Справочник';
   },
   fields: [
@@ -52,19 +51,13 @@ var refForm = new MainForm({
       showIf:  function() { return _curRef === 'prod_types'; },
       renderView: function(v, r) { return esc(r.class_name || v); }
     },
-    { key: 'type_id', label: 'Тип продукта', type: 'select', required: true,
-      getOptions: function() { return ST.refs.prod_types || []; },
-      showIf:  function() { return _curRef === 'purposes'; },
-      renderView: function(v, r) { return esc(r.type_name || v); }
-    },
     { key: 'name', label: 'Название', type: 'text', required: true },
     { key: 'info', label: 'Доп. инфо', type: 'text', placeholder: 'Описание, телефон...' }
   ],
   onSave: async function(values, editId) {
     var data = { tab: _curRef, name: values.name, info: values.info,
                  brand_id: _curRef === 'models' ? (+values.brand_id || null) : null,
-                 class_id: _curRef === 'prod_types' ? (+values.class_id || null) : null,
-                 type_id: _curRef === 'purposes' ? (+values.type_id || null) : null };
+                 class_id: _curRef === 'prod_types' ? (+values.class_id || null) : null };
     if (editId) await api('updateRef', Object.assign({ id: editId }, data));
     else        await api('addRef', data);
     toast('Сохранено', 's');
@@ -78,7 +71,6 @@ var refForm = new MainForm({
   afterMount: function(mode, rec, form) {
     form.fillField('brand_id', ST.refs.brands || [], 'id', 'name', '—');
     form.fillField('class_id', ST.refs.classes || [], 'id', 'name', '—');
-    form.fillField('type_id', ST.refs.prod_types || [], 'id', 'name', '—');
   }
 });
 async function _reloadRefs() {
@@ -101,7 +93,6 @@ function _refDTinit() {
       },
       { key: 'brand_name', label: 'Бренд',    sortable: false },
       { key: 'class_name', label: 'Класс',    sortable: false },
-      { key: 'type_name',  label: 'Тип',      sortable: false },
       { key: 'name',       label: 'Название', render: function(v) { return '<b>' + esc(v) + '</b>'; } },
       { key: 'info',       label: 'Доп. инфо', sortable: false }
     ]
@@ -116,7 +107,6 @@ function showRefTab(tab, el) {
   var dt = _refDTinit();
   dt.setColVis('brand_name', tab === 'models');
   dt.setColVis('class_name', tab === 'prod_types');
-  dt.setColVis('type_name', tab === 'purposes');
   dt.setData(ST.refs[tab] || []);
 }
 // ════════════════════════════════════════════════════════════════

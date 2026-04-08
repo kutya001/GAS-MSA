@@ -13,7 +13,6 @@ var REF_MAP = {
   currencies: 'CURRENCIES',
   classes:    'CLASSES',
   prod_types: 'PROD_TYPES',
-  purposes:   'PURPOSES',
 };
 
 // ══════════════════════════════════════════════════════════════════════
@@ -31,7 +30,6 @@ function getRefData() {
     var currencies = _rows(SH.CURRENCIES).filter(function(r){ return r.id && r.name; });
     var classes    = _rows(SH.CLASSES).filter(function(r){ return r.id && r.name; });
     var prodTypes  = _rows(SH.PROD_TYPES).filter(function(r){ return r.id && r.name; });
-    var purposes   = _rows(SH.PURPOSES).filter(function(r){ return r.id && r.name; });
 
     // Обогащение: имена родителей
     var brandMap = {};
@@ -42,10 +40,6 @@ function getRefData() {
     classes.forEach(function(c) { classMap[parseInt(c.id)] = c.name; });
     prodTypes.forEach(function(t) { t.class_name = classMap[parseInt(t.class_id)] || ''; });
 
-    var typeMap = {};
-    prodTypes.forEach(function(t) { typeMap[parseInt(t.id)] = t.name; });
-    purposes.forEach(function(p) { p.type_name = typeMap[parseInt(p.type_id)] || ''; });
-
     var data = {
       brands:     brands,
       models:     models,
@@ -54,7 +48,6 @@ function getRefData() {
       currencies: currencies,
       classes:    classes,
       prod_types: prodTypes,
-      purposes:   purposes,
     };
     _cSet('refData', data, CACHE_TTL);
     return _ok(data);
@@ -69,7 +62,6 @@ function addRef(p) {
       var obj = { name: p.name || '', info: p.info || '' };
       if (p.tab === 'models' && p.brand_id) obj.brand_id = parseInt(p.brand_id);
       if (p.tab === 'prod_types' && p.class_id) obj.class_id = parseInt(p.class_id);
-      if (p.tab === 'purposes' && p.type_id) obj.type_id = parseInt(p.type_id);
       var newId = _append(shName, obj);
       _cDel(['refData']);
       return _ok({ id: newId });
@@ -84,7 +76,6 @@ function updateRef(p) {
       var obj = { name: p.name || '', info: p.info || '' };
       if (p.tab === 'models' && p.brand_id) obj.brand_id = parseInt(p.brand_id);
       if (p.tab === 'prod_types' && p.class_id) obj.class_id = parseInt(p.class_id);
-      if (p.tab === 'purposes' && p.type_id) obj.type_id = parseInt(p.type_id);
       _update(SH[REF_MAP[p.tab]], p.id, obj);
       _cDel(['refData']);
       return _ok({});

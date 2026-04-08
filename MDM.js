@@ -70,7 +70,7 @@ function getTemplates() {
       });
     }
 
-    // Создание плоского списка с class_id/type_id/purpose_id
+    // Создание плоского списка с class_id/type_id
     var result = tRows.map(function(t) {
       var tid = parseInt(t.id);
       var attrs = (attrMap[tid] || []).sort(function(a, b) { return a.sort_order - b.sort_order; });
@@ -78,7 +78,6 @@ function getTemplates() {
         id:          tid,
         class_id:    t.class_id ? parseInt(t.class_id) : null,
         type_id:     t.type_id ? parseInt(t.type_id) : null,
-        purpose_id:  t.purpose_id ? parseInt(t.purpose_id) : null,
         name:        t.name || '',
         description: t.description || '',
         attributes:  attrs,
@@ -121,7 +120,6 @@ function saveTemplate(p) {
         var upd = { name: p.name.trim(), description: p.description || '' };
         if (p.class_id !== undefined)   upd.class_id   = p.class_id   || '';
         if (p.type_id !== undefined)    upd.type_id    = p.type_id    || '';
-        if (p.purpose_id !== undefined) upd.purpose_id = p.purpose_id || '';
         _update(SH.MDM_TEMPLATES, p.id, upd);
         // Удаляем старые атрибуты этого шаблона
         _deleteAttrsByTemplate(templateId);
@@ -130,7 +128,6 @@ function saveTemplate(p) {
         templateId = _append(SH.MDM_TEMPLATES, {
           class_id:    p.class_id    || '',
           type_id:     p.type_id     || '',
-          purpose_id:  p.purpose_id  || '',
           name:        p.name.trim(),
           description: p.description || ''
         });
@@ -540,22 +537,18 @@ function getMDMContext(p) {
         id:          tid,
         class_id:    t.class_id ? parseInt(t.class_id) : null,
         type_id:     t.type_id ? parseInt(t.type_id) : null,
-        purpose_id:  t.purpose_id ? parseInt(t.purpose_id) : null,
         name:        t.name || '',
         description: t.description || '',
         attributes:  (attrMap[tid] || []).sort(function(a, b) { return a.sort_order - b.sort_order; }),
       };
     });
 
-    // Классы / Типы / Назначения — для иерархии
+    // Классы / Типы — для иерархии
     var classRows = _rows(SH.CLASSES).filter(function(r) { return r.id; }).map(function(r) {
       return { id: parseInt(r.id), name: r.name || '' };
     });
     var typeRows = _rows(SH.PROD_TYPES).filter(function(r) { return r.id; }).map(function(r) {
       return { id: parseInt(r.id), class_id: parseInt(r.class_id), name: r.name || '' };
-    });
-    var purposeRows = _rows(SH.PURPOSES).filter(function(r) { return r.id; }).map(function(r) {
-      return { id: parseInt(r.id), type_id: parseInt(r.type_id), name: r.name || '' };
     });
 
     // Номенклатура
@@ -578,7 +571,6 @@ function getMDMContext(p) {
       refTables:  refTables,
       classes:    classRows,
       types:      typeRows,
-      purposes:   purposeRows,
       templates:  templates,
       products:   products,
     };

@@ -18,7 +18,6 @@ function getPurchases(p) {
     var wMap  = _buildMap(SH.WAREHOUSES, 'id', 'name');
     var clMap = _buildMap(SH.CLASSES,    'id', 'name');
     var tpMap = _buildMap(SH.PROD_TYPES, 'id', 'name');
-    var prMap = _buildMap(SH.PURPOSES,   'id', 'name');
 
     // Карта продуктов MDM
     var prodMap = {};
@@ -46,10 +45,8 @@ function getPurchases(p) {
           supplier_name: sMap[parseInt(r.supplier_id)] || '',
           class_id:      parseInt(r.class_id)    || 0,
           type_id:       parseInt(r.type_id)     || 0,
-          purpose_id:    parseInt(r.purpose_id)  || 0,
           class_name:    clMap[parseInt(r.class_id)]   || '',
           type_name:     tpMap[parseInt(r.type_id)]    || '',
-          purpose_name:  prMap[parseInt(r.purpose_id)] || '',
           product_id:    parseInt(r.product_id) || 0,
           product_name:  prod.name || '',
           product_sku:   prod.sku  || '',
@@ -72,7 +69,6 @@ function getPurchases(p) {
       if (p.wh_id    && parseInt(p.wh_id))    rows = rows.filter(function(r){ return r.wh_id    === parseInt(p.wh_id);    });
       if (p.class_id && parseInt(p.class_id)) rows = rows.filter(function(r){ return r.class_id === parseInt(p.class_id); });
       if (p.type_id  && parseInt(p.type_id))  rows = rows.filter(function(r){ return r.type_id  === parseInt(p.type_id);  });
-      if (p.purpose_id && parseInt(p.purpose_id)) rows = rows.filter(function(r){ return r.purpose_id === parseInt(p.purpose_id); });
       if (p.status)   rows = rows.filter(function(r){ return r.status === p.status; });
       if (p.dateFrom || p.dateTo) rows = rows.filter(function(r){ return _inRange(r.purchase_date, p.dateFrom, p.dateTo); });
     }
@@ -125,7 +121,7 @@ function addPurchase(p) {
         has_imei: hasImei ? 'TRUE' : 'FALSE',
         imei: hasImei ? (p.imei || '') : '',
         qty: qty, condition: p.condition || 'Новый',
-        class_id: parseInt(p.class_id) || '', type_id: parseInt(p.type_id) || '', purpose_id: parseInt(p.purpose_id) || '',
+        class_id: parseInt(p.class_id) || '', type_id: parseInt(p.type_id) || '',
         product_id: productId || '',
         status: 'В наличии', note: p.note || '',
         created_at: _today(),
@@ -171,7 +167,7 @@ function updatePurchase(p) {
         imei: hasImei ? (p.imei || '') : '',
         qty: hasImei ? 1 : (parseInt(p.qty) || 1),
         condition: p.condition || 'Новый',
-        class_id: parseInt(p.class_id) || '', type_id: parseInt(p.type_id) || '', purpose_id: parseInt(p.purpose_id) || '',
+        class_id: parseInt(p.class_id) || '', type_id: parseInt(p.type_id) || '',
         product_id: parseInt(p.product_id) || '',
         note: p.note || '',
       });
