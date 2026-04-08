@@ -16,7 +16,7 @@ function getDashboard() {
 
     var sales     = _rows(SH.SALES).filter(function(r){ return r.id; });
     var purchases = _rows(SH.PURCHASES).filter(function(r){ return r.id; });
-    var bMap   = _buildMap(SH.BRANDS, 'id', 'name');
+    var clMap  = _buildMap(SH.CLASSES, 'id', 'name');
     var purMap = {}; purchases.forEach(function(p){ purMap[parseInt(p.id)] = p; });
     var nowMs  = new Date().getTime();
 
@@ -55,7 +55,7 @@ function getDashboard() {
     var brandRevMap = {};
     sales.forEach(function(s) {
       var pur = purMap[parseInt(s.purchase_id)] || {};
-      var bn  = bMap[parseInt(pur.brand_id)] || 'Прочее';
+      var bn  = clMap[parseInt(pur.class_id)] || 'Прочее';
       brandRevMap[bn] = (brandRevMap[bn] || 0) + (parseFloat(s.total_kgs) || 0);
     });
     var brands = Object.keys(brandRevMap).sort(function(a,b){ return brandRevMap[b]-brandRevMap[a]; }).slice(0,6)
@@ -86,8 +86,11 @@ function getAnalytics(p) {
     var cached = _cGet(cacheKey);
     if (cached) return _ok(cached);
 
-    var bMap  = _buildMap(SH.BRANDS, 'id', 'name');
-    var mMap  = _buildMap(SH.MODELS, 'id', 'name');
+    var bMap  = _buildMap(SH.CLASSES, 'id', 'name');
+    var prodMap = {};
+    _rows(SH.MDM_PRODUCTS).forEach(function(r) {
+      prodMap[parseInt(r.id)] = { name: r.name || '' };
+    });
     var purMap = {};
     _rows(SH.PURCHASES).forEach(function(r){ purMap[parseInt(r.id)] = r; });
     var sales = _rows(SH.SALES)
@@ -109,7 +112,7 @@ function getAnalytics(p) {
     var brandMap = {};
     sales.forEach(function(s) {
       var pur  = purMap[parseInt(s.purchase_id)]||{};
-      var bn   = bMap[parseInt(pur.brand_id)]||'Прочее';
+      var bn   = bMap[parseInt(pur.class_id)]||'Прочее';
       var qty  = (pur.has_imei==='TRUE'||pur.has_imei===true)?1:(parseInt(pur.qty)||1);
       if(!brandMap[bn]) brandMap[bn]={brand:bn,sold:0,rev:0,profit:0};
       brandMap[bn].sold++;
@@ -124,7 +127,8 @@ function getAnalytics(p) {
     var cntMap={}, profMap={};
     sales.forEach(function(s){
       var pur  = purMap[parseInt(s.purchase_id)]||{};
-      var key  = (bMap[parseInt(pur.brand_id)]||'')+' '+(mMap[parseInt(pur.model_id)]||'');
+      var prod = prodMap[parseInt(pur.product_id)]||{};
+      var key  = prod.name || 'Товар #' + (pur.id||'?');
       var qty  = (pur.has_imei==='TRUE'||pur.has_imei===true)?1:(parseInt(pur.qty)||1);
       cntMap[key]  = (cntMap[key]||0)+1;
       profMap[key] = (profMap[key]||0)+(parseFloat(s.total_kgs)||0)-(parseFloat(pur.cost_kgs)||0)*qty;

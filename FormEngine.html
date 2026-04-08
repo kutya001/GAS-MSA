@@ -36,8 +36,7 @@
 //   calcInit    — начальное значение для calc-отображения
 //   renderView  — function(value, rec) -> html (просмотр)
 //   onChange    — function(value, form) вызывается при изменении поля
-//   showIf      — function(form) -> bool (скрываем строку если false)
-// ════════════════════════════════════════════════════════════════
+//   showIf      — function(form) -> bool (скрываем строку если false)  //   renderEdit  — function(rec, form) -> html (кастомный контейнер в edit)// ════════════════════════════════════════════════════════════════
 
 class MainForm {
   constructor(cfg) {
@@ -163,26 +162,46 @@ class MainForm {
 
   _viewHtml() {
     var self = this;
-    var html = '<div class="fg2 mf-vg">';
+    // Split fields into blocks separated by group markers
+    var blocks = [];
+    var cur = { label: null, html: '' };
     this.cfg.fields.forEach(function(f) {
       if (f.editOnly) return;
       if (f.type === 'group') {
-        html += '<div class="full mf-gh">' + esc(f.label) + '</div>';
+        blocks.push(cur);
+        cur = { label: f.label, html: '' };
         return;
       }
-      // calc-поле показываем в просмотре только если есть renderView
       if (f.type === 'calc' && !f.renderView) return;
-      // display-поля скрываем в просмотре (служат только для create-контекста)
       if (f.type === 'display') return;
+      if (f.type === 'container') {
+        var cHtml = f.renderView ? f.renderView(null, self._rec, self) : '';
+        cur.html += '<div class="full mf-cnt" id="' + self.id + '-' + f.key + '">' + cHtml + '</div>';
+        return;
+      }
       var cls  = 'mf-vf' + (f.span === 2 ? ' full' : '');
       var val  = self._rec ? (self._rec[f.key] != null ? self._rec[f.key] : '') : '';
       var valHtml = f.renderView
         ? f.renderView(val, self._rec)
         : '<span>' + esc(String(val === '' || val == null ? '—' : val)) + '</span>';
-      html += '<div class="' + cls + '"><span class="mf-vl">' + esc(f.label) + '</span>' +
+      cur.html += '<div class="' + cls + '"><span class="mf-vl">' + esc(f.label) + '</span>' +
               '<div class="mf-vv">' + valHtml + '</div></div>';
     });
-    html += '</div>';
+    blocks.push(cur);
+
+    // If no groups — flat layout (backward compat)
+    if (blocks.length === 1 && !blocks[0].label) {
+      return '<div class="fg2 mf-vg">' + blocks[0].html + '</div>';
+    }
+    // Render as island blocks
+    var html = '';
+    blocks.forEach(function(b) {
+      if (!b.html && !b.label) return;
+      html += '<div class="mf-block">';
+      if (b.label) html += '<div class="mf-bh">' + esc(b.label) + '</div>';
+      html += '<div class="fg2 mf-vg">' + b.html + '</div>';
+      html += '</div>';
+    });
     return html;
   }
 
@@ -190,18 +209,41 @@ class MainForm {
 
   _editHtml() {
     var self = this;
-    var html = '<div class="fg2">';
+    // Split fields into blocks separated by group markers
+    var blocks = [];
+    var cur = { label: null, html: '' };
     this.cfg.fields.forEach(function(f) {
       if (f.viewOnly) return;
-      html += self._fieldHtml(f);
+      if (f.type === 'group') {
+        blocks.push(cur);
+        cur = { label: f.label, html: '' };
+        return;
+      }
+      cur.html += self._fieldHtml(f);
     });
-    html += '</div>';
+    blocks.push(cur);
+
+    // If no groups — flat layout (backward compat)
+    if (blocks.length === 1 && !blocks[0].label) {
+      return '<div class="fg2">' + blocks[0].html + '</div>';
+    }
+    // Render as island blocks
+    var html = '';
+    blocks.forEach(function(b) {
+      if (!b.html && !b.label) return;
+      html += '<div class="mf-block">';
+      if (b.label) html += '<div class="mf-bh">' + esc(b.label) + '</div>';
+      html += '<div class="fg2">' + b.html + '</div>';
+      html += '</div>';
+    });
     return html;
   }
 
   _fieldHtml(f) {
-    if (f.type === 'group') {
-      return '<div class="full mf-gh">' + esc(f.label) + '</div>';
+    if (f.type === 'group') return '';
+    if (f.type === 'container') {
+      var cHtml = f.renderEdit ? f.renderEdit(this._rec, this) : '';
+      return '<div class="full mf-cnt" id="' + this.id + '-' + f.key + '">' + cHtml + '</div>';
     }
     var fid   = this.id + '-' + f.key;
     var rowId = 'id="' + this.id + '-row-' + f.key + '"';
@@ -340,7 +382,7 @@ class MainForm {
     var values = {};
     var self   = this;
     this.cfg.fields.forEach(function(f) {
-      if (f.type === 'calc' || f.type === 'group' || f.viewOnly) return;
+      if (f.type === 'calc' || f.type === 'group' || f.type === 'container' || f.viewOnly) return;
       var el = document.getElementById(self.id + '-' + f.key);
       if (!el) return;
       if (el.type === 'checkbox')    values[f.key] = el.checked;

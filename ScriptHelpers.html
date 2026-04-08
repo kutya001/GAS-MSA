@@ -66,17 +66,20 @@ const MOCK={
     {id:8,name:'Менеджер',cat_id:5},{id:9,name:'Прочее',cat_id:6},
   ]}),
   getPurchases:()=>({status:'ok',data:{rows:[
-    {id:1,brand_id:1,brand_name:'Apple',model_id:1,model_name:'iPhone 15 Pro Max',spec:'8/256',color:'Чёрный',wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:true,imei:'352365010000001',qty:1,cost_usd:430,rate:88,cost_kgs:37840,status:'Продано',purchase_date:'2025-08-05',note:''},
-    {id:2,brand_id:1,brand_name:'Apple',model_id:2,model_name:'iPhone 15 Pro',spec:'6/128',color:'Белый',wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:true,imei:'352365010000002',qty:1,cost_usd:380,rate:88,cost_kgs:33440,status:'В наличии',purchase_date:'2025-08-10',note:''},
-    {id:3,brand_id:3,brand_name:'Xiaomi',model_id:6,model_name:'Redmi Note 14',spec:'6/128',color:'Синий',wh_id:1,wh_name:'Основной склад',supplier_id:2,supplier_name:'Эрлис',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:true,imei:'860000030000009',qty:1,cost_usd:82,rate:88,cost_kgs:7216,status:'В наличии',purchase_date:'2025-09-15',note:''},
-    {id:4,brand_id:2,brand_name:'Samsung',model_id:4,model_name:'Galaxy S24',spec:'8/256',color:'Серый',wh_id:2,wh_name:'Онлайн-склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:false,imei:'',qty:3,cost_usd:320,rate:88,cost_kgs:28160,status:'В наличии',purchase_date:'2025-10-01',note:'Партия'},
-    {id:5,brand_id:1,brand_name:'Apple',model_id:3,model_name:'iPhone 14',spec:'256GB',color:'Фиолет.',wh_id:1,wh_name:'Основной склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',has_imei:true,imei:'352365010000019',qty:1,cost_usd:300,rate:88,cost_kgs:26400,status:'В наличии',purchase_date:'2025-10-15',note:''},
+    {id:1,wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:1,product_name:'Apple 256GB Чёрный',product_sku:'IPH15PM-256-B',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},has_imei:true,imei:'352365010000001',qty:1,condition:'Новый',cost_usd:430,rate:88,cost_kgs:37840,status:'Продано',purchase_date:'2025-08-05',note:''},
+    {id:2,wh_id:1,wh_name:'Основной склад',supplier_id:1,supplier_name:'Ислам Сатуу',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:2,product_name:'Apple 128GB Белый',product_sku:'',template_id:1,attribute_values:{'1':'Apple','2':'128GB','3':'Белый'},has_imei:true,imei:'352365010000002',qty:1,condition:'Новый',cost_usd:380,rate:88,cost_kgs:33440,status:'В наличии',purchase_date:'2025-08-10',note:''},
+    {id:3,wh_id:1,wh_name:'Основной склад',supplier_id:2,supplier_name:'Эрлис',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:3,product_name:'Xiaomi 128GB Синий',product_sku:'',template_id:1,attribute_values:{'1':'Xiaomi','2':'128GB','3':'Синий'},has_imei:true,imei:'860000030000009',qty:1,condition:'Новый',cost_usd:82,rate:88,cost_kgs:7216,status:'В наличии',purchase_date:'2025-09-15',note:''},
+    {id:4,wh_id:2,wh_name:'Онлайн-склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:4,product_name:'Samsung 256GB Серый',product_sku:'GS24-256-G',template_id:1,attribute_values:{'1':'Samsung','2':'256GB','3':'Серый'},has_imei:false,imei:'',qty:3,condition:'Новый',cost_usd:320,rate:88,cost_kgs:28160,status:'В наличии',purchase_date:'2025-10-01',note:'Партия'},
+    {id:5,wh_id:1,wh_name:'Основной склад',supplier_id:3,supplier_name:'ТехИмпорт',class_id:1,class_name:'Устройства',type_id:1,type_name:'Смартфоны',purpose_id:0,purpose_name:'',product_id:5,product_name:'Apple 256GB Фиолет.',product_sku:'',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Фиолет.'},has_imei:true,imei:'352365010000019',qty:1,condition:'Новый',cost_usd:300,rate:88,cost_kgs:26400,status:'В наличии',purchase_date:'2025-10-15',note:''},
   ],total:5}}),
+  getPurchasePayments:()=>({status:'ok',data:[
+    {id:1,purchase_id:1,wallet_id:1,wallet_name:'Основная касса',amount:37840,pay_date:'2025-08-05',note:'Полная оплата'},
+  ]}),
   getSales:()=>({status:'ok',data:{rows:[
-    {id:1,brand_name:'Apple',model_name:'iPhone 15 Pro Max',spec:'8/256',class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',buyer:'Асель Токтогулова',total_kgs:145500,paid_kgs:145500,debt_kgs:0,sale_date:'2025-08-07',manager_name:'Айдай',wa:'+996700001001',wallet_id:1,wallet_name:'Основная касса',note:''},
-    {id:2,brand_name:'Apple',model_name:'iPhone 15 Pro',spec:'6/128',class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',buyer:'Бакыт Осмонов',total_kgs:125000,paid_kgs:80000,debt_kgs:45000,sale_date:'2025-08-13',manager_name:'Нурлан',wa:'+996555002002',wallet_id:1,wallet_name:'Основная касса',note:'Рассрочка'},
-    {id:3,brand_name:'Samsung',model_name:'Galaxy S24',spec:'8/256',class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',buyer:'Данияр Иманов',total_kgs:105000,paid_kgs:105000,debt_kgs:0,sale_date:'2025-09-10',manager_name:'Бакыт',wa:'',wallet_id:1,wallet_name:'Основная касса',note:''},
-    {id:4,brand_name:'Xiaomi',model_name:'Redmi Note 14',spec:'6/128',class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',buyer:'Руслан Матисаков',total_kgs:28000,paid_kgs:20000,debt_kgs:8000,sale_date:'2025-11-05',manager_name:'Айдай',wa:'+996312015015',wallet_id:3,wallet_name:'Карта Mbank',note:''},
+    {id:1,purchase_id:1,product_name:'Apple 256GB Чёрный',product_sku:'IPH15PM-256-B',class_id:1,type_id:1,purpose_id:0,class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',has_imei:true,imei:'352365010000001',cost_kgs:37840,cost_usd:430,profit_kgs:107660,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Apple','2':'256GB','3':'Чёрный'},buyer:'Асель Токтогулова',total_kgs:145500,paid_kgs:145500,debt_kgs:0,sale_date:'2025-08-07',manager_id:1,manager_name:'Айдай',wa:'+996700001001',wallet_id:1,wallet_name:'Основная касса',note:''},
+    {id:2,purchase_id:2,product_name:'Apple 128GB Белый',product_sku:'',class_id:1,type_id:1,purpose_id:0,class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',has_imei:true,imei:'352365010000002',cost_kgs:33440,cost_usd:380,profit_kgs:91560,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Apple','2':'128GB','3':'Белый'},buyer:'Бакыт Осмонов',total_kgs:125000,paid_kgs:80000,debt_kgs:45000,sale_date:'2025-08-13',manager_id:2,manager_name:'Нурлан',wa:'+996555002002',wallet_id:1,wallet_name:'Основная касса',note:'Рассрочка'},
+    {id:3,purchase_id:4,product_name:'Samsung 256GB Серый',product_sku:'GS24-256-G',class_id:1,type_id:1,purpose_id:0,class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',has_imei:false,imei:'',cost_kgs:28160,cost_usd:320,profit_kgs:76840,wh_name:'Онлайн-склад',template_id:1,attribute_values:{'1':'Samsung','2':'256GB','3':'Серый'},buyer:'Данияр Иманов',total_kgs:105000,paid_kgs:105000,debt_kgs:0,sale_date:'2025-09-10',manager_id:3,manager_name:'Бакыт',wa:'',wallet_id:1,wallet_name:'Основная касса',note:''},
+    {id:4,purchase_id:3,product_name:'Xiaomi 128GB Синий',product_sku:'',class_id:1,type_id:1,purpose_id:0,class_name:'Устройства',type_name:'Смартфоны',purpose_name:'',has_imei:true,imei:'860000030000009',cost_kgs:7216,cost_usd:82,profit_kgs:20784,wh_name:'Основной склад',template_id:1,attribute_values:{'1':'Xiaomi','2':'128GB','3':'Синий'},buyer:'Руслан Матисаков',total_kgs:28000,paid_kgs:20000,debt_kgs:8000,sale_date:'2025-11-05',manager_id:1,manager_name:'Айдай',wa:'+996312015015',wallet_id:3,wallet_name:'Карта Mbank',note:''},
   ],total:4}}),
   getPayments:()=>({status:'ok',data:{rows:[
     {id:1,sale_id:1,buyer:'Асель Токтогулова',amount:145500,wallet_name:'Основная касса',debt_after:0,pay_date:'2025-08-07',note:'Полная оплата'},
@@ -91,15 +94,15 @@ const MOCK={
     {id:5,op_date:'2025-09-10',op_type:'Приход',wallet_id:1,wallet_name:'Основная касса',cat_id:1,cat_name:'Выручка от продаж',article_id:1,article_name:'Продажа телефонов',counterpart:'Данияр Иманов',comment:'Galaxy S24',amount:105000},
   ],total:5}}),
   getStock:()=>({status:'ok',data:{totalItems:6,totalCostKgs:861000,staleCount:1,groups:[
-    {wh_name:'Основной склад',brand:'Apple',count:3,cost_kgs:620000,items:[
-      {id:2,model_name:'iPhone 15 Pro',spec:'6/128',color:'Белый',cost_kgs:33440,imei:'352365010000002',purchase_date:'2025-08-10',stale:false,has_imei:true,qty:1},
-      {id:5,model_name:'iPhone 14',spec:'256GB',color:'Фиолет.',cost_kgs:26400,imei:'352365010000019',purchase_date:'2025-10-15',stale:false,has_imei:true,qty:1},
+    {wh_name:'Основной склад',brand:'Устройства',count:3,cost_kgs:620000,items:[
+      {id:2,product_name:'Apple 128GB Белый',class_name:'Устройства',cost_kgs:33440,imei:'352365010000002',purchase_date:'2025-08-10',stale:false,has_imei:true,qty:1},
+      {id:5,product_name:'Apple 256GB Фиолет.',class_name:'Устройства',cost_kgs:26400,imei:'352365010000019',purchase_date:'2025-10-15',stale:false,has_imei:true,qty:1},
     ]},
-    {wh_name:'Основной склад',brand:'Xiaomi',count:1,cost_kgs:7216,items:[
-      {id:3,model_name:'Redmi Note 14',spec:'6/128',color:'Синий',cost_kgs:7216,imei:'860000030000009',purchase_date:'2025-09-15',stale:true,has_imei:true,qty:1},
+    {wh_name:'Основной склад',brand:'Устройства',count:1,cost_kgs:7216,items:[
+      {id:3,product_name:'Xiaomi 128GB Синий',class_name:'Устройства',cost_kgs:7216,imei:'860000030000009',purchase_date:'2025-09-15',stale:true,has_imei:true,qty:1},
     ]},
-    {wh_name:'Онлайн-склад',brand:'Samsung',count:3,cost_kgs:84480,items:[
-      {id:4,model_name:'Galaxy S24',spec:'8/256',color:'Серый',cost_kgs:84480,imei:'',purchase_date:'2025-10-01',stale:false,has_imei:false,qty:3},
+    {wh_name:'Онлайн-склад',brand:'Устройства',count:3,cost_kgs:84480,items:[
+      {id:4,product_name:'Samsung 256GB Серый',class_name:'Устройства',cost_kgs:84480,imei:'',purchase_date:'2025-10-01',stale:false,has_imei:false,qty:3},
     ]},
   ]}}),
   getDashboard:()=>({status:'ok',data:{
@@ -310,12 +313,13 @@ function _setHTML(el, html) {
 //  MASTER DATA
 // ════════════════════════════════════════════════════════════════
 async function loadMasterData(){
-  const [refs,wallets,whs,cats,arts]=await Promise.all([api('getRefData'),api('getWallets'),api('getWarehouses'),api('getCats'),api('getArticles')]);
+  const [refs,wallets,whs,cats,arts,mdm]=await Promise.all([api('getRefData'),api('getWallets'),api('getWarehouses'),api('getCats'),api('getArticles'),api('getMDMContext')]);
   if(refs) ST.refs=refs;
   if(wallets) ST.wallets=wallets;
   if(whs) ST.warehouses=whs;
   if(cats) ST.cats=cats;
   if(arts) ST.articles=arts;
+  if(mdm) ST.mdm=mdm;
   populateAllSelects();
 }
 

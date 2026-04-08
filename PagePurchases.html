@@ -5,41 +5,212 @@
 </div>
 <script>
 // ════════════════════════════════════════════════════════════════
-//  PURCHASES — форма и таблица
+//  PURCHASES — форма и таблица (4 логических блока + MDM)
 // ════════════════════════════════════════════════════════════════
+
 // ── хелпер расчёта себестоимости ────────────────────────────────
 function _pCalcKgs(form) {
   var usd  = parseFloat(form.getVal('cost_usd')) || 0;
   var rate = parseFloat(form.getVal('rate'))     || 88;
   form.setCalc('cost_kgs', fmtN(usd * rate) + ' ₸');
 }
+
+// ── поиск шаблона MDM по class/type/purpose ────────────────────
+function _findPurchaseTemplate(classId, typeId, purposeId) {
+  var tpls = (ST.mdm && ST.mdm.templates) ? ST.mdm.templates : [];
+  var cId = parseInt(classId)  || 0;
+  var tId = parseInt(typeId)   || 0;
+  var pId = parseInt(purposeId)|| 0;
+  // 1) Точное совпадение
+  for (var i = 0; i < tpls.length; i++) {
+    var t = tpls[i];
+    if (t.class_id === cId && t.type_id === tId && (t.purpose_id || 0) === pId) return t;
+  }
+  // 2) class + type (purpose==null)
+  if (pId) {
+    for (var j = 0; j < tpls.length; j++) {
+      var t2 = tpls[j];
+      if (t2.class_id === cId && t2.type_id === tId && !t2.purpose_id) return t2;
+    }
+  }
+  return null;
+}
+
+// ── рендер динамических атрибутов шаблона (Block 2) ────────────
+function _renderTplAttrs(containerId, tpl, existingVals, isEdit) {
+  var cnt = document.getElementById(containerId);
+  if (!cnt) return;
+  if (!tpl || !tpl.attributes || !tpl.attributes.length) {
+    cnt.innerHTML = '<div class="muted ta-c">Нет характеристик для этого шаблона</div>';
+    return;
+  }
+  var refTables = (ST.mdm && ST.mdm.refTables) ? ST.mdm.refTables : {};
+  var vals = existingVals || {};
+  var html = '<div class="fg2">';
+  tpl.attributes.forEach(function(a) {
+    var attrId = String(a.id);
+    var val    = vals[attrId] != null ? String(vals[attrId]) : '';
+    var fid    = containerId + '-attr-' + attrId;
+
+    if (a.type === 'calculated') {
+      // Вычисляемое — только отображение
+      html += '<div class="fgrp full"><label class="flb">' + esc(a.name) + '</label>';
+      html += '<div class="calc-f" id="' + fid + '">' + esc(val || '—') + '</div></div>';
+      return;
+    }
+
+    if (!isEdit) {
+      // Режим просмотра
+      html += '<div class="mf-vf"><span class="mf-vl">' + esc(a.name) + '</span>';
+      html += '<div class="mf-vv"><span>' + esc(val || '—') + '</span></div></div>';
+      return;
+    }
+
+    // Режим редактирования
+    var req = a.is_required ? ' <span class="req">*</span>' : '';
+    html += '<div class="fgrp"><label class="flb">' + esc(a.name) + req + '</label>';
+
+    if (a.type === 'reference' && a.ref_table && refTables[a.ref_table]) {
+      var items = refTables[a.ref_table].items || [];
+      html += '<select class="fin" id="' + fid + '"><option value="">—</option>';
+      items.forEach(function(it) {
+        var sel = (String(it.name) === val || String(it.id) === val) ? ' selected' : '';
+        html += '<option value="' + esc(it.name) + '"' + sel + '>' + esc(it.name) + '</option>';
+      });
+      html += '</select>';
+    } else if (a.type === 'enum_radio' && a.options) {
+      var opts = a.options.split(',');
+      html += '<select class="fin" id="' + fid + '"><option value="">—</option>';
+      opts.forEach(function(o) {
+        var ot = o.trim();
+        var sel = (ot === val) ? ' selected' : '';
+        html += '<option value="' + esc(ot) + '"' + sel + '>' + esc(ot) + '</option>';
+      });
+      html += '</select>';
+    } else if (a.type === 'number') {
+      html += '<input class="fin" type="number" id="' + fid + '" value="' + esc(val) + '">';
+    } else if (a.type === 'boolean') {
+      html += '<label class="cb-wrap"><input type="checkbox" id="' + fid + '"' + (val === 'true' || val === '1' ? ' checked' : '') + '> ' + esc(a.name) + '</label>';
+    } else {
+      html += '<input class="fin" type="text" id="' + fid + '" value="' + esc(val) + '" placeholder="' + esc(a.description || '') + '">';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  cnt.innerHTML = html;
+}
+
+// ── сбор значений атрибутов из контейнера ──────────────────────
+function _gatherTplAttrs(containerId, tpl) {
+  if (!tpl || !tpl.attributes) return {};
+  var vals = {};
+  tpl.attributes.forEach(function(a) {
+    if (a.type === 'calculated') return;
+    var el = document.getElementById(containerId + '-attr-' + a.id);
+    if (!el) return;
+    if (el.type === 'checkbox') vals[String(a.id)] = el.checked ? 'true' : 'false';
+    else vals[String(a.id)] = el.value || '';
+  });
+  return vals;
+}
+
+// ── генерация названия продукта из атрибутов ───────────────────
+function _buildProductName(tpl, attrVals) {
+  if (!tpl || !tpl.attributes) return '';
+  var parts = [];
+  tpl.attributes.forEach(function(a) {
+    if (a.type === 'calculated') return;
+    var v = attrVals[String(a.id)] || '';
+    if (v) parts.push(v);
+  });
+  return parts.join(' ');
+}
+
+// ── рендер блока оплат (Block 3) ──────────────────────────────
+function _renderPurchasePayments(containerId, purchaseId, mode) {
+  var cnt = document.getElementById(containerId);
+  if (!cnt) return;
+  if (!purchaseId) {
+    cnt.innerHTML = '<div class="muted ta-c">Сохраните закупку, чтобы добавить оплаты</div>';
+    return;
+  }
+  cnt.innerHTML = '<div class="muted ta-c">Загрузка оплат...</div>';
+  api('getPurchasePayments', { purchase_id: purchaseId }).then(function(data) {
+    var rows = data || [];
+    var html = '';
+    if (rows.length) {
+      var totalPaid = 0;
+      html += '<table class="pay-tbl"><thead><tr><th>Дата</th><th>Кошелёк</th><th>Сумма</th><th>Заметка</th></tr></thead><tbody>';
+      rows.forEach(function(r) {
+        totalPaid += r.amount;
+        html += '<tr><td>' + fmtD(r.pay_date) + '</td><td>' + esc(r.wallet_name) + '</td>';
+        html += '<td class="mono tar">' + fmtN(r.amount) + ' ₸</td><td>' + esc(r.note || '') + '</td></tr>';
+      });
+      html += '</tbody><tfoot><tr><td colspan="2"><b>Итого оплачено</b></td><td class="mono tar fw7">' + fmtN(totalPaid) + ' ₸</td><td></td></tr></tfoot></table>';
+    } else {
+      html += '<div class="muted ta-c" style="margin-bottom:8px">Оплат пока нет</div>';
+    }
+    // Кнопка добавления оплаты
+    html += '<div class="pay-add-row">';
+    html += '<select class="fin" id="pp-wallet"><option value="">Кошелёк</option></select>';
+    html += '<input class="fin" type="number" id="pp-amount" placeholder="Сумма" min="1" style="max-width:120px">';
+    html += '<input class="fin" type="date" id="pp-date" value="' + today() + '">';
+    html += '<input class="fin" type="text" id="pp-note" placeholder="Заметка" style="max-width:140px">';
+    html += '<button class="btn btn-p btn-sm" onclick="_addPurchasePayment(' + purchaseId + ')">+ Оплата</button>';
+    html += '</div>';
+    cnt.innerHTML = html;
+    // Заполняем кошельки
+    var sel = document.getElementById('pp-wallet');
+    if (sel && ST.wallets) {
+      ST.wallets.forEach(function(w) {
+        var o = document.createElement('option');
+        o.value = w.id; o.textContent = w.name;
+        sel.appendChild(o);
+      });
+    }
+  });
+}
+
+async function _addPurchasePayment(purchaseId) {
+  var walletId = document.getElementById('pp-wallet').value;
+  var amount   = document.getElementById('pp-amount').value;
+  var date     = document.getElementById('pp-date').value;
+  var note     = document.getElementById('pp-note').value;
+  if (!walletId || !amount) { toast('Укажите кошелёк и сумму', 'e'); return; }
+  await api('addPurchasePayment', {
+    purchase_id: purchaseId,
+    wallet_id: +walletId, amount: +amount,
+    pay_date: date || today(), note: note
+  });
+  toast('Оплата добавлена', 's');
+  _renderPurchasePayments('mfPurchase-payments_block', purchaseId, 'view');
+}
+
+// ── обновление Block 2 при смене class/type/purpose ────────────
+function _pUpdateBlock2(form, existingVals) {
+  var cId = form.getVal('class_id');
+  var tId = form.getVal('type_id');
+  var pId = form.getVal('purpose_id');
+  var tpl = _findPurchaseTemplate(cId, tId, pId);
+  var isEdit = form._mode !== 'view';
+  _renderTplAttrs('mfPurchase-tpl_attrs', tpl, existingVals || {}, isEdit);
+  form._currentTpl = tpl;
+}
+
 // ── форма закупки ────────────────────────────────────────────────
 var purchaseForm = new MainForm({
   id:    'mfPurchase',
   title: 'Закупка',
   size:  'lg',
   fields: [
-    { key: 'has_imei', label: '📱 Товар с IMEI кодом (поштучный учёт)', type: 'checkbox', span: 2,
-      default: true,
-      onChange: function(v, f) { f.refreshVis(); },
-      renderView: function(v) {
-        return v ? '<span class="badge bb">IMEI (поштучно)</span>' : '<span class="badge bp">Партия</span>';
-      }
+    // ═══ BLOCK 0 — Документ ═══
+    { key: '_b0', label: '📋 Документ', type: 'group' },
+    { key: 'purchase_date', label: 'Дата закупки', type: 'date', required: true,
+      renderView: function(v) { return fmtD(v); }
     },
-    { key: 'brand_id', label: 'Бренд', type: 'select', required: true,
-      getOptions: function() { return ST.refs.brands; },
-      onChange: function(v, f) {
-        var m = ST.refs.models.filter(function(x) { return !v || x.brand_id === +v; });
-        f.fillField('model_id', m, 'id', 'name', '—');
-      },
-      renderView: function(v, r) { return esc(r.brand_name || '—'); }
+    { key: 'condition', label: 'Состояние', type: 'select',
+      options: ['Новый', 'Б/У'], emptyLabel: false
     },
-    { key: 'model_id', label: 'Модель', type: 'select', required: true,
-      getOptions: function() { return ST.refs.models; },
-      renderView: function(v, r) { return '<span class="fw7">' + esc(r.model_name || '—') + '</span>'; }
-    },
-    { key: 'spec',  label: 'Характеристика', type: 'text', placeholder: '8/256, 128GB...' },
-    { key: 'color', label: 'Цвет',           type: 'text', placeholder: 'Чёрный, Белый...' },
     { key: 'wh_id', label: 'Склад', type: 'select', required: true,
       getOptions: function() { return ST.warehouses; },
       renderView: function(v, r) { return esc(r.wh_name || '—'); }
@@ -48,26 +219,15 @@ var purchaseForm = new MainForm({
       getOptions: function() { return ST.refs.suppliers; },
       renderView: function(v, r) { return esc(r.supplier_name || '—'); }
     },
-    { key: 'class_id', label: 'Класс товара', type: 'select',
-      getOptions: function() { return ST.refs.classes; },
-      onChange: function(v, f) {
-        var t = ST.refs.prod_types.filter(function(x) { return !v || x.class_id === +v; });
-        f.fillField('type_id', t, 'id', 'name', '—');
-        f.fillField('purpose_id', [], 'id', 'name', '—');
-      },
-      renderView: function(v, r) { return esc(r.class_name || '—'); }
-    },
-    { key: 'type_id', label: 'Тип продукта', type: 'select',
-      getOptions: function() { return ST.refs.prod_types; },
-      onChange: function(v, f) {
-        var p = ST.refs.purposes.filter(function(x) { return !v || x.type_id === +v; });
-        f.fillField('purpose_id', p, 'id', 'name', '—');
-      },
-      renderView: function(v, r) { return esc(r.type_name || '—'); }
-    },
-    { key: 'purpose_id', label: 'Назначение', type: 'select',
-      getOptions: function() { return ST.refs.purposes; },
-      renderView: function(v, r) { return esc(r.purpose_name || '—'); }
+
+    // ═══ BLOCK 1 — Товар ═══
+    { key: '_b1', label: '📱 Товар', type: 'group' },
+    { key: 'has_imei', label: '📱 Товар с IMEI кодом (поштучный учёт)', type: 'checkbox', span: 2,
+      default: true,
+      onChange: function(v, f) { f.refreshVis(); },
+      renderView: function(v) {
+        return v ? '<span class="badge bb">IMEI (поштучно)</span>' : '<span class="badge bp">Партия</span>';
+      }
     },
     { key: 'imei', label: 'IMEI (15 цифр)', type: 'text', maxlength: 15, mono: true,
       placeholder: '352365010000001',
@@ -82,11 +242,29 @@ var purchaseForm = new MainForm({
         return !r.has_imei ? '<span class="badge bp">×' + esc(String(v || 1)) + '</span>' : '<span class="muted">—</span>';
       }
     },
-    { key: 'condition', label: 'Состояние', type: 'select',
-      options: ['Новый', 'Б/У'], emptyLabel: false
+    { key: 'class_id', label: 'Класс товара', type: 'select', required: true,
+      getOptions: function() { return ST.refs.classes; },
+      onChange: function(v, f) {
+        var t = ST.refs.prod_types.filter(function(x) { return !v || x.class_id === +v; });
+        f.fillField('type_id', t, 'id', 'name', '—');
+        f.fillField('purpose_id', [], 'id', 'name', '—');
+        _pUpdateBlock2(f, null);
+      },
+      renderView: function(v, r) { return esc(r.class_name || '—'); }
     },
-    { key: 'purchase_date', label: 'Дата закупки', type: 'date', required: true,
-      renderView: function(v) { return fmtD(v); }
+    { key: 'type_id', label: 'Тип продукта', type: 'select', required: true,
+      getOptions: function() { return ST.refs.prod_types; },
+      onChange: function(v, f) {
+        var p = ST.refs.purposes.filter(function(x) { return !v || x.type_id === +v; });
+        f.fillField('purpose_id', p, 'id', 'name', '—');
+        _pUpdateBlock2(f, null);
+      },
+      renderView: function(v, r) { return esc(r.type_name || '—'); }
+    },
+    { key: 'purpose_id', label: 'Назначение', type: 'select',
+      getOptions: function() { return ST.refs.purposes; },
+      onChange: function(v, f) { _pUpdateBlock2(f, null); },
+      renderView: function(v, r) { return esc(r.purpose_name || '—'); }
     },
     { key: 'cost_usd', label: 'Себестоимость USD', type: 'number', min: 0, step: 0.01, required: true,
       onChange: function(v, f) { _pCalcKgs(f); },
@@ -100,12 +278,9 @@ var purchaseForm = new MainForm({
       calcInit: '0 ₸',
       renderView: function(v) { return '<span class="mono fw7 tg">' + fmtN(v) + ' ₸</span>'; }
     },
-    { key: 'pay_wallet_id', label: 'Оплата поставщику (кошелёк)', type: 'select', span: 2,
-      getOptions: function() { return ST.wallets; },
-      emptyLabel: 'Не оплачено — долг поставщику',
-      renderView: function(v) {
-        var w = v ? ST.wallets.find(function(x) { return x.id === +v; }) : null;
-        return w ? esc(w.name) : '<span class="badge ba">Долг поставщику</span>';
+    { key: 'product_name', label: 'Товар (MDM)', viewOnly: true,
+      renderView: function(v, r) {
+        return v ? '<span class="fw7">' + esc(v) + '</span>' : '<span class="muted">—</span>';
       }
     },
     { key: 'status', label: 'Статус', viewOnly: true,
@@ -114,7 +289,34 @@ var purchaseForm = new MainForm({
         return '<span class="badge ' + c + '">' + esc(v || '—') + '</span>';
       }
     },
-    { key: 'note', label: 'Примечание', type: 'text', span: 2, placeholder: 'Необязательно' }
+    { key: 'note', label: 'Примечание', type: 'text', span: 2, placeholder: 'Необязательно' },
+
+    // ═══ BLOCK 2 — Характеристики (динамические атрибуты шаблона) ═══
+    { key: '_b2', label: '⚙️ Характеристики товара', type: 'group' },
+    { key: 'tpl_attrs', type: 'container', span: 2,
+      renderView: function(v, rec, form) {
+        if (!rec || !rec.product_id) return '<div class="muted ta-c">Нет характеристик</div>';
+        var tpl = _findPurchaseTemplate(rec.class_id, rec.type_id, rec.purpose_id);
+        if (!tpl || !tpl.attributes || !tpl.attributes.length) return '<div class="muted ta-c">Нет характеристик для этого шаблона</div>';
+        var vals = rec.attribute_values || {};
+        var html = '<div class="fg2">';
+        tpl.attributes.forEach(function(a) {
+          var val = vals[String(a.id)] || '';
+          html += '<div class="mf-vf"><span class="mf-vl">' + esc(a.name) + '</span>';
+          html += '<div class="mf-vv"><span>' + esc(val || '—') + '</span></div></div>';
+        });
+        html += '</div>';
+        return html;
+      },
+      renderEdit: function(rec, form) { return ''; }
+    },
+
+    // ═══ BLOCK 3 — Оплаты поставщику ═══
+    { key: '_b3', label: '💰 Оплаты поставщику', type: 'group' },
+    { key: 'payments_block', type: 'container', span: 2,
+      renderView: function(v, rec, form) { return ''; },
+      renderEdit: function(rec, form) { return ''; }
+    },
   ],
   validate: function(values) {
     if (values.has_imei && values.imei && !/^\d{15}$/.test(values.imei)) {
@@ -123,9 +325,14 @@ var purchaseForm = new MainForm({
     return null;
   },
   onSave: async function(values, editId) {
+    var form = purchaseForm;
+    var tpl  = form._currentTpl;
+
+    // Собираем атрибуты из Block 2
+    var attrVals = _gatherTplAttrs('mfPurchase-tpl_attrs', tpl);
+    var productName = _buildProductName(tpl, attrVals);
+
     var data = {
-      brand_id: +values.brand_id, model_id: +values.model_id,
-      spec: values.spec, color: values.color,
       wh_id: +values.wh_id, supplier_id: +values.supplier_id || null,
       class_id: +values.class_id || null, type_id: +values.type_id || null, purpose_id: +values.purpose_id || null,
       has_imei: values.has_imei,
@@ -134,12 +341,19 @@ var purchaseForm = new MainForm({
       condition: values.condition || 'Новый',
       purchase_date: values.purchase_date,
       cost_usd: +values.cost_usd, rate: +values.rate || 88,
-      cost_kgs: (+values.cost_usd) * (+values.rate || 88),
-      pay_wallet_id: +values.pay_wallet_id || null,
-      note: values.note
+      note: values.note,
+      template_id: tpl ? tpl.id : null,
+      attribute_values: attrVals,
+      product_name: productName,
     };
-    if (editId) await api('updatePurchase', Object.assign({ id: editId }, data));
-    else        await api('addPurchase', data);
+
+    if (editId) {
+      data.id = editId;
+      data.product_id = form._rec ? form._rec.product_id : null;
+      await api('updatePurchase', data);
+    } else {
+      await api('addPurchase', data);
+    }
     toast(editId ? 'Закупка обновлена' : 'Закупка добавлена', 's');
     loadPurchases();
   },
@@ -149,36 +363,46 @@ var purchaseForm = new MainForm({
     loadPurchases();
   },
   afterMount: function(mode, rec, form) {
-    if (mode === 'view') return;
-    // Наполняем справочники
-    form.fillField('brand_id', ST.refs.brands, 'id', 'name', '—');
-    if (rec) document.getElementById(form.id + '-brand_id').value = rec.brand_id || '';
-    var bid = +(form.getVal('brand_id'));
-    form.fillField('model_id', ST.refs.models.filter(function(m) { return !bid || m.brand_id === bid; }), 'id', 'name', '—');
-    if (rec) document.getElementById(form.id + '-model_id').value = rec.model_id || '';
+    // Наполняем справочники Block 0
     form.fillField('wh_id', ST.warehouses, 'id', 'name', '—');
-    if (rec) document.getElementById(form.id + '-wh_id').value = rec.wh_id || '';
+    if (rec) { var wEl = document.getElementById(form.id + '-wh_id'); if (wEl) wEl.value = rec.wh_id || ''; }
     form.fillField('supplier_id', ST.refs.suppliers, 'id', 'name', '—');
-    if (rec) document.getElementById(form.id + '-supplier_id').value = rec.supplier_id || '';
+    if (rec) { var sEl = document.getElementById(form.id + '-supplier_id'); if (sEl) sEl.value = rec.supplier_id || ''; }
+
+    // Block 1 — каскадные селекты
     form.fillField('class_id', ST.refs.classes, 'id', 'name', '—');
-    if (rec) document.getElementById(form.id + '-class_id').value = rec.class_id || '';
+    if (rec) { var cEl = document.getElementById(form.id + '-class_id'); if (cEl) cEl.value = rec.class_id || ''; }
     var cid = +(form.getVal('class_id'));
     form.fillField('type_id', ST.refs.prod_types.filter(function(t) { return !cid || t.class_id === cid; }), 'id', 'name', '—');
-    if (rec) document.getElementById(form.id + '-type_id').value = rec.type_id || '';
+    if (rec) { var tEl = document.getElementById(form.id + '-type_id'); if (tEl) tEl.value = rec.type_id || ''; }
     var tid = +(form.getVal('type_id'));
     form.fillField('purpose_id', ST.refs.purposes.filter(function(p) { return !tid || p.type_id === tid; }), 'id', 'name', '—');
-    if (rec) document.getElementById(form.id + '-purpose_id').value = rec.purpose_id || '';
-    form.fillField('pay_wallet_id', ST.wallets, 'id', 'name', 'Не оплачено — долг поставщику');
-    if (rec) document.getElementById(form.id + '-pay_wallet_id').value = rec.pay_wallet_id || '';
-    // Инит
+    if (rec) { var pEl = document.getElementById(form.id + '-purpose_id'); if (pEl) pEl.value = rec.purpose_id || ''; }
+
+    // Block 2 — атрибуты шаблона
+    var existingVals = (rec && rec.attribute_values) ? rec.attribute_values : {};
+    _pUpdateBlock2(form, existingVals);
+
+    // Block 3 — оплаты
+    if (rec && rec.id) {
+      _renderPurchasePayments(form.id + '-payments_block', rec.id, mode);
+    } else {
+      var payC = document.getElementById(form.id + '-payments_block');
+      if (payC) payC.innerHTML = '<div class="muted ta-c">Сохраните закупку, чтобы добавить оплаты</div>';
+    }
+
+    // Date init + recalc
     if (mode === 'create') {
       var d = document.getElementById(form.id + '-purchase_date');
       if (d) d.value = today();
     }
-    _pCalcKgs(form);
-    form.refreshVis();
+    if (mode !== 'view') {
+      _pCalcKgs(form);
+      form.refreshVis();
+    }
   }
 });
+
 // ── DT таблица ───────────────────────────────────────────────────
 var _pDT = null;
 function _pDTinit() {
@@ -189,7 +413,7 @@ function _pDTinit() {
     onRowClick: function(r) { purchaseForm.openView(r); },
     filters: [
       { key: 'wh_id',    label: 'Склад',  type: 'select', getOptions: function() { return ST.warehouses; } },
-      { key: 'brand_id', label: 'Бренд',  type: 'select', getOptions: function() { return ST.refs.brands; } },
+      { key: 'class_id', label: 'Класс',  type: 'select', getOptions: function() { return ST.refs.classes; } },
       { key: 'status',   label: 'Статус', type: 'select',
         options: ['В наличии', 'Продано'], emptyLabel: 'Все' },
       { key: 'dateFrom', label: 'Дата от', type: 'date' },
@@ -197,9 +421,9 @@ function _pDTinit() {
     ],
     onFilter: function() { loadPurchases(); },
     cols: [
-      { key: 'brand_name',    label: 'Бренд',      w: '88px' },
-      { key: 'model_name',    label: 'Модель' },
-      { key: 'spec',          label: 'Хар-ка',      w: '80px' },
+      { key: 'product_name',  label: 'Товар' },
+      { key: 'class_name',    label: 'Класс',      w: '90px' },
+      { key: 'type_name',     label: 'Тип',         w: '90px' },
       { key: 'wh_name',       label: 'Склад' },
       { key: 'supplier_name', label: 'Поставщик' },
       { key: '_iq', label: 'IMEI / Шт.', sortable: false,
@@ -230,7 +454,7 @@ async function loadPurchases() {
   var fp = _pDT ? (_pDT._fpValues || {}) : {};
   var d  = await api('getPurchases', {
     wh_id:    fp.wh_id    || '',
-    brand_id: fp.brand_id || '',
+    class_id: fp.class_id || '',
     status:   fp.status   || '',
     dateFrom: fp.dateFrom || '',
     dateTo:   fp.dateTo   || ''

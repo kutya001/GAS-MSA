@@ -71,8 +71,8 @@ async function loadWarehouses() {
 // ════════════════════════════════════════════════════════════════
 async function loadStock() {
   fillSel('stf-wh',    ST.warehouses,                         'id', 'name', '— Все склады —');
-  fillSel('stf-brand', (ST.refs && ST.refs.brands) ? ST.refs.brands : [], 'id', 'name', '— Все бренды —');
-  var d = await api('getStock', { wh_id: g('stf-wh'), brand_id: g('stf-brand') });
+  fillSel('stf-brand', (ST.refs && ST.refs.classes) ? ST.refs.classes : [], 'id', 'name', '— Все классы —');
+  var d = await api('getStock', { wh_id: g('stf-wh') });
   if (!d) return;
   document.getElementById('stockSub').textContent =
     d.totalItems + ' товаров • Себестоимость: ' + fmtN(d.totalCostKgs) + ' ₸';
@@ -87,13 +87,11 @@ async function loadStock() {
         '<span class="chev">▾</span>' +
       '</div>' +
       '<div class="sg-bd"><div class="tscr"><table>' +
-        '<thead><tr><th>Модель</th><th>Хар-ка</th><th>Цвет</th><th>IMEI/Кол-во</th>' +
+        '<thead><tr><th>Товар</th><th>IMEI/Кол-во</th>' +
         '<th>Себес ₸</th><th>Закупка</th><th>Статус</th></tr></thead>' +
         '<tbody>' + (gr.items || []).map(function(it) {
           return '<tr>' +
-            '<td>' + esc(it.model_name) + '</td>' +
-            '<td>' + esc(it.spec || '') + '</td>' +
-            '<td>' + esc(it.color || '') + '</td>' +
+            '<td>' + esc(it.product_name || '') + '</td>' +
             '<td>' + (it.has_imei
               ? '<span class="imeic">' + esc(it.imei) + '</span>'
               : '<span class="badge bp">\xd7' + it.qty + '</span>') + '</td>' +

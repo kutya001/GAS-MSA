@@ -350,8 +350,28 @@ body.locked{overflow:hidden}
 .mf-vv{font-size:.86rem;color:var(--tx);min-height:22px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 .mf-vv span{color:var(--tx)}
 .mf-gh{font-size:.64rem;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;padding:10px 2px 4px;grid-column:1/-1;border-bottom:2px solid var(--bdr);margin-bottom:2px}
+/* ── island blocks (form groups → cards) ──────────────────── */
+.mf-vb,.mf-eb{background:var(--bg)}
+.mf-block{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r2);padding:14px 16px;margin-bottom:10px;box-shadow:var(--s0)}
+.mf-block:last-child{margin-bottom:0}
+.mf-bh{font-size:.72rem;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--bdr)}
+/* ── IMEI search dropdown ─────────────────────────────────── */
+.imei-srch{position:relative}
+.imei-dd{position:absolute;top:100%;left:0;right:0;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r1);max-height:220px;overflow-y:auto;z-index:10;box-shadow:var(--s2);display:none}
+.imei-opt{padding:8px 10px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--bdr);transition:background var(--t)}
+.imei-opt:hover{background:var(--bg2)}
+.imei-opt:last-child{border-bottom:none}
+.mf-cnt{grid-column:1/-1;padding:4px 0}
+.mf-cnt .fg2{gap:8px 12px}
 .mf-di{background:var(--bg2);border-color:var(--bdr);color:var(--tx2)}
 .mf-foot{justify-content:flex-end;gap:6px}
+/* ── payments inline table ──────────────────────────────────── */
+.pay-tbl{width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:8px}
+.pay-tbl th{text-align:left;font-size:.68rem;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;padding:5px 6px;border-bottom:2px solid var(--bdr)}
+.pay-tbl td{padding:5px 6px;border-bottom:1px solid var(--bdr);color:var(--tx)}
+.pay-tbl tfoot td{border-bottom:none;font-weight:700;padding-top:6px}
+.pay-add-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:4px}
+.pay-add-row .fin{font-size:.82rem;padding:5px 8px;max-width:160px}
 /* ══ SMART FILTER PANEL ═══════════════════════════════════════════ */
 .sf-panel{min-width:340px}
 .sf-rules{display:flex;flex-direction:column;gap:0}

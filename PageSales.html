@@ -6,22 +6,131 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════
-//  SALES — форма и таблица
+//  SALES — форма и таблица (4 блока, зеркало Закупок)
 // ════════════════════════════════════════════════════════════════
 
-// ── хелпер расчёта долга ─────────────────────────────────────────
+// ── доступные закупки «В наличии» ────────────────────────────────
+function _sGetAvail() {
+  return (DT_INST['purchases'] && DT_INST['purchases'].data || [])
+    .filter(function(r) { return r.status === 'В наличии'; });
+}
+
+// ── расчёт прибыли ───────────────────────────────────────────────
+function _sCalcProfit(form) {
+  var price = parseFloat(form.getVal('total_kgs')) || 0;
+  var cost  = form._selectedCost || 0;
+  var profit = price - cost;
+  form.setCalc('_profit', fmtN(profit) + ' ₸');
+}
+
+// ── расчёт долга ─────────────────────────────────────────────────
 function _sCalcDebt(form) {
   var price = parseFloat(form.getVal('total_kgs')) || 0;
   var paid  = parseFloat(form.getVal('paid_kgs'))  || 0;
   form.setCalc('_debt', fmtN(Math.max(0, price - paid)) + ' ₸');
 }
 
-// ── форма продажи ────────────────────────────────────────────────
+// ── IMEI поиск: рендер дропдауна ─────────────────────────────────
+function _sImeiRender(term) {
+  var dd = document.getElementById('mfSale-imei-dd');
+  if (!dd) return;
+  var avail = _sGetAvail();
+  var lower = (term || '').toLowerCase();
+  var matches = avail;
+  if (lower) {
+    matches = avail.filter(function(r) {
+      return (r.imei || '').toLowerCase().indexOf(lower) >= 0 ||
+             (r.product_name || '').toLowerCase().indexOf(lower) >= 0;
+    });
+  }
+  if (!matches.length) {
+    dd.innerHTML = '<div class="imei-opt" style="cursor:default;color:var(--tx3)">Нет совпадений</div>';
+    dd.style.display = 'block';
+    return;
+  }
+  dd.innerHTML = matches.map(function(r) {
+    var label = r.has_imei
+      ? '<span class="mono">' + esc(r.imei) + '</span> — ' + esc(r.product_name || 'Товар #' + r.id)
+      : esc(r.product_name || 'Товар #' + r.id) + ' <span class="badge bp">×' + r.qty + '</span>';
+    return '<div class="imei-opt" data-id="' + r.id + '">' + label +
+      '<br><span class="muted" style="font-size:.68rem">' + esc(r.wh_name) + ' · ' + fmtN(r.cost_kgs) + ' ₸</span></div>';
+  }).join('');
+  dd.style.display = 'block';
+  dd.querySelectorAll('.imei-opt[data-id]').forEach(function(opt) {
+    opt.onclick = function() { _sSelectPurchase(parseInt(opt.dataset.id)); dd.style.display = 'none'; };
+  });
+}
+
+// ── выбор закупки → авто-заполнение ──────────────────────────────
+function _sSelectPurchase(purchaseId) {
+  var avail = _sGetAvail();
+  var pur = null;
+  for (var i = 0; i < avail.length; i++) { if (avail[i].id === purchaseId) { pur = avail[i]; break; } }
+  if (!pur) return;
+
+  // Сохраняем выбор
+  saleForm._selectedPurchase = pur;
+  saleForm._selectedCost = pur.cost_kgs || 0;
+
+  // Заполняем hidden purchase_id
+  var pidEl = document.getElementById('mfSale-purchase_id');
+  if (pidEl) pidEl.value = pur.id;
+
+  // Заполняем поле ввода IMEI
+  var inp = document.getElementById('mfSale-imei-input');
+  if (inp) {
+    inp.value = pur.has_imei
+      ? pur.imei + ' — ' + (pur.product_name || 'Товар #' + pur.id)
+      : pur.product_name || 'Товар #' + pur.id;
+  }
+
+  // Авто-заполнение информации
+  var cat = [pur.class_name, pur.type_name, pur.purpose_name].filter(Boolean).join(' → ');
+  var infoEl = document.getElementById('mfSale-_pinfo');
+  if (infoEl) infoEl.textContent = (pur.product_name || 'Товар #' + pur.id) + (cat ? ' (' + cat + ')' : '');
+
+  var costEl = document.getElementById('mfSale-_cost');
+  if (costEl) costEl.textContent = fmtN(pur.cost_kgs) + ' ₸';
+
+  // Пересчёт прибыли
+  _sCalcProfit(saleForm);
+
+  // Block 2 — атрибуты товара из закупки
+  _sUpdateBlock2(pur);
+}
+
+// ── Block 2 — шаблонные атрибуты от выбранной закупки ────────────
+function _sUpdateBlock2(pur) {
+  var cnt = document.getElementById('mfSale-tpl_attrs');
+  if (!cnt) return;
+  if (!pur || !pur.template_id) {
+    cnt.innerHTML = '<div class="muted ta-c">Нет характеристик</div>';
+    return;
+  }
+  var tpls = (ST.mdm && ST.mdm.templates) ? ST.mdm.templates : [];
+  var tpl = null;
+  for (var i = 0; i < tpls.length; i++) { if (tpls[i].id === pur.template_id) { tpl = tpls[i]; break; } }
+  if (!tpl || !tpl.attributes || !tpl.attributes.length) {
+    cnt.innerHTML = '<div class="muted ta-c">Нет характеристик</div>';
+    return;
+  }
+  var vals = pur.attribute_values || {};
+  var html = '<div class="fg2">';
+  tpl.attributes.forEach(function(a) {
+    var val = vals[String(a.id)] || '';
+    html += '<div class="mf-vf"><span class="mf-vl">' + esc(a.name) + '</span>';
+    html += '<div class="mf-vv"><span>' + esc(val || '—') + '</span></div></div>';
+  });
+  html += '</div>';
+  cnt.innerHTML = html;
+}
+
+// ── форма продажи (4 блока) ──────────────────────────────────────
 var saleForm = new MainForm({
   id:    'mfSale',
   title: 'Продажа',
   size:  'lg',
-  canEdit: function() { return false; }, // продажи не редактируются
+  canEdit: function() { return false; },
   viewActions: [
     {
       label: '+ Внести оплату',
@@ -36,42 +145,102 @@ var saleForm = new MainForm({
     }
   ],
   fields: [
-    { key: 'purchase_id', label: 'Товар из наличия', type: 'select', required: true, span: 2,
-      getOptions: function() {
-        return (DT_INST['purchases'] && DT_INST['purchases'].data || [])
-          .filter(function(r) { return r.status === 'В наличии'; })
-          .map(function(r) {
-            return { id: r.id, name: r.brand_name + ' ' + r.model_name
-              + (r.spec ? ' ' + r.spec : '') + ' [' + r.wh_name + ']'
-              + (r.has_imei ? ' IMEI:' + r.imei : ' ×' + r.qty + 'шт') };
-          });
-      },
-      renderView: function(v, r) {
-        var cat = [r.class_name, r.type_name, r.purpose_name].filter(Boolean).join(' → ');
-        return '<span class="fw7">' + esc((r.brand_name || '') + (r.model_name ? ' ' + r.model_name : '') + (r.spec ? ' ' + r.spec : '')) + '</span>'
-          + (cat ? '<br><span class="muted" style="font-size:.72rem">' + esc(cat) + '</span>' : '');
-      }
-    },
-    { key: 'buyer', label: 'Покупатель', type: 'text', required: true, placeholder: 'ФИО покупателя' },
-    { key: 'wa',    label: 'WhatsApp',   type: 'text', placeholder: '+996 700 000 000' },
-    { key: 'sale_date', label: 'Дата', type: 'date', required: true,
+    // ═══ BLOCK 0 — Документ ═══
+    { key: '_b0', label: '📋 Документ', type: 'group' },
+    { key: 'sale_date', label: 'Дата продажи', type: 'date', required: true,
       renderView: function(v) { return fmtD(v); }
     },
     { key: 'manager_id', label: 'Менеджер', type: 'select', required: true,
       getOptions: function() { return ST.refs.managers; },
       renderView: function(v, r) { return esc(r.manager_name || '—'); }
     },
+    { key: 'buyer', label: 'Покупатель', type: 'text', required: true, placeholder: 'ФИО покупателя' },
+    { key: 'wa',    label: 'WhatsApp',   type: 'text', placeholder: '+996 700 000 000' },
+
+    // ═══ BLOCK 1 — Товар ═══
+    { key: '_b1', label: '📱 Товар', type: 'group' },
+    // IMEI поиск (контейнер с кастомным UI)
+    { key: 'imei_search', type: 'container', span: 2,
+      renderView: function(v, rec) {
+        if (!rec) return '';
+        var label = rec.has_imei
+          ? '<span class="imeic">' + esc(rec.imei) + '</span> — <span class="fw7">' + esc(rec.product_name) + '</span>'
+          : '<span class="fw7">' + esc(rec.product_name || '—') + '</span>';
+        var cat = [rec.class_name, rec.type_name, rec.purpose_name].filter(Boolean).join(' → ');
+        return '<span class="mf-vl">Товар</span><div class="mf-vv">' + label +
+          (cat ? '<br><span class="muted" style="font-size:.72rem">' + esc(cat) + '</span>' : '') + '</div>';
+      },
+      renderEdit: function() {
+        return '<div class="fgrp full"><label><span class="req">IMEI / Товар</span></label>' +
+          '<div class="imei-srch">' +
+          '<input class="fin" style="width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r1);padding:9px 11px;font-size:.86rem" ' +
+            'type="text" id="mfSale-imei-input" placeholder="Введите IMEI или название товара..." autocomplete="off" ' +
+            'oninput="_sImeiRender(this.value)" onfocus="_sImeiRender(this.value)">' +
+          '<div class="imei-dd" id="mfSale-imei-dd"></div>' +
+          '</div>' +
+          '<input type="hidden" id="mfSale-purchase_id" value="">' +
+          '</div>';
+      }
+    },
+    // Инфо о товаре (display, авто)
+    { key: '_pinfo', label: 'Выбранный товар', type: 'display', span: 2,
+      renderView: function(v, r) {
+        return r ? '<span class="fw7">' + esc(r.product_name || '—') + '</span>' : '—';
+      }
+    },
+    // Себестоимость (display, авто из закупки)
+    { key: '_cost', label: 'Себестоимость (из закупки)', type: 'display',
+      renderView: function(v, r) {
+        return '<span class="mono">' + fmtN(r.cost_kgs || 0) + ' ₸</span>';
+      }
+    },
+    // Цена продажи
     { key: 'total_kgs', label: 'Цена продажи KGS', type: 'number', min: 0, required: true,
-      onChange: function(v, f) { _sCalcDebt(f); },
+      onChange: function(v, f) { _sCalcProfit(f); _sCalcDebt(f); },
       renderView: function(v) { return '<span class="mono fw7">' + fmtN(v) + ' ₸</span>'; }
+    },
+    // Прибыль (авторасчёт)
+    { key: '_profit', label: 'Прибыль (авторасчёт)', type: 'calc',
+      calcInit: '0 ₸',
+      renderView: function(v, r) {
+        var p = (r.profit_kgs != null) ? r.profit_kgs : 0;
+        var cls = p >= 0 ? 'tg' : 'tr';
+        return '<span class="mono fw7 ' + cls + '">' + fmtN(p) + ' ₸</span>';
+      }
+    },
+    { key: 'note', label: 'Примечание', type: 'text', span: 2, placeholder: 'Необязательно' },
+
+    // ═══ BLOCK 2 — Характеристики товара (из закупки, view-only) ═══
+    { key: '_b2', label: '⚙️ Характеристики товара', type: 'group' },
+    { key: 'tpl_attrs', type: 'container', span: 2,
+      renderView: function(v, rec) {
+        if (!rec || !rec.template_id) return '<div class="muted ta-c">Нет характеристик</div>';
+        var tpls = (ST.mdm && ST.mdm.templates) ? ST.mdm.templates : [];
+        var tpl = null;
+        for (var i = 0; i < tpls.length; i++) { if (tpls[i].id === rec.template_id) { tpl = tpls[i]; break; } }
+        if (!tpl || !tpl.attributes || !tpl.attributes.length) return '<div class="muted ta-c">Нет характеристик</div>';
+        var vals = rec.attribute_values || {};
+        var html = '<div class="fg2">';
+        tpl.attributes.forEach(function(a) {
+          var val = vals[String(a.id)] || '';
+          html += '<div class="mf-vf"><span class="mf-vl">' + esc(a.name) + '</span>';
+          html += '<div class="mf-vv"><span>' + esc(val || '—') + '</span></div></div>';
+        });
+        html += '</div>';
+        return html;
+      },
+      renderEdit: function() { return ''; }
+    },
+
+    // ═══ BLOCK 3 — Оплата ═══
+    { key: '_b3', label: '💰 Оплата', type: 'group' },
+    { key: 'wallet_id', label: 'Кошелёк оплаты', type: 'select', required: true,
+      getOptions: function() { return ST.wallets; },
+      renderView: function(v, r) { return esc(r.wallet_name || '—'); }
     },
     { key: 'paid_kgs', label: 'Оплачено сейчас KGS', type: 'number', min: 0, default: 0,
       onChange: function(v, f) { _sCalcDebt(f); },
       renderView: function(v) { return '<span class="mono tg">' + fmtN(v) + ' ₸</span>'; }
-    },
-    { key: 'wallet_id', label: 'Кошелёк оплаты', type: 'select', required: true,
-      getOptions: function() { return ST.wallets; },
-      renderView: function(v, r) { return esc(r.wallet_name || '—'); }
     },
     { key: '_debt', label: 'Остаток долга (авто)', type: 'calc', span: 2,
       calcInit: '0 ₸',
@@ -81,13 +250,17 @@ var saleForm = new MainForm({
           : '<span class="tg">0 ₸</span>';
       }
     },
-    { key: 'note', label: 'Примечание', type: 'text', span: 2, placeholder: 'Необязательно' }
   ],
   onSave: async function(values, editId) {
+    var form = saleForm;
+    var purchaseId = document.getElementById('mfSale-purchase_id');
+    var pid = purchaseId ? parseInt(purchaseId.value) : 0;
+    if (!pid) { toast('Выберите товар (IMEI)', 'e'); throw new Error(''); }
+
     var price = +values.total_kgs || 0, paid = +values.paid_kgs || 0;
     if (paid > price) { toast('Оплата не может превышать цену', 'e'); throw new Error(''); }
     await api('addSale', {
-      purchase_id: +values.purchase_id,
+      purchase_id: pid,
       buyer: values.buyer, wa: values.wa,
       sale_date: values.sale_date,
       manager_id: +values.manager_id,
@@ -99,23 +272,28 @@ var saleForm = new MainForm({
     loadSales(); loadPurchases();
   },
   afterMount: function(mode, rec, form) {
-    if (mode === 'view') return;
-    // Наполнение товаров
-    var avail = (DT_INST['purchases'] && DT_INST['purchases'].data || [])
-      .filter(function(r) { return r.status === 'В наличии'; })
-      .map(function(r) {
-        return { id: r.id, name: r.brand_name + ' ' + r.model_name
-          + (r.spec ? ' ' + r.spec : '') + ' [' + r.wh_name + ']'
-          + (r.has_imei ? ' IMEI:' + r.imei : ' ×' + r.qty + 'шт') };
-      });
-    form.fillField('purchase_id', avail, 'id', 'name', 'Выбрать товар...');
+    if (mode === 'view') {
+      // Block 2 — атрибуты из закупки
+      if (rec && rec.template_id) _sUpdateBlock2(rec);
+      return;
+    }
+    // edit/create
+    form._selectedPurchase = null;
+    form._selectedCost = 0;
     form.fillField('manager_id', ST.refs.managers, 'id', 'name', '—');
     form.fillField('wallet_id', ST.wallets, 'id', 'name', '—');
     if (mode === 'create') {
       var d = document.getElementById(form.id + '-sale_date');
       if (d) d.value = today();
     }
+    _sCalcProfit(form);
     _sCalcDebt(form);
+
+    // Закрываем дропдаун при клике вне
+    document.addEventListener('click', function _closeDD(e) {
+      var dd = document.getElementById('mfSale-imei-dd');
+      if (dd && !e.target.closest('.imei-srch')) dd.style.display = 'none';
+    }, { once: false });
   }
 });
 
@@ -128,9 +306,9 @@ function _sDTinit() {
     addLabel: '+ Продажа', onAdd: function() { saleForm.openCreate(); },
     onRowClick: function(r) { saleForm.openView(r); },
     filters: [
-      { key: 'mgr_id',  label: 'Менеджер', type: 'select', getOptions: function() { return ST.refs.managers; } },
-      { key: 'brand',   label: 'Бренд',    type: 'select', getOptions: function() { return ST.refs.brands; } },
-      { key: 'status',  label: 'Статус',   type: 'select',
+      { key: 'mgr_id',   label: 'Менеджер', type: 'select', getOptions: function() { return ST.refs.managers; } },
+      { key: 'class_id', label: 'Класс',    type: 'select', getOptions: function() { return ST.refs.classes; } },
+      { key: 'status',   label: 'Статус',   type: 'select',
         options: ['Оплачено', 'Долг'], emptyLabel: 'Все' },
       { key: 'dateFrom', label: 'Дата от', type: 'date' },
       { key: 'dateTo',   label: 'Дата до', type: 'date' }
@@ -138,16 +316,21 @@ function _sDTinit() {
     onFilter: function() { loadSales(); },
     cols: [
       { key: 'sale_date',    label: 'Дата',      w: '84px', render: function(v) { return fmtD(v); } },
-      { key: 'brand_name',   label: 'Бренд' },
-      { key: 'model_name',   label: 'Модель' },
+      { key: 'product_name', label: 'Товар' },
       { key: 'class_name',   label: 'Класс',  sortable: false },
       { key: 'type_name',    label: 'Тип',    sortable: false },
       { key: 'buyer',        label: 'Покупатель' },
-      { key: 'total_kgs',    label: 'Сумма ₸',   align: 'right', mono: true,
+      { key: 'cost_kgs',     label: 'Себест. ₸', align: 'right', mono: true,
+        render: function(v) { return '<span class="muted">' + fmtN(v) + '₸</span>'; }
+      },
+      { key: 'total_kgs',    label: 'Цена ₸',    align: 'right', mono: true,
         render: function(v) { return '<span class="fw7">' + fmtN(v) + '₸</span>'; }
       },
-      { key: 'paid_kgs',     label: 'Оплачено',  align: 'right', mono: true,
-        render: function(v) { return '<span class="tg">' + fmtN(v) + '₸</span>'; }
+      { key: 'profit_kgs',   label: 'Прибыль',   align: 'right', mono: true,
+        render: function(v) {
+          var cls = +v >= 0 ? 'tg' : 'tr';
+          return '<span class="' + cls + ' fw7">' + fmtN(v) + '₸</span>';
+        }
       },
       { key: 'debt_kgs',     label: 'Долг ₸',    align: 'right', mono: true,
         render: function(v) { return +v > 0 ? '<span class="tr fw7">' + fmtN(v) + '₸</span>' : '—'; }
@@ -162,7 +345,7 @@ async function loadSales() {
   var fp = _sDT ? (_sDT._fpValues || {}) : {};
   var d  = await api('getSales', {
     mgr_id:   fp.mgr_id   || '',
-    brand_id: fp.brand    || '',
+    class_id: fp.class_id || '',
     status:   fp.status   || '',
     dateFrom: fp.dateFrom || '',
     dateTo:   fp.dateTo   || ''
@@ -171,5 +354,3 @@ async function loadSales() {
   _sDTinit().setData(d.rows || []);
 }
 </script>
-
-

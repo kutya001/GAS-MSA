@@ -4,29 +4,51 @@
 // ══════════════════════════════════════════════════════════════════════
 function getSales(p) {
   try {
-    var bMap   = _buildMap(SH.BRANDS,   'id', 'name');
-    var mMap   = _buildMap(SH.MODELS,   'id', 'name');
     var mgMap  = _buildMap(SH.MANAGERS, 'id', 'name');
     var wMap   = _buildMap(SH.WALLETS,  'id', 'name');
+    var whMap  = _buildMap(SH.WAREHOUSES, 'id', 'name');
     var clMap  = _buildMap(SH.CLASSES,    'id', 'name');
     var tpMap  = _buildMap(SH.PROD_TYPES, 'id', 'name');
     var prMap  = _buildMap(SH.PURPOSES,   'id', 'name');
+
+    // Карта продуктов MDM
+    var prodMap = {};
+    _rows(SH.MDM_PRODUCTS).forEach(function(r) {
+      var av = {};
+      try { av = JSON.parse(r.attribute_values || '{}'); } catch(e) {}
+      prodMap[parseInt(r.id)] = { name: r.name || '', sku: r.sku || '', template_id: parseInt(r.template_id) || 0, attribute_values: av };
+    });
+
     var purMap = {};
     _rows(SH.PURCHASES).forEach(function(r){ purMap[parseInt(r.id)] = r; });
 
     var rows = _rows(SH.SALES)
       .filter(function(r){ return r.id; })
       .map(function(r) {
-        var pur = purMap[parseInt(r.purchase_id)] || {};
+        var pur  = purMap[parseInt(r.purchase_id)] || {};
+        var prod = prodMap[parseInt(pur.product_id)] || {};
+        var hasImei = (pur.has_imei === 'TRUE' || pur.has_imei === true || pur.has_imei === 1);
+        var costKgs = parseFloat(pur.cost_kgs) || 0;
+        var totalKgs = parseFloat(r.total_kgs) || 0;
         return {
           id:           parseInt(r.id),
           purchase_id:  parseInt(r.purchase_id)  || 0,
-          brand_name:   bMap[parseInt(pur.brand_id)]  || '',
-          model_name:   mMap[parseInt(pur.model_id)]  || '',
-          spec:         pur.spec       || '',
+          product_name: prod.name || '',
+          product_sku:  prod.sku  || '',
+          class_id:     parseInt(pur.class_id)   || 0,
+          type_id:      parseInt(pur.type_id)    || 0,
+          purpose_id:   parseInt(pur.purpose_id) || 0,
           class_name:   clMap[parseInt(pur.class_id)]   || '',
           type_name:    tpMap[parseInt(pur.type_id)]    || '',
           purpose_name: prMap[parseInt(pur.purpose_id)] || '',
+          has_imei:     hasImei,
+          imei:         hasImei ? (pur.imei || '') : '',
+          cost_kgs:     costKgs,
+          cost_usd:     parseFloat(pur.cost_usd) || 0,
+          profit_kgs:   totalKgs - costKgs,
+          wh_name:      whMap[parseInt(pur.wh_id)] || '',
+          template_id:  prod.template_id || 0,
+          attribute_values: prod.attribute_values || {},
           buyer:        r.buyer        || '',
           wa:           r.wa           || '',
           sale_date:    r.sale_date    || '',
@@ -34,7 +56,7 @@ function getSales(p) {
           manager_name: mgMap[parseInt(r.manager_id)] || '',
           wallet_id:    parseInt(r.wallet_id)    || 0,
           wallet_name:  wMap[parseInt(r.wallet_id)]   || '',
-          total_kgs:    parseFloat(r.total_kgs)  || 0,
+          total_kgs:    totalKgs,
           paid_kgs:     parseFloat(r.paid_kgs)   || 0,
           debt_kgs:     parseFloat(r.debt_kgs)   || 0,
           note:         r.note || '',
@@ -43,9 +65,10 @@ function getSales(p) {
 
     if (p) {
       if (p.mgr_id && parseInt(p.mgr_id)) rows = rows.filter(function(r){ return r.manager_id === parseInt(p.mgr_id); });
-      if (p.brand_id && parseInt(p.brand_id)) {
+      if (p.class_id && parseInt(p.class_id)) {
+        var fClass = parseInt(p.class_id);
         rows = rows.filter(function(r){
-          return parseInt((purMap[r.purchase_id] || {}).brand_id) === parseInt(p.brand_id);
+          return parseInt((purMap[r.purchase_id] || {}).class_id) === fClass;
         });
       }
       if (p.status === 'Оплачено') rows = rows.filter(function(r){ return r.debt_kgs <= 0; });

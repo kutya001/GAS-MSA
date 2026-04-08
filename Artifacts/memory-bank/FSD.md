@@ -77,14 +77,19 @@
 ## 5. Закупки
 
 ### Закупки (`Закупки`)
-- id, brand_id, model_id, spec, color, wh_id
-- supplier_id, has_imei, imei, qty, condition
-- purchase_date, cost_usd, rate, cost_kgs (вычисляемое)
+- id, purchase_date, wh_id, supplier_id
+- cost_usd, rate, cost_kgs (вычисляемое)
+- has_imei, imei, qty, condition
+- class_id, type_id, purpose_id, **product_id** → MDM_Номенклатура
 - status (В наличии / Продано / Удалено)
-- note, class_id, type_id, purpose_id, created_at
+- note, created_at
+
+### Оплаты по закупкам (`ОплатыЗакупок`)
+- id, purchase_id, wallet_id, amount, pay_date, note, created_at
 
 ### API
 - `getPurchases(p)`, `addPurchase(p)`, `updatePurchase(p)`, `deletePurchase(p)`, `getStock(p)`
+- `getPurchasePayments(p)`, `addPurchasePayment(p)`
 
 ---
 
