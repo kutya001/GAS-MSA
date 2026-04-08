@@ -136,9 +136,27 @@ CHUNK = 80000        — размер чанка кэша (байт)
   - Ручной: каскад Class → Type → Template; `_sUpdateBlock2Manual(tpl)` рендерит характеристики.
   - Рассрочка (`is_installment`): скрывает wallet_id/paid_kgs, debt = полная цена.
 
-### 6.4 FormEngine — showIf-aware валидация
+### 6.4 FormEngine — движок форм
 
-`FormEngine._save()` пропускает required-проверку для полей, у которых `showIf` возвращает `false`. Это позволяет скрывать обязательные поля условно (например, wallet_id при рассрочке).
+Класс `MainForm` (`FormEngine.html`), реестр `MF_INST[id]`.
+
+**Жизненный цикл формы:**
+1. `openView/openEdit/openCreate` → `_ensureBuilt()` → `_render()` → `openM(id)`
+2. В edit/create: `afterMount()` → `setTimeout(() => _initSnap = _gatherValues())` (снимок после хуков)
+3. Закрытие: `tryClose()` → dirty-check → `close()` или `_showUnsavedDialog()`
+4. Сохранение: `_save()` → валидация → `close()` → `await onSave()` (фоново)
+
+**Ключевые механизмы:**
+- **Бейдж режима**: `.mf-badge` + `.mf-badge-create/edit/view` в `.mh`
+- **Drag-safe overlay**: `mousedown` + `mouseup` оба на `.ov` (не `click`)
+- **Unsaved changes**: `_initSnap` → `_hasChanges()` → `_highlightChanged()` (`.mf-changed`) → `_showUnsavedDialog()` (`.mf-unsaved-ov`)
+- **Background sync**: `_save()` вызывает `close()` ДО `onSave()`; `_delete()` аналогично
+- **showIf-aware required**: `_save()` пропускает required для полей с `showIf=false`
+- **Стандартные кнопки**: View → Удалить|spacer|Закрыть|Редактировать; Edit/Create → Отмена|Сохранить
+
+**Toast-уведомления**: верхний правый угол (`top:16px;right:14px`), 4 типа: s/e/i/w.
+
+**Escape/overlay**: ScriptHelpers Escape-handler роутит через `MF_INST[id].tryClose()`; глобальный click-overlay удалён.
 
 ## 7. Деплой
 
@@ -154,3 +172,4 @@ clasp deploy  — публикация Web App
 | 2026-04-08 | Первоначальное создание на основе кодовой базы |
 | 2026-04-08 | Добавлены: CUR-переменная, сворачиваемый сайдбар, каскады форм Закупок/Продаж |
 | 2026-04-08 | Закупки: _pAutoFillAttrs; Продажи: рассрочка is_installment; FormEngine: showIf-aware валидация |
+| 2026-04-08 | FormEngine rewrite: бейдж режима, drag-safe overlay, unsaved changes, background sync, toast top-right, стандартные кнопки |

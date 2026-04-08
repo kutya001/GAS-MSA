@@ -210,7 +210,7 @@ tfoot td{padding:9px 12px;font-size:.78rem;font-weight:700;background:var(--bg2)
 .al-w{background:var(--ambg);color:var(--am);border:1px solid rgba(160,80,0,.2)}
 .al-i{background:var(--blbg);color:var(--bl);border:1px solid rgba(16,72,160,.2)}
 .al-s{background:var(--gnbg);color:var(--gn);border:1px solid rgba(26,96,64,.2)}
-.toast-wrap{position:fixed;bottom:16px;right:14px;z-index:900;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.toast-wrap{position:fixed;top:16px;right:14px;z-index:900;display:flex;flex-direction:column;gap:5px;pointer-events:none}
 .toast{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:11px 15px;display:flex;align-items:center;gap:9px;min-width:240px;max-width:360px;box-shadow:var(--s3);font-size:.82rem;pointer-events:all;animation:tIn .18s var(--ez);line-height:1.4}
 @keyframes tIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 .toast.ts{border-left:3px solid var(--gn)}.toast.te{border-left:3px solid var(--rd)}.toast.ti{border-left:3px solid var(--bl)}.toast.tw{border-left:3px solid var(--am)}
@@ -379,6 +379,22 @@ body.locked{overflow:hidden}
 .mf-cnt .fg2{gap:8px 12px}
 .mf-di{background:var(--bg2);border-color:var(--bdr);color:var(--tx2)}
 .mf-foot{justify-content:flex-end;gap:6px}
+/* ── mode badge ────────────────────────────────────────── */
+.mf-badge{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:var(--r1);line-height:1.5;flex-shrink:0}
+.mf-badge-create{background:var(--gnbg);color:var(--gn)}
+.mf-badge-edit{background:var(--ambg);color:var(--am)}
+.mf-badge-view{background:var(--blbg);color:var(--bl)}
+/* ── changed field highlight ──────────────────────────── */
+.mf-changed{position:relative}
+.mf-changed::before{content:'';position:absolute;inset:-2px -4px;border-radius:var(--r1);border:2px solid var(--am);pointer-events:none;animation:mfPulse .6s ease-out}
+@keyframes mfPulse{from{box-shadow:0 0 0 4px rgba(160,80,0,.25)}to{box-shadow:0 0 0 0 transparent}}
+/* ── unsaved changes dialog ───────────────────────────── */
+.mf-unsaved-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:ovIn .12s var(--ez)}
+.mf-unsaved{background:var(--surf);border-radius:var(--r2);padding:28px 24px 20px;max-width:380px;width:90%;text-align:center;box-shadow:var(--s4);border:1px solid var(--bdr);animation:mUp .18s var(--ez)}
+.mf-unsaved-ico{font-size:2rem;margin-bottom:8px}
+.mf-unsaved-title{font-size:.92rem;font-weight:800;color:var(--tx);margin-bottom:6px}
+.mf-unsaved-msg{font-size:.78rem;color:var(--tx2);line-height:1.5;margin-bottom:16px}
+.mf-unsaved-btns{display:flex;gap:8px;justify-content:center}
 /* ── payments inline table ──────────────────────────────────── */
 .pay-tbl{width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:8px}
 .pay-tbl th{text-align:left;font-size:.68rem;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;padding:5px 6px;border-bottom:2px solid var(--bdr)}

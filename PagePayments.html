@@ -26,6 +26,7 @@ var paymentForm = new MainForm({
   ],
   validate: function(values, form) {
     var ctx = form._rec;
+    if (!ctx || !ctx.sale_id) return 'Нет ID продажи';
     if (ctx && +values.amount > (+ctx._debt + 0.01)) {
       return 'Сумма превышает остаток долга (' + fmtN(ctx._debt) + ' ' + CUR + ')';
     }
@@ -33,7 +34,6 @@ var paymentForm = new MainForm({
   },
   onSave: async function(values, editId) {
     var ctx = paymentForm._rec;
-    if (!ctx || !ctx.sale_id) { toast('Нет ID продажи', 'e'); throw new Error(''); }
     await api('addPayment', {
       sale_id:   ctx.sale_id,
       amount:    +values.amount,

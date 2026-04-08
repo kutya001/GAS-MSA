@@ -359,17 +359,25 @@ var saleForm = new MainForm({
       }
     },
   ],
+  validate: function(values, form) {
+    var hasImei = !!values.has_imei;
+    var purchaseId = document.getElementById('mfSale-purchase_id');
+    var pid = purchaseId ? parseInt(purchaseId.value) : 0;
+    if (hasImei && !pid) return 'Выберите товар (IMEI)';
+    var price = +values.total_kgs || 0;
+    var isInstallment = !!values.is_installment;
+    var paid = isInstallment ? 0 : (+values.paid_kgs || 0);
+    if (paid > price) return 'Оплата не может превышать цену';
+    return null;
+  },
   onSave: async function(values, editId) {
-    var form = saleForm;
     var hasImei = !!values.has_imei;
     var isInstallment = !!values.is_installment;
     var purchaseId = document.getElementById('mfSale-purchase_id');
     var pid = purchaseId ? parseInt(purchaseId.value) : 0;
-    if (hasImei && !pid) { toast('Выберите товар (IMEI)', 'e'); throw new Error(''); }
 
     var price = +values.total_kgs || 0;
     var paid = isInstallment ? 0 : (+values.paid_kgs || 0);
-    if (paid > price) { toast('Оплата не может превышать цену', 'e'); throw new Error(''); }
 
     var data = {
       purchase_id: pid || null,

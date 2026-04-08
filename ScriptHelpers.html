@@ -263,8 +263,17 @@ function applySidebarState(){
 // ════════════════════════════════════════════════════════════════
 function openM(id){document.getElementById(id).classList.add('open');document.body.classList.add('locked')}
 function closeM(id){document.getElementById(id).classList.remove('open');document.body.classList.remove('locked')}
-document.addEventListener('click',e=>{if(e.target.classList.contains('ov')) closeM(e.target.id)});
-document.addEventListener('keydown',e=>{if(e.key==='Escape') document.querySelectorAll('.ov.open').forEach(o=>closeM(o.id))});
+// Overlay click moved to FormEngine (mousedown+mouseup drag-safe).
+// Non-FormEngine modals keep close-on-click via their own handler.
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    var ovs=document.querySelectorAll('.ov.open');
+    if(!ovs.length) return;
+    var last=ovs[ovs.length-1];
+    if(MF_INST && MF_INST[last.id]){MF_INST[last.id].tryClose();return;}
+    closeM(last.id);
+  }
+});
 
 // ════════════════════════════════════════════════════════════════
 //  THEME

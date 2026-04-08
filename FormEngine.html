@@ -36,7 +36,9 @@
 //   calcInit    — начальное значение для calc-отображения
 //   renderView  — function(value, rec) -> html (просмотр)
 //   onChange    — function(value, form) вызывается при изменении поля
-//   showIf      — function(form) -> bool (скрываем строку если false)  //   renderEdit  — function(rec, form) -> html (кастомный контейнер в edit)// ════════════════════════════════════════════════════════════════
+//   showIf      — function(form) -> bool (скрываем строку если false)
+//   renderEdit  — function(rec, form) -> html (кастомный контейнер в edit)
+// ════════════════════════════════════════════════════════════════
 
 class MainForm {
   constructor(cfg) {
@@ -45,6 +47,8 @@ class MainForm {
     this._mode  = null;   // 'view' | 'edit' | 'create'
     this._rec   = null;   // текущая запись
     this._built = false;
+    this._initSnap = {};  // снимок значений при открытии (для отслеживания изменений)
+    this._ovMouseTarget = null; // для drag-fix бага закрытия по оверлею
     MF_INST[cfg.id] = this;
   }
 
@@ -76,6 +80,14 @@ class MainForm {
   }
 
   close() { closeM(this.id); }
+
+  /** Попытка закрыть форму — с проверкой несохранённых изменений */
+  tryClose() {
+    if (this._mode === 'view') { this.close(); return; }
+    if (!this._hasChanges()) { this.close(); return; }
+    this._highlightChanged();
+    this._showUnsavedDialog();
+  }
 
   // Получить значение поля (из DOM в режиме edit/create)
   getVal(key) {
@@ -115,14 +127,22 @@ class MainForm {
     el.id        = this.id;
     el.innerHTML =
       '<div class="modal' + (this.cfg.size === 'lg' ? ' modal-lg' : '') + '">' +
-      '<div class="mh"><h2 class="mf-t"></h2>' +
-      '<button class="mclose" onclick="MF_INST[\'' + this.id + '\'].close()">✕</button></div>' +
+      '<div class="mh">' +
+        '<span class="mf-badge"></span>' +
+        '<h2 class="mf-t"></h2>' +
+        '<button class="mclose" onclick="MF_INST[\'' + this.id + '\']._onCloseBtn()">✕</button>' +
+      '</div>' +
       '<div class="mf-vb mbody" style="display:none"></div>' +
       '<div class="mf-eb mbody" style="display:none"></div>' +
       '<div class="mf-foot mfoot"></div>' +
       '</div>';
+    // ── drag-safe overlay close: mousedown MUST start on overlay ──
     var self = this;
-    el.addEventListener('click', function(e) { if (e.target === el) self.close(); });
+    el.addEventListener('mousedown', function(e) { self._ovMouseTarget = e.target; });
+    el.addEventListener('mouseup', function(e) {
+      if (e.target === el && self._ovMouseTarget === el) self.tryClose();
+      self._ovMouseTarget = null;
+    });
     document.body.appendChild(el);
     this._built = true;
   }
@@ -130,8 +150,13 @@ class MainForm {
   _render() {
     var el = document.getElementById(this.id);
     if (!el) return;
-    // Заголовок
+    // Заголовок и бейдж режима
     el.querySelector('.mf-t').textContent = this._title();
+    var badge = el.querySelector('.mf-badge');
+    var modeText = this._mode === 'create' ? 'Создание' : this._mode === 'edit' ? 'Редактирование' : 'Просмотр';
+    var modeClass = 'mf-badge mf-badge-' + this._mode;
+    badge.className = modeClass;
+    badge.textContent = modeText;
     // Тело
     if (this._mode === 'view') {
       el.querySelector('.mf-vb').innerHTML      = this._viewHtml();
@@ -148,14 +173,87 @@ class MainForm {
     if (this._mode !== 'view') this.refreshVis();
     // Внешний хук
     if (this.cfg.afterMount) this.cfg.afterMount(this._mode, this._rec, this);
+    // Снимок начальных значений (после afterMount, который может заполнять поля)
+    if (this._mode !== 'view') {
+      var self = this;
+      setTimeout(function() { self._initSnap = self._gatherValues(); }, 0);
+    }
   }
 
   _title() {
     var base = this.cfg.title || '';
     if (typeof base === 'function') return base(this._rec, this._mode);
-    if (this._mode === 'create') return 'Новая запись: ' + base;
-    if (this._mode === 'edit')   return 'Редактировать: ' + base;
     return base;
+  }
+
+  // ── отслеживание несохранённых изменений ─────────────────────
+
+  _hasChanges() {
+    var cur = this._gatherValues();
+    var snap = this._initSnap;
+    for (var k in cur) {
+      if (String(cur[k] != null ? cur[k] : '') !== String(snap[k] != null ? snap[k] : '')) return true;
+    }
+    return false;
+  }
+
+  _getChangedKeys() {
+    var cur = this._gatherValues();
+    var snap = this._initSnap;
+    var keys = [];
+    for (var k in cur) {
+      if (String(cur[k] != null ? cur[k] : '') !== String(snap[k] != null ? snap[k] : '')) keys.push(k);
+    }
+    return keys;
+  }
+
+  _highlightChanged() {
+    var self = this;
+    // Clear old highlights
+    var el = document.getElementById(this.id);
+    if (el) el.querySelectorAll('.mf-changed').forEach(function(n) { n.classList.remove('mf-changed'); });
+    var changed = this._getChangedKeys();
+    changed.forEach(function(k) {
+      var row = document.getElementById(self.id + '-row-' + k);
+      if (row) row.classList.add('mf-changed');
+    });
+  }
+
+  _showUnsavedDialog() {
+    var self = this;
+    // Remove existing dialog
+    var old = document.getElementById(this.id + '-unsaved');
+    if (old) old.remove();
+    var div = document.createElement('div');
+    div.id = this.id + '-unsaved';
+    div.className = 'mf-unsaved-ov';
+    div.innerHTML =
+      '<div class="mf-unsaved">' +
+        '<div class="mf-unsaved-ico">⚠️</div>' +
+        '<div class="mf-unsaved-title">Несохранённые данные</div>' +
+        '<div class="mf-unsaved-msg">Есть изменения, которые не были сохранены. При закрытии данные будут потеряны.</div>' +
+        '<div class="mf-unsaved-btns">' +
+          '<button class="btn btn-rd btn-sm" id="' + this.id + '-unsaved-discard">Отменить изменения</button>' +
+          '<button class="btn btn-p btn-sm" id="' + this.id + '-unsaved-save">Сохранить изменения</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(div);
+    document.getElementById(this.id + '-unsaved-discard').onclick = function() {
+      div.remove();
+      self.close();
+    };
+    document.getElementById(this.id + '-unsaved-save').onclick = function() {
+      div.remove();
+      self._save();
+    };
+    // Close dialog on click outside
+    div.addEventListener('mousedown', function(e) {
+      if (e.target === div) div.remove();
+    });
+  }
+
+  _onCloseBtn() {
+    this.tryClose();
   }
 
   // ── view mode ────────────────────────────────────────────────
@@ -342,7 +440,7 @@ class MainForm {
     var id = this.id;
 
     if (this._mode === 'view') {
-      // Кнопка удаления
+      // Кнопка удаления — слева
       var delBtn = '';
       if (this.cfg.onDelete) {
         var canDel = !this.cfg.canDelete || (this._rec && this.cfg.canDelete(this._rec));
@@ -369,11 +467,8 @@ class MainForm {
              editBtn;
     }
 
-    // edit / create
-    var backFn = this._mode === 'edit'
-      ? 'MF_INST[\'' + id + '\'].openView(MF_INST[\'' + id + '\']._rec)'
-      : 'MF_INST[\'' + id + '\'].close()';
-    return '<button class="btn btn-g" onclick="' + backFn + '">Отмена</button>' +
+    // edit / create — стандартные кнопки: Отмена + Сохранить
+    return '<button class="btn btn-g" onclick="MF_INST[\'' + id + '\'].tryClose()">Отмена</button>' +
            '<button class="btn btn-p" onclick="MF_INST[\'' + id + '\']._save()">💾 Сохранить</button>';
   }
 
@@ -411,19 +506,20 @@ class MainForm {
       var err = this.cfg.validate(values, this);
       if (err) { toast(err, 'e'); return; }
     }
-    try {
-      var editId = this._mode === 'edit' ? (this._rec && this._rec.id) : null;
-      await this.cfg.onSave(values, editId);
-    } catch(e) { return; }
+    // Закрываем форму сразу, синхронизация фоном
+    var editId = this._mode === 'edit' ? (this._rec && this._rec.id) : null;
     this.close();
+    try {
+      await this.cfg.onSave(values, editId);
+    } catch(e) { /* onSave сам показывает ошибки через toast */ }
   }
 
   async _delete() {
     if (!confirm('Удалить запись?')) return;
+    this.close();
     try {
       await this.cfg.onDelete(this._rec.id);
     } catch(e) { return; }
-    this.close();
   }
 }
 
