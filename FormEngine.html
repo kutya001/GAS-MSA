@@ -395,9 +395,12 @@ class MainForm {
 
   async _save() {
     var values  = this._gatherValues();
-    // Валидация обязательных полей
+    // Валидация обязательных полей (пропускаем скрытые через showIf)
+    var self = this;
     var missing = this.cfg.fields.filter(function(f) {
-      return f.required && !f.viewOnly && !values[f.key] && values[f.key] !== 0;
+      if (!f.required || f.viewOnly) return false;
+      if (f.showIf && !f.showIf(self)) return false;
+      return !values[f.key] && values[f.key] !== 0;
     });
     if (missing.length) {
       toast('Заполните поля: ' + missing.map(function(f) { return f.label; }).join(', '), 'e');

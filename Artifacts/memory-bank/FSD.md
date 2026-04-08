@@ -87,6 +87,7 @@
 Класс → Тип → **Назначение** (template_id, select) → **Номенклатура** (product_id, select).
 - `_pUpdateTemplates(form)` — фильтрует шаблоны по class_id + type_id, заполняет select template_id.
 - `_pUpdateProducts(form)` — фильтрует номенклатуру по template_id, заполняет select product_id.
+- `_pAutoFillAttrs(form)` — при выборе продукта подтягивает его `attribute_values` в блок характеристик.
 - `_findTemplateById(tplId)` — поиск шаблона по ID (заменил `_findPurchaseTemplate`).
 
 ### Оплаты по закупкам (`ОплатыЗакупок`)
@@ -102,7 +103,7 @@
 
 ### Продажи (`Продажи`)
 - id, purchase_id, buyer, wa, sale_date, manager_id, wallet_id
-- has_imei, class_id, type_id, template_id
+- has_imei, **is_installment**, class_id, type_id, template_id
 - total_kgs, paid_kgs, **debt_kgs** (materialized)
 - note, created_at
 
@@ -110,6 +111,9 @@
 Полем `has_imei` (чекбокс) выбирается режим:
 1. **IMEI-режим** (has_imei = true): IMEI-поиск → привязка purchase_id → авто-заполнение и блокировка Class/Type/Template (`_sAutoFillSelects(pur)`).
 2. **Ручной режим** (has_imei = false): каскад Class→Type→Template; пользователь выбирает шаблон вручную, рендерятся редактируемые характеристики (`_sUpdateBlock2Manual(tpl)`).
+
+### Рассрочка
+Чекбокс `is_installment` в блоке «💰 Оплата»: при включении поля `wallet_id` и `paid_kgs` скрываются (не обязательны), `debt_kgs = total_kgs`. Оплата производится позже через модуль Оплаты (Payments).
 
 Каскадные операции при создании продажи:
 1. Обновление статуса закупки → «Продано»
@@ -189,3 +193,4 @@ string, integer, float, boolean, date, time, datetime, color_rgb, enum_radio, en
 | 2026-04-08 | Первоначальное создание FSD на основе существующей кодовой базы |
 | 2026-04-08 | Удаление Ref_Назначения: 8→7 справочников, purpose_id удалён из Закупок и MDM_Шаблонов |
 | 2026-04-08 | Закупки: каскад template_id(Назначение)→product_id(Номенклатура); Продажи: двойной режим IMEI/ручной; Настройки: base_currency → CUR |
+| 2026-04-08 | Закупки: `_pAutoFillAttrs` — авто-заполнение характеристик из MDM; Продажи: рассрочка `is_installment` |

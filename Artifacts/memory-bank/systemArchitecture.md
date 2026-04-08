@@ -130,10 +130,15 @@ CHUNK = 80000        — размер чанка кэша (байт)
 ### 6.3 Каскады форм
 
 Шаблон каскадного заполнения select'ов через `FormEngine.fillField()`:
-- **Закупки**: Класс → Тип → Назначение (`template_id`) → Номенклатура (`product_id`). Хелперы: `_pUpdateTemplates()`, `_pUpdateProducts()`, `_findTemplateById()`.
+- **Закупки**: Класс → Тип → Назначение (`template_id`) → Номенклатура (`product_id`). Хелперы: `_pUpdateTemplates()`, `_pUpdateProducts()`, `_pAutoFillAttrs()`, `_findTemplateById()`. При выборе продукта характеристики авто-заполняются из MDM.
 - **Продажи**: Двойной режим через `has_imei`:
   - IMEI-режим: `_sAutoFillSelects(pur)` заполняет и блокирует Class/Type/Template.
   - Ручной: каскад Class → Type → Template; `_sUpdateBlock2Manual(tpl)` рендерит характеристики.
+  - Рассрочка (`is_installment`): скрывает wallet_id/paid_kgs, debt = полная цена.
+
+### 6.4 FormEngine — showIf-aware валидация
+
+`FormEngine._save()` пропускает required-проверку для полей, у которых `showIf` возвращает `false`. Это позволяет скрывать обязательные поля условно (например, wallet_id при рассрочке).
 
 ## 7. Деплой
 
@@ -148,3 +153,4 @@ clasp deploy  — публикация Web App
 |------|-----------|
 | 2026-04-08 | Первоначальное создание на основе кодовой базы |
 | 2026-04-08 | Добавлены: CUR-переменная, сворачиваемый сайдбар, каскады форм Закупок/Продаж |
+| 2026-04-08 | Закупки: _pAutoFillAttrs; Продажи: рассрочка is_installment; FormEngine: showIf-aware валидация |

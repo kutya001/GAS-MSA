@@ -205,6 +205,20 @@ function _pUpdateProducts(form) {
   _pUpdateBlock2(form, null);
 }
 
+// ── авто-заполнение характеристик из выбранного продукта ────────
+function _pAutoFillAttrs(form) {
+  var prodId = parseInt(form.getVal('product_id')) || 0;
+  if (!prodId) return;
+  var prods = (ST.mdm && ST.mdm.products) ? ST.mdm.products : [];
+  var prod = null;
+  for (var i = 0; i < prods.length; i++) {
+    if (prods[i].id === prodId) { prod = prods[i]; break; }
+  }
+  if (!prod) return;
+  var vals = prod.attribute_values || {};
+  _pUpdateBlock2(form, vals);
+}
+
 // ── форма закупки ────────────────────────────────────────────────
 var purchaseForm = new MainForm({
   id:    'mfPurchase',
@@ -278,6 +292,9 @@ var purchaseForm = new MainForm({
     },
     { key: 'product_id', label: 'Номенклатура (MDM)', type: 'select',
       getOptions: function() { return []; },
+      onChange: function(v, f) {
+        _pAutoFillAttrs(f);
+      },
       renderView: function(v, r) {
         return r.product_name ? '<span class="fw7">' + esc(r.product_name) + '</span>' : '<span class="muted">—</span>';
       }

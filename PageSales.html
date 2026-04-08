@@ -26,7 +26,8 @@ function _sCalcProfit(form) {
 // ── расчёт долга ─────────────────────────────────────────────────
 function _sCalcDebt(form) {
   var price = parseFloat(form.getVal('total_kgs')) || 0;
-  var paid  = parseFloat(form.getVal('paid_kgs'))  || 0;
+  var isInstallment = !!form.getVal('is_installment');
+  var paid  = isInstallment ? 0 : (parseFloat(form.getVal('paid_kgs')) || 0);
   form.setCalc('_debt', fmtN(Math.max(0, price - paid)) + ' ' + CUR);
 }
 
@@ -332,11 +333,20 @@ var saleForm = new MainForm({
 
     // ═══ BLOCK 3 — Оплата ═══
     { key: '_b3', label: '💰 Оплата', type: 'group' },
+    { key: 'is_installment', label: '📅 Рассрочка (оплата позже)', type: 'checkbox', span: 2,
+      default: false,
+      onChange: function(v, f) { f.refreshVis(); },
+      renderView: function(v) {
+        return v ? '<span class="badge ba">Рассрочка</span>' : '<span class="badge bg">Полная оплата</span>';
+      }
+    },
     { key: 'wallet_id', label: 'Кошелёк оплаты', type: 'select', required: true,
+      showIf: function(f) { return !f.getVal('is_installment'); },
       getOptions: function() { return ST.wallets; },
       renderView: function(v, r) { return esc(r.wallet_name || '—'); }
     },
     { key: 'paid_kgs', label: 'Оплачено сейчас KGS', type: 'number', min: 0, default: 0,
+      showIf: function(f) { return !f.getVal('is_installment'); },
       onChange: function(v, f) { _sCalcDebt(f); },
       renderView: function(v) { return '<span class="mono tg">' + fmtN(v) + ' ' + CUR + '</span>'; }
     },
@@ -352,11 +362,13 @@ var saleForm = new MainForm({
   onSave: async function(values, editId) {
     var form = saleForm;
     var hasImei = !!values.has_imei;
+    var isInstallment = !!values.is_installment;
     var purchaseId = document.getElementById('mfSale-purchase_id');
     var pid = purchaseId ? parseInt(purchaseId.value) : 0;
     if (hasImei && !pid) { toast('Выберите товар (IMEI)', 'e'); throw new Error(''); }
 
-    var price = +values.total_kgs || 0, paid = +values.paid_kgs || 0;
+    var price = +values.total_kgs || 0;
+    var paid = isInstallment ? 0 : (+values.paid_kgs || 0);
     if (paid > price) { toast('Оплата не может превышать цену', 'e'); throw new Error(''); }
 
     var data = {
@@ -365,11 +377,12 @@ var saleForm = new MainForm({
       sale_date: values.sale_date,
       manager_id: +values.manager_id,
       has_imei: hasImei,
+      is_installment: isInstallment,
       class_id: +values.class_id || null,
       type_id: +values.type_id || null,
       template_id: +values.template_id || null,
       total_kgs: price, paid_kgs: paid, debt_kgs: price - paid,
-      wallet_id: +values.wallet_id,
+      wallet_id: isInstallment ? null : +values.wallet_id,
       note: values.note
     };
     await api('addSale', data);
