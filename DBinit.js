@@ -25,13 +25,15 @@ function initDB() {
   if (defaultSheet && ss.getSheets().length > 1) ss.deleteSheet(defaultSheet);
 
   Logger.log('✅ initDB() завершён! Листов: ' + ss.getSheets().length);
-  SpreadsheetApp.getUi().alert(
-    '✅ МобилТрек Pro v3.0 инициализирован!\n\n' +
-    'Листов создано: ' + ss.getSheets().length + '\n' +
-    'Демо-данные залиты.\n' +
-    'Materialized-балансы пересчитаны.\n\n' +
-    'Перейдите: Развернуть → Управление развёртываниями.'
-  );
+  try {
+    SpreadsheetApp.getUi().alert(
+      '✅ МобилТрек Pro v3.0 инициализирован!\n\n' +
+      'Листов создано: ' + ss.getSheets().length + '\n' +
+      'Демо-данные залиты.\n' +
+      'Materialized-балансы пересчитаны.\n\n' +
+      'Перейдите: Развернуть → Управление развёртываниями.'
+    );
+  } catch(e) { /* UI недоступен при запуске из триггера / clasp run */ }
 }
 
 // ──────────────────────────────────────────────────────────────────────
