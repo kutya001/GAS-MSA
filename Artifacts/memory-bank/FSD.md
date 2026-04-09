@@ -259,6 +259,12 @@ Overlay-клик проверяет `mousedown` + `mouseup`: оба должны
 ### Доступ
 URL: `WEBAPP_URL?p=catalog`. Маршрутизация в `doGet(e)` WebApp.js.
 
+Навигация двусторонняя:
+- Admin → PhoneMarket: кнопка «Каталог PhoneMarket ↗» в сайдбаре
+- PhoneMarket → Admin: кнопка «← Панель управления» в header
+
+URL деплоя передаётся через `ScriptApp.getService().getUrl()` → GAS template `webAppUrl` → `WEBAPP_URL` (в iframe `location.href` — URL песочницы, не деплоя).
+
 ### Бэкенд API
 `getPublicCatalog()` (MDM.js) — денормализованные данные:
 - **classes**: `[{id, name}]`

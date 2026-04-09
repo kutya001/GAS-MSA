@@ -192,6 +192,14 @@ CHUNK = 80000        — размер чанка кэша (байт)
 - `p=catalog` → `PhoneMarket.html` (витрина)
 - без параметра → `Frontend.html` (admin-панель)
 
+Реальный URL деплоя получается через `ScriptApp.getService().getUrl()` и передаётся в шаблоны как `webAppUrl` (в iframe `location.href` — URL песочницы googleusercontent.com, не деплоя).
+
+### 8.1.1 Двусторонняя навигация
+
+- **Admin → PhoneMarket**: кнопка «Каталог PhoneMarket ↗» в сайдбаре Frontend.html (`window.open(WEBAPP_URL+'?p=catalog')`)
+- **PhoneMarket → Admin**: кнопка «← Панель управления» в header (desktop + mobile) PhoneMarket.html (`window.open(WEBAPP_URL)`)
+- Обе страницы получают `WEBAPP_URL` через GAS template scriptlet `<?= webAppUrl ?>`
+
 ### 8.2 Backend API
 
 `getPublicCatalog()` в MDM.js — денормализованный каталог:
@@ -238,3 +246,4 @@ clasp deploy  — публикация Web App
 | 2026-04-08 | Async validate, IMEI uniqueness (сервер+фронт), inline оплаты закупок/продаж, редактирование продаж, моментальная оплата поставщику при создании |
 | 2026-04-09 | Оптимизация производительности: кэширование _ss/_sh, batch _update (setValues), _adjustBalance/_adjustWarehouse прямая запись, getMasterData() комбо-API; добавлено updated_at во все таблицы с created_at; формат created_at/updated_at → dd.MM.yyyy - HH-mm-ss |
 | 2026-04-09 | Публичная витрина PhoneMarket: getPublicCatalog() API, doGet(?p=catalog) маршрутизация, PhoneMarket.html (Tailwind + vanilla JS), stock из Закупок, resolved specs из MDM |
+| 2026-04-09 | Двусторонняя навигация Admin ↔ PhoneMarket; исправление URL: location.href → ScriptApp.getService().getUrl() + GAS template variable webAppUrl → WEBAPP_URL |
