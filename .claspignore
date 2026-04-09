@@ -10,7 +10,6 @@ Artifacts/**
 # Dev tools / scripts
 _write_te.py
 DMD.html
-PhoneMarket.html.html
 
 # IDE & OS
 .vscode/**

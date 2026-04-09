@@ -4,36 +4,38 @@
 
 ## Текущий фокус
 
-- Публичный каталог PhoneMarket: витрина товарного ассортимента из MDM с наличием со склада.
+- Маркетплейс: отдельный standalone-сайт каталога телефонов и аксессуаров с продавцами, ценами, отзывами.
 
 ## Недавние изменения
 
 | Дата | Что сделано |
 |------|------------|
-| 2026-04-09 | **PhoneMarket.html** (НОВЫЙ): публичная витрина-каталог товаров. Загрузка данных через `google.script.run.getPublicCatalog()`. Главная (hero + категории + товары в наличии), каталог (класс-вкладки + тип-фильтры + сортировка + сетка карточек), карточка товара (SVG-placeholder, specs-таблица, наличие, похожие). Поиск по name/sku/type/specs. Бейджи «В наличии (N шт)» / «Нет в наличии» |
-| 2026-04-09 | **MDM.js**: добавлен `getPublicCatalog()` — денормализованный каталог для витрины: классы, типы, товары с resolved-атрибутами (reference→имя, boolean→Да/Нет) + остаток из Закупок (status=«В наличии»); кэш `public_catalog` (CACHE_TX) |
-| 2026-04-09 | **WebApp.js**: `doGet(e)` принимает query parameter `?p=catalog` → рендерит PhoneMarket.html; без параметра — Frontend.html (admin panel) как раньше |
-| 2026-04-09 | **Двусторонняя навигация**: Frontend.html — кнопка «Каталог PhoneMarket ↗» в сайдбаре; PhoneMarket.html — кнопка «← Панель управления» в header/mobile menu |
-| 2026-04-09 | **Исправление навигации**: `location.href` внутри GAS iframe — URL песочницы (googleusercontent.com), не деплоя. Заменён на `ScriptApp.getService().getUrl()` через GAS template variable `webAppUrl` → глобальная `WEBAPP_URL` на фронтенде. Исправлены: WebApp.js (doGet передаёт webAppUrl в шаблоны), Frontend.html (WEBAPP_URL для кнопки каталога), PhoneMarket.html (WEBAPP_URL для кнопки «Панель управления» и buildNavLinks) |
-| 2026-04-09 | **Багфикс**: `<?= webAppUrl ?>` → `<?!= webAppUrl ?>` — GAS printing scriptlet `<?= ?>` экранирует HTML-сущности внутри `<script>`, ломая JS парсинг. Force-print `<?!= ?>` не экранирует (URL из ScriptApp — доверенный). Добавлен `PhoneMarket.html.html` в `.claspignore` для исключения из деплоя |
+| 2026-04-09 | **Маркетплейс** (НОВЫЙ модуль): standalone сайт-каталог телефонов и аксессуаров. 3 HTML-файла: `MarketplaceFrontend.html` (layout), `MarketplaceStyles.html` (CSS), `MarketplaceScripts.html` (JS+данные). Бэкенд: `Marketplace.js` (CRUD). Демо: 20 товаров (12 смартфонов + 8 аксессуаров), 6 продавцов, отзывы. Маршрутизация `?p=marketplace` |
+| 2026-04-09 | **WebApp.js**: `doGet(e)` маршрутизация — `?p=marketplace` → MarketplaceFrontend.html; `?p=catalog` → PhoneMarket.html; без параметра → Frontend.html |
+| 2026-04-09 | **Frontend.html**: новая секция «Маркетплейс» в сайдбаре с кнопкой «Каталог товаров» (открывается в новой вкладке) |
+| 2026-04-09 | **Config.js**: добавлены `MP_PRODUCTS`, `MP_SELLERS`, `MP_LISTINGS`, `MP_REVIEWS` в SH |
+| 2026-04-09 | **DBinit.js**: схема 4 листов маркетплейса (MP_Товары, MP_Продавцы, MP_Листинги, MP_Отзывы) |
+| 2026-04-09 | **PhoneMarket.html** (ранее): публичная витрина-каталог товаров из MDM с наличием со склада |
+| 2026-04-09 | **MDM.js**: `getPublicCatalog()` — денормализованный каталог для PhoneMarket |
 | 2026-04-09 | **PageMDM.html**: полный редизайн интерфейса — двухколоночный layout; контекстное добавление |
 | 2026-04-09 | Оптимизация производительности: кэш _ss/_sh, batch _update, getMasterData(), _now(), updated_at в 8 таблиц |
 
 ## Текущие задачи
 
-- [x] Редизайн PageMDM.html: двухколоночный layout
-- [x] PhoneMarket: бэкенд API `getPublicCatalog()`
-- [x] PhoneMarket: маршрутизация `doGet(?p=catalog)`
-- [x] PhoneMarket: фронтенд витрина (home, catalog, product, search)
-- [x] PhoneMarket: наличие товара из Закупок (stock badge)
-- [x] Двусторонняя навигация Admin ↔ PhoneMarket
-- [x] Исправление URL навигации (location.href → ScriptApp.getService().getUrl())
-- [x] Багфикс: `<?= ?>` → `<?!= ?>` для webAppUrl; PhoneMarket.html.html исключён из деплоя
+- [x] Маркетплейс: standalone сайт-каталог с продавцами и ценами
+- [x] Маркетплейс: маршрутизация `doGet(?p=marketplace)`
+- [x] Маркетплейс: кнопка в сайдбаре (Frontend.html)
+- [x] Маркетплейс: бэкенд CRUD (Marketplace.js)
+- [x] Маркетплейс: DB схема (Config.js + DBinit.js)
+- [x] Маркетплейс: адаптивный дизайн (мобильный/планшет/ПК)
+- [x] Маркетплейс: тёмная тема
+- [x] Маркетплейс: демо-данные (20 товаров, 6 продавцов)
 
 ## Известные проблемы
 
 - MDM-формулы (тип `calculated`): определён в схеме, но движок вычислений не реализован.
 - После `clasp push` нужно обновить деплой (`clasp deploy`) — URL `/exec` показывает последнюю задеплоенную версию, а не HEAD.
+- Маркетплейс пока использует демо-данные в JS; для production нужна загрузка из Google Sheets через `Marketplace.js` API.
 
 ## Следующие шаги
 

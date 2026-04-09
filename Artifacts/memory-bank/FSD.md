@@ -23,6 +23,7 @@
 | Долги | — | `PageDebts.html` | ✅ Реализован |
 | Настройки | `WebApp.js` | `PageSettings.html` | ✅ Реализован |
 | PhoneMarket | `MDM.js` | `PhoneMarket.html` | ✅ Реализован |
+| Маркетплейс | `Marketplace.js` | `MarketplaceFrontend.html` | ✅ Реализован |
 
 ---
 
@@ -295,6 +296,38 @@ URL деплоя передаётся через `ScriptApp.getService().getUrl(
 
 ---
 
+## 13. Маркетплейс (standalone каталог с продавцами)
+
+Отдельный сайт-каталог телефонов и аксессуаров с продавцами, ценами (новые/б/у), отзывами.
+
+### Доступ
+URL: `WEBAPP_URL?p=marketplace`. Маршрутизация в `doGet(e)` WebApp.js.
+Кнопка «Каталог товаров» в секции «Маркетплейс» сайдбара Frontend.html (открывает в новой вкладке).
+
+### Сущности (DB)
+
+- **MP_Товары** (`MP_PRODUCTS`): id, category (Смартфон/Аксессуар), brand, name, description, specs (JSON), emoji, color, rating, created_at
+- **MP_Продавцы** (`MP_SELLERS`): id, name, address, phone, wa, rating, created_at
+- **MP_Листинги** (`MP_LISTINGS`): id, product_id, seller_id, price, condition (Новый/Б/У), in_stock, note, created_at
+- **MP_Отзывы** (`MP_REVIEWS`): id, product_id, author, rating, text, created_at
+
+### Бэкенд API (`Marketplace.js`)
+- `getMarketplaceProducts()` — все товары
+- `getMarketplaceProduct({id})` — один товар + продавцы + листинги + отзывы (sellers_new / sellers_used)
+- `addMarketplaceProduct(p)`, `addMarketplaceSeller(p)`, `addMarketplaceListing(p)`, `addMarketplaceReview(p)`
+
+### Фронтенд
+
+**3 HTML-файла** (standalone, не входят в admin-панель):
+- `MarketplaceFrontend.html` — layout: header (поиск + «Учёт» back-link + тема), hero, категории (Все/Смартфоны/Аксессуары), бренд/сортировка фильтры, сетка товаров, карточка товара (breadcrumbs + product head + tabs + продавцы), footer
+- `MarketplaceStyles.html` — CSS: токены `--mp-*`, тёмная тема `[data-theme=dark]`, адаптивные breakpoints (960/640/380px), card grid, product detail, seller cards, review cards
+- `MarketplaceScripts.html` — JS: объект состояния `MP`, массивы `MP_PRODUCTS` (20 демо-товаров: 12 смартфонов + 8 аксессуаров от Apple/Samsung/Xiaomi/POCO/Honor/Google/Realme), `MP_SELLERS` (6 продавцов Бишкека), фильтрация/сортировка/поиск, карточка с вкладками (Описание / Характеристики / Отзывы / Продавцы), вкладки продавцов (Новые / Б/У), `mpApi()` GAS bridge, `mpToggleTheme()`, WhatsApp-ссылки
+
+### Демо-данные
+Товары и продавцы встроены в `MarketplaceScripts.html` как JS-массивы для работы без настройки БД. Для production — загрузка через `Marketplace.js` API из Google Sheets.
+
+---
+
 ## Changelog
 
 | Дата | Изменение |
@@ -305,3 +338,7 @@ URL деплоя передаётся через `ScriptApp.getService().getUrl(
 | 2026-04-08 | Закупки: `_pAutoFillAttrs` — авто-заполнение характеристик из MDM; Продажи: рассрочка `is_installment` |
 | 2026-04-08 | FormEngine rewrite: бейдж режима, drag-safe overlay, unsaved changes tracking, background sync, стандартные кнопки, toast top-right |
 | 2026-04-08 | FormEngine async validate (Promise support); Purchases: checkImeiUnique, моментальная оплата, IMEI server-side validate, Block 3 рассрочка/inline payment; Sales: updateSale, getSalePayments, редактирование, inline таблица оплат, edit mode |
+| 2026-04-09 | Оптимизация: кэш _ss/_sh, batch _update, getMasterData(), _now(), updated_at |
+| 2026-04-09 | PhoneMarket: публичный каталог из MDM с наличием, getPublicCatalog(), маршрутизация ?p=catalog |
+| 2026-04-09 | Редизайн PageMDM: двухпанельный layout, контекстное добавление |
+| 2026-04-09 | Маркетплейс: standalone каталог с продавцами (4 новых файла + 4 изменённых), DB-схема 4 листа, демо-данные |

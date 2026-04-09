@@ -1,0 +1,793 @@
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════════════════════
+//  МобилТрек · Маркетплейс — Скрипты каталога
+// ══════════════════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────────────────
+//  СОСТОЯНИЕ
+// ──────────────────────────────────────────────────────────────────────
+var MP = {
+  view: 'catalog',       // 'catalog' | 'detail'
+  productId: null,
+  filters: { category: 'all', brand: 'all', search: '', sort: 'popular' },
+  sellerTab: 'new',      // 'new' | 'used'
+  detailTab: 'description',
+};
+
+// ──────────────────────────────────────────────────────────────────────
+//  УТИЛИТЫ
+// ──────────────────────────────────────────────────────────────────────
+var mpEsc = function(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+var mpFmt = function(n){ return isNaN(n)?'0':Math.round(+n).toLocaleString('ru-RU'); };
+var mpStars = function(r){
+  var full = Math.floor(r), half = (r - full) >= 0.5 ? 1 : 0, empty = 5 - full - half;
+  return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
+};
+var mpInitials = function(name){
+  var parts = (name || '').split(' ');
+  return parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : (name||'?').substring(0,2).toUpperCase();
+};
+
+// ──────────────────────────────────────────────────────────────────────
+//  ДЕМО-ДАННЫЕ: ПРОДАВЦЫ
+// ──────────────────────────────────────────────────────────────────────
+var MP_SELLERS = [
+  { id:1, name:'МобилТрек',      address:'Ошский рынок, ряд 12',       phone:'+996 700 111 222', wa:'996700111222', rating:4.8 },
+  { id:2, name:'iStore Bishkek',  address:'ЦУМ, 2 этаж, бутик 215',    phone:'+996 555 333 444', wa:'996555333444', rating:4.6 },
+  { id:3, name:'SamMobile',       address:'Дордой, контейнер 4-18',     phone:'+996 770 555 666', wa:'996770555666', rating:4.3 },
+  { id:4, name:'TechPoint',       address:'Бета Сторес 2, бутик 108',   phone:'+996 500 777 888', wa:'996500777888', rating:4.5 },
+  { id:5, name:'GadgetPro',       address:'ТЦ Моссовет, 3 этаж',        phone:'+996 705 999 111', wa:'996705999111', rating:4.2 },
+  { id:6, name:'Apple Centre KG', address:'Vefa Center, 1 этаж',        phone:'+996 312 900 900', wa:'996312900900', rating:4.9 },
+];
+
+// ──────────────────────────────────────────────────────────────────────
+//  ДЕМО-ДАННЫЕ: ТОВАРЫ
+// ──────────────────────────────────────────────────────────────────────
+var MP_PRODUCTS = [
+  // ── Смартфоны ───────────────────────────────────────────────────
+  {
+    id:1, name:'iPhone 17 Pro Max', brand:'Apple', category:'phones',
+    emoji:'📱', color:'#1D1D1F',
+    description:'<p>Флагманский смартфон Apple с новейшим чипом A19 Pro. Титановый корпус, продвинутая камера с оптическим зумом 5x и самый яркий дисплей Super Retina XDR.</p><p>Dynamic Island, USB-C, поддержка Apple Intelligence. Аккумулятор обеспечивает до 33 часов воспроизведения видео.</p>',
+    specs:{'Дисплей':'6.9" OLED, 2868×1320, 120Hz','Процессор':'Apple A19 Pro','Оперативная память':'12 GB','Память':'256/512 GB / 1 TB','Камера':'48+12+12 MP, LiDAR','Фронтальная камера':'12 MP TrueDepth','Аккумулятор':'4685 мА·ч','ОС':'iOS 19','Разъём':'USB-C','Защита':'IP68, керамический щит','Вес':'227 г'},
+    rating:4.9, reviews:[
+      {author:'Айбек К.',rating:5,text:'Отличный телефон, камера на высшем уровне. Батарея держит весь день.',date:'2026-03-15'},
+      {author:'Мария С.',rating:5,text:'Перешла с iPhone 15, разница заметна. A19 Pro невероятно быстрый.',date:'2026-03-10'},
+      {author:'Нурлан Б.',rating:4,text:'Всё супер, но цена кусается. Камера и экран — лучшие на рынке.',date:'2026-02-28'},
+      {author:'Дастан М.',rating:5,text:'Идеальный смартфон. Титановый корпус выглядит премиально.',date:'2026-02-20'},
+    ],
+    sellers_new:[
+      {seller_id:6,price:139900,in_stock:true,note:'Официальная гарантия 1 год'},
+      {seller_id:1,price:129000,in_stock:true,note:'Гарантия магазина 3 мес'},
+      {seller_id:2,price:134500,in_stock:true,note:'Запечатанный, гарантия'},
+      {seller_id:4,price:131000,in_stock:false,note:'Под заказ 3-5 дней'},
+    ],
+    sellers_used:[
+      {seller_id:3,price:105000,in_stock:true,note:'Состояние 9/10, комплект полный'},
+      {seller_id:5,price:98000,in_stock:true,note:'Мелкие царапины на корпусе'},
+    ],
+  },
+  {
+    id:2, name:'iPhone 17 Pro', brand:'Apple', category:'phones',
+    emoji:'📱', color:'#4A4A4A',
+    description:'<p>iPhone 17 Pro — мощный смартфон с чипом A19 Pro, титановый корпус и ProMotion дисплей 120Hz. Тройная камера с оптическим зумом 5x для профессиональных фото и видео.</p>',
+    specs:{'Дисплей':'6.3" OLED, 2622×1206, 120Hz','Процессор':'Apple A19 Pro','Оперативная память':'8 GB','Память':'256/512 GB / 1 TB','Камера':'48+12+12 MP','Аккумулятор':'3577 мА·ч','ОС':'iOS 19','Разъём':'USB-C'},
+    rating:4.8, reviews:[
+      {author:'Жанара Т.',rating:5,text:'Компактный флагман! Идеально лежит в руке.',date:'2026-03-12'},
+      {author:'Алексей Р.',rating:4,text:'Хороший телефон, но 17 Pro Max лучше по батарее.',date:'2026-03-05'},
+    ],
+    sellers_new:[
+      {seller_id:6,price:119900,in_stock:true,note:'Официальная гарантия'},
+      {seller_id:1,price:109000,in_stock:true,note:'Гарантия 3 мес'},
+      {seller_id:2,price:114000,in_stock:true,note:'Запечатан'},
+    ],
+    sellers_used:[
+      {seller_id:3,price:89000,in_stock:true,note:'Отличное состояние'},
+      {seller_id:5,price:82000,in_stock:true,note:'Небольшие потёртости'},
+    ],
+  },
+  {
+    id:3, name:'iPhone 17', brand:'Apple', category:'phones',
+    emoji:'📱', color:'#6B7B8D',
+    description:'<p>Новый iPhone 17 — сочетание мощности и доступности. Чип A18, Dynamic Island, поддержка Apple Intelligence. Отличный выбор для тех, кому не нужна максимальная про-версия.</p>',
+    specs:{'Дисплей':'6.1" OLED, 2556×1179, 60Hz','Процессор':'Apple A18','Оперативная память':'8 GB','Память':'128/256/512 GB','Камера':'48+12 MP','Аккумулятор':'3561 мА·ч','ОС':'iOS 19','Разъём':'USB-C'},
+    rating:4.6, reviews:[
+      {author:'Бакыт О.',rating:5,text:'Лучшая покупка! Камера снимает отлично.',date:'2026-03-14'},
+      {author:'Аида Н.',rating:4,text:'Всё хорошо, но хотелось бы 120Hz дисплей.',date:'2026-02-25'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:79900,in_stock:true,note:'В наличии все цвета'},
+      {seller_id:6,price:84900,in_stock:true,note:'Официальная гарантия'},
+      {seller_id:2,price:82000,in_stock:true,note:'Запечатанный'},
+      {seller_id:4,price:80500,in_stock:true,note:''},
+    ],
+    sellers_used:[
+      {seller_id:3,price:62000,in_stock:true,note:'Состояние идеальное'},
+    ],
+  },
+  {
+    id:4, name:'Samsung Galaxy S26 Ultra', brand:'Samsung', category:'phones',
+    emoji:'📱', color:'#1428A0',
+    description:'<p>Samsung Galaxy S26 Ultra — флагман с S Pen, камерой 200 МП и Snapdragon 8 Elite. Титановая рамка, дисплей QHD+ 120Hz AMOLED.</p><p>Поддержка Galaxy AI для умной обработки фото, перевода и суммаризации.</p>',
+    specs:{'Дисплей':'6.8" AMOLED, 3120×1440, 120Hz','Процессор':'Snapdragon 8 Elite','Оперативная память':'12 GB','Память':'256/512 GB / 1 TB','Камера':'200+50+12+10 MP','S Pen':'Да','Аккумулятор':'5000 мА·ч','ОС':'Android 16 / One UI 8'},
+    rating:4.7, reviews:[
+      {author:'Тимур А.',rating:5,text:'Лучший Android-смартфон. S Pen — убийственная фичка.',date:'2026-03-18'},
+      {author:'Элмира К.',rating:4,text:'Отличная камера, но тяжеловат.',date:'2026-03-01'},
+      {author:'Руслан М.',rating:5,text:'Galaxy AI реально полезен. Перевод в реальном времени — топ.',date:'2026-02-15'},
+    ],
+    sellers_new:[
+      {seller_id:3,price:119000,in_stock:true,note:'Все цвета в наличии'},
+      {seller_id:1,price:115000,in_stock:true,note:'Гарантия магазина'},
+      {seller_id:4,price:117500,in_stock:true,note:''},
+      {seller_id:2,price:121000,in_stock:false,note:'Под заказ'},
+    ],
+    sellers_used:[
+      {seller_id:5,price:89000,in_stock:true,note:'Отличное состояние, полный комплект'},
+      {seller_id:3,price:82000,in_stock:true,note:'Мелкие царапины'},
+    ],
+  },
+  {
+    id:5, name:'Samsung Galaxy S26', brand:'Samsung', category:'phones',
+    emoji:'📱', color:'#2962FF',
+    description:'<p>Samsung Galaxy S26 — компактный флагман в линейке Galaxy. Snapdragon 8 Elite, тройная камера 50 МП, AMOLED дисплей 120Hz.</p>',
+    specs:{'Дисплей':'6.2" AMOLED, 2340×1080, 120Hz','Процессор':'Snapdragon 8 Elite','Оперативная память':'8 GB','Память':'128/256 GB','Камера':'50+12+10 MP','Аккумулятор':'4000 мА·ч','ОС':'Android 16 / One UI 8'},
+    rating:4.5, reviews:[
+      {author:'Канат Э.',rating:4,text:'Хороший телефон, удобный размер.',date:'2026-03-08'},
+    ],
+    sellers_new:[
+      {seller_id:3,price:72000,in_stock:true,note:''},
+      {seller_id:1,price:69900,in_stock:true,note:'Гарантия 3 мес'},
+    ],
+    sellers_used:[
+      {seller_id:5,price:55000,in_stock:true,note:'Идеальное состояние'},
+    ],
+  },
+  {
+    id:6, name:'Samsung Galaxy A56', brand:'Samsung', category:'phones',
+    emoji:'📱', color:'#4FC3F7',
+    description:'<p>Galaxy A56 — лучший среднебюджетный смартфон Samsung. Exynos 1580, AMOLED 120Hz, камера OIS 50 МП, водозащита IP67.</p>',
+    specs:{'Дисплей':'6.7" Super AMOLED, 120Hz','Процессор':'Exynos 1580','Оперативная память':'8 GB','Память':'128/256 GB','Камера':'50+12+5 MP, OIS','Аккумулятор':'5000 мА·ч','ОС':'Android 16 / One UI 8'},
+    rating:4.4, reviews:[
+      {author:'Алтынай Б.',rating:5,text:'За свою цену — лучший. Экран шикарный.',date:'2026-03-20'},
+      {author:'Марат К.',rating:4,text:'Хороший средний класс, батарея держит 2 дня.',date:'2026-02-10'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:29900,in_stock:true,note:'Хит продаж!'},
+      {seller_id:3,price:28500,in_stock:true,note:''},
+      {seller_id:4,price:30000,in_stock:true,note:'Все цвета'},
+      {seller_id:5,price:29200,in_stock:true,note:''},
+    ],
+    sellers_used:[
+      {seller_id:3,price:21000,in_stock:true,note:'Как новый'},
+      {seller_id:5,price:19500,in_stock:true,note:'Б/У 3 месяца'},
+    ],
+  },
+  {
+    id:7, name:'Xiaomi 15 Ultra', brand:'Xiaomi', category:'phones',
+    emoji:'📱', color:'#FF6900',
+    description:'<p>Xiaomi 15 Ultra — камерафон с модулем Leica. Snapdragon 8 Elite, аккумулятор 5500 мА·ч, зарядка 90W.</p>',
+    specs:{'Дисплей':'6.73" AMOLED, 2K, 120Hz','Процессор':'Snapdragon 8 Elite','Оперативная память':'16 GB','Память':'256/512 GB','Камера':'50+50+50 MP Leica','Аккумулятор':'5500 мА·ч, 90W','ОС':'Android 16 / HyperOS 3'},
+    rating:4.6, reviews:[
+      {author:'Даниил П.',rating:5,text:'Камера Leica — просто бомба! Снимки как с зеркалки.',date:'2026-03-11'},
+      {author:'Асель М.',rating:4,text:'Мощный аппарат, быстрая зарядка очень удобна.',date:'2026-02-22'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:74900,in_stock:true,note:'Глобальная версия'},
+      {seller_id:3,price:71000,in_stock:true,note:'China версия + прошивка'},
+      {seller_id:5,price:73500,in_stock:true,note:''},
+    ],
+    sellers_used:[
+      {seller_id:5,price:58000,in_stock:true,note:'Полный комплект'},
+    ],
+  },
+  {
+    id:8, name:'Xiaomi 15 Pro', brand:'Xiaomi', category:'phones',
+    emoji:'📱', color:'#FF8C00',
+    description:'<p>Xiaomi 15 Pro — баланс цены и производительности. Snapdragon 8 Elite, Leica камера, 120Hz дисплей.</p>',
+    specs:{'Дисплей':'6.55" AMOLED, 2K, 120Hz','Процессор':'Snapdragon 8 Elite','Оперативная память':'12 GB','Память':'256/512 GB','Камера':'50+50+50 MP Leica','Аккумулятор':'5100 мА·ч, 90W','ОС':'Android 16 / HyperOS 3'},
+    rating:4.5, reviews:[
+      {author:'Кубат Ж.',rating:5,text:'Лучший Xiaomi! Быстрый, камера отличная.',date:'2026-03-06'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:54900,in_stock:true,note:''},
+      {seller_id:3,price:51000,in_stock:true,note:'China + Global ROM'},
+      {seller_id:5,price:53000,in_stock:true,note:'Все цвета'},
+    ],
+    sellers_used:[
+      {seller_id:3,price:42000,in_stock:true,note:'Состояние 9/10'},
+    ],
+  },
+  {
+    id:9, name:'POCO X7 Pro', brand:'POCO', category:'phones',
+    emoji:'📱', color:'#FFCA28',
+    description:'<p>POCO X7 Pro — мощный бюджетный флагман. Dimensity 8400 Ultra, AMOLED 120Hz, быстрая зарядка 90W.</p>',
+    specs:{'Дисплей':'6.67" AMOLED, 120Hz, 3000 нит','Процессор':'Dimensity 8400 Ultra','Оперативная память':'8/12 GB','Память':'256/512 GB','Камера':'50+8 MP OIS','Аккумулятор':'6000 мА·ч, 90W','ОС':'Android 15 / HyperOS 2'},
+    rating:4.4, reviews:[
+      {author:'Эрмек С.',rating:5,text:'За такую цену — просто огонь. Батарея на 2 дня.',date:'2026-03-19'},
+      {author:'Бегимай А.',rating:4,text:'Экран шикарный, зарядка быстрая.',date:'2026-02-14'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:24900,in_stock:true,note:'Бестселлер'},
+      {seller_id:3,price:22500,in_stock:true,note:''},
+      {seller_id:5,price:23800,in_stock:true,note:''},
+    ],
+    sellers_used:[
+      {seller_id:3,price:18000,in_stock:true,note:'Идеальное состояние'},
+    ],
+  },
+  {
+    id:10, name:'Honor Magic 7 Pro', brand:'Honor', category:'phones',
+    emoji:'📱', color:'#00A4EF',
+    description:'<p>Honor Magic 7 Pro — флагман с AI-возможностями. Snapdragon 8 Elite, камера 50 МП с OIS, OLED дисплей с защитой глаз.</p>',
+    specs:{'Дисплей':'6.8" OLED, 2800×1280, 120Hz','Процессор':'Snapdragon 8 Elite','Оперативная память':'12 GB','Память':'256/512 GB','Камера':'50+50+12 MP','Аккумулятор':'5850 мА·ч, 100W','ОС':'Android 15 / MagicOS 9'},
+    rating:4.5, reviews:[
+      {author:'Нелли В.',rating:5,text:'Отличная батарея и камера. Очень достойный телефон.',date:'2026-03-03'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:59900,in_stock:true,note:''},
+      {seller_id:4,price:57000,in_stock:true,note:'Гарантия 1 год'},
+    ],
+    sellers_used:[
+      {seller_id:5,price:45000,in_stock:true,note:'Как новый, 2 мес использования'},
+    ],
+  },
+  {
+    id:11, name:'Google Pixel 9 Pro', brand:'Google', category:'phones',
+    emoji:'📱', color:'#4285F4',
+    description:'<p>Google Pixel 9 Pro — лучшая камера на Android с Tensor G4. Чистый Android, 7 лет обновлений, AI-функции Gemini.</p>',
+    specs:{'Дисплей':'6.3" OLED, 2856×1280, 120Hz','Процессор':'Google Tensor G4','Оперативная память':'16 GB','Память':'128/256/512 GB','Камера':'50+48+48 MP','Аккумулятор':'4700 мА·ч','ОС':'Android 16'},
+    rating:4.7, reviews:[
+      {author:'Арсен Т.',rating:5,text:'Камера Pixel — вне конкуренции. Ночной режим шикарный.',date:'2026-03-09'},
+      {author:'Камила Э.',rating:5,text:'Чистый Android + AI = идеальный опыт использования.',date:'2026-02-18'},
+    ],
+    sellers_new:[
+      {seller_id:2,price:89900,in_stock:true,note:'Официальный импорт'},
+      {seller_id:1,price:84000,in_stock:false,note:'Под заказ 5-7 дней'},
+    ],
+    sellers_used:[
+      {seller_id:5,price:65000,in_stock:true,note:'Отличное состояние + чехол'},
+    ],
+  },
+
+  // ── Аксессуары ──────────────────────────────────────────────────
+  {
+    id:12, name:'Apple AirPods Pro 3', brand:'Apple', category:'accessories',
+    emoji:'🎧', color:'#F5F5F7',
+    description:'<p>AirPods Pro 3 с активным шумоподавлением, пространственным аудио и адаптивной прозрачностью. USB-C кейс с Find My и динамиком.</p>',
+    specs:{'Тип':'TWS наушники','Шумоподавление':'Активное (ANC)','Чип':'H3','Автономность':'6 ч (30 ч с кейсом)','Защита':'IP54','Разъём':'USB-C, MagSafe','Совместимость':'iPhone, iPad, Mac, Apple TV'},
+    rating:4.8, reviews:[
+      {author:'Салтанат К.',rating:5,text:'Лучшие TWS для iPhone. Шумоподавление идеальное.',date:'2026-03-16'},
+      {author:'Олег Д.',rating:4,text:'Звук отличный, но цена завышена.',date:'2026-02-28'},
+    ],
+    sellers_new:[
+      {seller_id:6,price:24900,in_stock:true,note:'Официальная гарантия'},
+      {seller_id:1,price:21900,in_stock:true,note:''},
+      {seller_id:2,price:23000,in_stock:true,note:'Запечатанные'},
+    ],
+    sellers_used:[
+      {seller_id:3,price:16000,in_stock:true,note:'Б/У 4 месяца, состояние отличное'},
+    ],
+  },
+  {
+    id:13, name:'Samsung Galaxy Buds 4 Pro', brand:'Samsung', category:'accessories',
+    emoji:'🎧', color:'#1428A0',
+    description:'<p>Galaxy Buds 4 Pro с 360 Audio, улучшенным ANC и комфортной посадкой. Поддержка Hi-Fi кодека SSC.</p>',
+    specs:{'Тип':'TWS наушники','Шумоподавление':'Активное (ANC)','Автономность':'8 ч (30 ч с кейсом)','Защита':'IPX7','Разъём':'USB-C, Qi','Совместимость':'Android, iOS'},
+    rating:4.5, reviews:[
+      {author:'Айгуль Б.',rating:4,text:'Хорошие наушники, удобные, звук чистый.',date:'2026-03-07'},
+    ],
+    sellers_new:[
+      {seller_id:3,price:18500,in_stock:true,note:''},
+      {seller_id:1,price:17900,in_stock:true,note:''},
+      {seller_id:4,price:18000,in_stock:true,note:''},
+    ],
+    sellers_used:[
+      {seller_id:5,price:13000,in_stock:true,note:'Как новые'},
+    ],
+  },
+  {
+    id:14, name:'Baseus GaN5 Pro 100W', brand:'Baseus', category:'accessories',
+    emoji:'🔌', color:'#333333',
+    description:'<p>Компактная зарядка Baseus 100W GaN5 Pro с 3 портами (2×USB-C + USB-A). Заряжает MacBook Pro и iPhone одновременно.</p>',
+    specs:{'Тип':'Сетевое зарядное устройство','Мощность':'100W','Порты':'2×USB-C + 1×USB-A','Технология':'GaN5, PD 3.0, QC 5.0','Вес':'160 г','Совместимость':'Все устройства USB-C/A'},
+    rating:4.7, reviews:[
+      {author:'Денис Л.',rating:5,text:'Одна зарядка на все устройства. Очень компактная.',date:'2026-03-13'},
+      {author:'Свтлана Р.',rating:5,text:'Заряжает ноутбук быстро, не греется.',date:'2026-02-20'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:3200,in_stock:true,note:'Оригинал'},
+      {seller_id:3,price:2800,in_stock:true,note:''},
+      {seller_id:5,price:3000,in_stock:true,note:''},
+    ],
+    sellers_used:[],
+  },
+  {
+    id:15, name:'Nillkin Amazing H+ Pro', brand:'Nillkin', category:'accessories',
+    emoji:'🛡️', color:'#555555',
+    description:'<p>Защитное стекло Nillkin для iPhone 17 Pro. Закалённое стекло 9H, олеофобное покрытие, полное покрытие экрана.</p>',
+    specs:{'Тип':'Защитное стекло','Твёрдость':'9H','Покрытие':'Олеофобное','Толщина':'0.2 мм','Совместимость':'iPhone 17 Pro','Комплект':'Стекло + рамка для установки'},
+    rating:4.6, reviews:[
+      {author:'Мирбек К.',rating:5,text:'Стекло отличное, ставится идеально с рамкой.',date:'2026-03-17'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:850,in_stock:true,note:''},
+      {seller_id:3,price:700,in_stock:true,note:''},
+      {seller_id:4,price:900,in_stock:true,note:'Установка бесплатно'},
+    ],
+    sellers_used:[],
+  },
+  {
+    id:16, name:'Spigen Ultra Hybrid MagSafe', brand:'Spigen', category:'accessories',
+    emoji:'📲', color:'#3B3B3B',
+    description:'<p>Прозрачный чехол Spigen Ultra Hybrid с поддержкой MagSafe для iPhone 17 Pro. Усиленные углы, защита от пожелтения.</p>',
+    specs:{'Тип':'Чехол','Материал':'TPU + поликарбонат','Защита':'MIL-STD 810G','MagSafe':'Да','Совместимость':'iPhone 17 Pro','Особенности':'Anti-Yellow, усиленные углы'},
+    rating:4.5, reviews:[
+      {author:'Жаркын О.',rating:4,text:'Чехол плотно сидит, MagSafe работает отлично.',date:'2026-03-04'},
+      {author:'Аня П.',rating:5,text:'Не желтеет, защита на высоте.',date:'2026-02-12'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:2400,in_stock:true,note:''},
+      {seller_id:2,price:2800,in_stock:true,note:'Оригинал Spigen'},
+      {seller_id:3,price:2100,in_stock:true,note:''},
+    ],
+    sellers_used:[],
+  },
+  {
+    id:17, name:'Xiaomi Buds 5 Pro', brand:'Xiaomi', category:'accessories',
+    emoji:'🎧', color:'#FF6900',
+    description:'<p>Xiaomi Buds 5 Pro с LDAC Hi-Res, активным шумоподавлением до 52 дБ и адаптивным звуком. 3D пространственное аудио.</p>',
+    specs:{'Тип':'TWS наушники','Шумоподавление':'ANC до 52 дБ','Кодеки':'LDAC, AAC, SBC','Автономность':'6.5 ч (26 ч с кейсом)','Защита':'IP54','Вес':'5.2 г (каждый)'},
+    rating:4.4, reviews:[
+      {author:'Азат М.',rating:5,text:'За свою цену — лучший звук. LDAC решает.',date:'2026-03-02'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:8900,in_stock:true,note:''},
+      {seller_id:3,price:7500,in_stock:true,note:'China версия'},
+      {seller_id:5,price:8200,in_stock:true,note:''},
+    ],
+    sellers_used:[
+      {seller_id:3,price:5500,in_stock:true,note:'Почти новые'},
+    ],
+  },
+  {
+    id:18, name:'Anker PowerCore 20000', brand:'Anker', category:'accessories',
+    emoji:'🔋', color:'#00BCD4',
+    description:'<p>Портативный аккумулятор Anker PowerCore на 20000 мА·ч. Два USB-A + USB-C порта, быстрая зарядка PD 20W.</p>',
+    specs:{'Тип':'Портативный аккумулятор','Ёмкость':'20 000 мА·ч','Порты':'2×USB-A + USB-C','Быстрая зарядка':'PD 20W','Вес':'343 г','Зарядных циклов':'Более 500'},
+    rating:4.6, reviews:[
+      {author:'Тилек Ш.',rating:5,text:'Заряжает iPhone 4 раза. Незаменимая вещь.',date:'2026-03-15'},
+      {author:'Гулмира Э.',rating:4,text:'Тяжелый, но ёмкость того стоит.',date:'2026-02-26'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:3500,in_stock:true,note:'Оригинал Anker'},
+      {seller_id:3,price:3100,in_stock:true,note:''},
+      {seller_id:4,price:3300,in_stock:true,note:''},
+    ],
+    sellers_used:[
+      {seller_id:5,price:2200,in_stock:true,note:'Б/У полгода'},
+    ],
+  },
+  {
+    id:19, name:'Baseus Car Mount Gravity', brand:'Baseus', category:'accessories',
+    emoji:'🚗', color:'#607D8B',
+    description:'<p>Автомобильный держатель Baseus с креплением в дефлектор. Гравитационная фиксация, совместим с устройствами 4.7–7.2".</p>',
+    specs:{'Тип':'Автодержатель','Крепление':'В дефлектор','Фиксация':'Гравитационная','Совместимость':'4.7–7.2"','Материал':'Алюминий + силикон','Поворот':'360°'},
+    rating:4.3, reviews:[
+      {author:'Максим Б.',rating:4,text:'Держит крепко, ставится легко.',date:'2026-03-08'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:1200,in_stock:true,note:''},
+      {seller_id:3,price:950,in_stock:true,note:''},
+      {seller_id:5,price:1100,in_stock:true,note:''},
+    ],
+    sellers_used:[],
+  },
+  {
+    id:20, name:'Realme GT 7 Pro', brand:'Realme', category:'phones',
+    emoji:'📱', color:'#F7C900',
+    description:'<p>Realme GT 7 Pro — доступный флагман с Snapdragon 8 Elite, камерой Sony IMX890, быстрая зарядка 120W SUPERVOOC.</p>',
+    specs:{'Дисплей':'6.78" AMOLED, 2780×1264, 120Hz','Процессор':'Snapdragon 8 Elite','Оперативная память':'12 GB','Память':'256/512 GB','Камера':'50+8+50 MP','Аккумулятор':'6500 мА·ч, 120W','ОС':'Android 15 / Realme UI 6'},
+    rating:4.4, reviews:[
+      {author:'Данияр А.',rating:4,text:'Зарядка 120W — 100% за 25 мин! Это фантастика.',date:'2026-03-11'},
+      {author:'Чынара С.',rating:5,text:'За эту цену — монстр. Snapdragon 8 Elite тащит.',date:'2026-02-19'},
+    ],
+    sellers_new:[
+      {seller_id:1,price:44900,in_stock:true,note:''},
+      {seller_id:3,price:41000,in_stock:true,note:''},
+      {seller_id:5,price:43000,in_stock:true,note:''},
+    ],
+    sellers_used:[
+      {seller_id:3,price:34000,in_stock:true,note:'1 месяц использования'},
+    ],
+  },
+];
+
+// ──────────────────────────────────────────────────────────────────────
+//  GAS BRIDGE (опционально — для данных из таблиц)
+// ──────────────────────────────────────────────────────────────────────
+var MP_IS_GAS = typeof google !== 'undefined' && google.script;
+function mpApi(fn, params){
+  return new Promise(function(ok,fail){
+    if(MP_IS_GAS){
+      google.script.run.withSuccessHandler(ok).withFailureHandler(fail)[fn](params);
+    } else {
+      ok({status:'ok',data:null});
+    }
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  ТЕМА
+// ──────────────────────────────────────────────────────────────────────
+function mpToggleTheme(){
+  var d = document.documentElement;
+  var dark = d.dataset.theme === 'dark';
+  d.dataset.theme = dark ? 'light' : 'dark';
+  localStorage.setItem('theme', d.dataset.theme);
+  document.getElementById('mpThIco').textContent = dark ? '🌙' : '☀️';
+}
+function mpApplyTheme(){
+  var t = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = t;
+  document.getElementById('mpThIco').textContent = t === 'dark' ? '☀️' : '🌙';
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  ФИЛЬТРАЦИЯ И ПОИСК
+// ──────────────────────────────────────────────────────────────────────
+function mpGetFiltered(){
+  var f = MP.filters;
+  var list = MP_PRODUCTS.filter(function(p){
+    if(f.category !== 'all' && p.category !== f.category) return false;
+    if(f.brand !== 'all' && p.brand !== f.brand) return false;
+    if(f.search){
+      var q = f.search.toLowerCase();
+      if(p.name.toLowerCase().indexOf(q) === -1 && p.brand.toLowerCase().indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+  // Сортировка
+  if(f.sort === 'price_asc'){
+    list.sort(function(a,b){ return mpMinPrice(a) - mpMinPrice(b); });
+  } else if(f.sort === 'price_desc'){
+    list.sort(function(a,b){ return mpMinPrice(b) - mpMinPrice(a); });
+  } else if(f.sort === 'rating'){
+    list.sort(function(a,b){ return b.rating - a.rating; });
+  } else if(f.sort === 'name'){
+    list.sort(function(a,b){ return a.name.localeCompare(b.name); });
+  }
+  // 'popular' — по умолчанию, порядок массива
+  return list;
+}
+
+function mpMinPrice(p){
+  var prices = (p.sellers_new||[]).concat(p.sellers_used||[]).map(function(s){ return s.price; });
+  return prices.length ? Math.min.apply(null, prices) : 999999;
+}
+function mpMaxPrice(p){
+  var prices = (p.sellers_new||[]).concat(p.sellers_used||[]).map(function(s){ return s.price; });
+  return prices.length ? Math.max.apply(null, prices) : 0;
+}
+function mpSellerCount(p){
+  var ids = {};
+  (p.sellers_new||[]).concat(p.sellers_used||[]).forEach(function(s){ ids[s.seller_id]=1; });
+  return Object.keys(ids).length;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  РЕНДЕРИНГ: КАТАЛОГ
+// ──────────────────────────────────────────────────────────────────────
+function mpRenderCatalog(){
+  var list = mpGetFiltered();
+  var grid = document.getElementById('mpGrid');
+  var count = document.getElementById('mpCount');
+
+  if(count) count.textContent = mpDeclension(list.length, ['товар','товара','товаров']);
+
+  if(!list.length){
+    grid.innerHTML = '<div class="mp-empty"><div class="mp-empty-ico">🔍</div><h3>Ничего не найдено</h3><p>Попробуйте изменить фильтры или поисковый запрос</p></div>';
+    return;
+  }
+
+  var html = list.map(function(p){
+    var minP = mpMinPrice(p);
+    var sc = mpSellerCount(p);
+    var catLabel = p.category === 'phones' ? 'Смартфон' : 'Аксессуар';
+    var badgeColor = p.category === 'phones' ? 'rgba(0,122,255,.85)' : 'rgba(52,199,89,.85)';
+    return '<div class="mp-card" onclick="mpOpenProduct('+p.id+')">'
+      + '<div class="mp-card-img" style="background:linear-gradient(135deg,'+p.color+' 0%,'+mpLighten(p.color)+' 100%)">'
+      + '<span class="mp-card-badge" style="background:'+badgeColor+'">'+mpEsc(catLabel)+'</span>'
+      + p.emoji
+      + '</div>'
+      + '<div class="mp-card-body">'
+      + '<div class="mp-card-brand">'+mpEsc(p.brand)+'</div>'
+      + '<div class="mp-card-name">'+mpEsc(p.name)+'</div>'
+      + '<div class="mp-card-rating">'
+      + '<span class="mp-card-stars">'+mpStars(p.rating)+'</span>'
+      + '<span class="mp-card-rval">'+p.rating+'</span>'
+      + '<span class="mp-card-rcnt">('+p.reviews.length+')</span>'
+      + '</div>'
+      + '<div class="mp-card-price">от '+mpFmt(minP)+' сом</div>'
+      + '<div class="mp-card-sellers">'
+      + '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 100-6 3 3 0 000 6zM5.216 14A2.238 2.238 0 015 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 005 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>'
+      + sc + ' ' + mpDeclension(sc, ['продавец','продавца','продавцов'])
+      + '</div></div></div>';
+  }).join('');
+
+  grid.innerHTML = html;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  РЕНДЕРИНГ: ДЕТАЛЬНАЯ СТРАНИЦА ТОВАРА
+// ──────────────────────────────────────────────────────────────────────
+function mpOpenProduct(id){
+  var p = MP_PRODUCTS.filter(function(x){ return x.id === id; })[0];
+  if(!p) return;
+  MP.productId = id;
+  MP.view = 'detail';
+  MP.detailTab = 'description';
+  MP.sellerTab = 'new';
+
+  // Скрыть каталог, показать детали
+  document.getElementById('mpCatalog').classList.add('hide');
+  var det = document.getElementById('mpDetail');
+  det.classList.add('on');
+  window.scrollTo({top:0,behavior:'smooth'});
+
+  // Хлебные крошки
+  var catName = p.category === 'phones' ? 'Смартфоны' : 'Аксессуары';
+  document.getElementById('mpBread').innerHTML =
+    '<a onclick="mpBackToCatalog()">Каталог</a><span>›</span><a onclick="mpBackToCatalog()">'+mpEsc(catName)+'</a><span>›</span><span style="color:var(--mp-tx)">'+mpEsc(p.name)+'</span>';
+
+  // Шапка товара
+  document.getElementById('mpProdImg').innerHTML = p.emoji;
+  document.getElementById('mpProdImg').style.background =
+    'linear-gradient(135deg,'+p.color+' 0%,'+mpLighten(p.color)+' 100%)';
+  document.getElementById('mpProdCat').textContent = catName + ' · ' + p.brand;
+  document.getElementById('mpProdName').textContent = p.name;
+  document.getElementById('mpProdBrand').textContent = p.brand;
+  document.getElementById('mpProdStars').textContent = mpStars(p.rating);
+  document.getElementById('mpProdRval').textContent = p.rating;
+  document.getElementById('mpProdRcnt').textContent = p.reviews.length + ' ' + mpDeclension(p.reviews.length, ['отзыв','отзыва','отзывов']);
+
+  // Диапазон цен
+  var minP = mpMinPrice(p), maxP = mpMaxPrice(p);
+  document.getElementById('mpProdPriceVal').textContent = minP === maxP
+    ? mpFmt(minP) + ' сом'
+    : mpFmt(minP) + ' — ' + mpFmt(maxP) + ' сом';
+  var sc = mpSellerCount(p);
+  document.getElementById('mpProdPriceSub').textContent = sc + ' ' + mpDeclension(sc, ['продавец','продавца','продавцов']) + ' предлагают этот товар';
+
+  // Мета-теги
+  var metaHtml = '<div class="mp-meta-tag">📦 '+mpEsc(catName)+'</div>'
+    + '<div class="mp-meta-tag">🏷️ '+mpEsc(p.brand)+'</div>';
+  if(p.specs['Память']) metaHtml += '<div class="mp-meta-tag">💾 '+mpEsc(p.specs['Память'])+'</div>';
+  if(p.specs['Аккумулятор']) metaHtml += '<div class="mp-meta-tag">🔋 '+mpEsc(p.specs['Аккумулятор'])+'</div>';
+  document.getElementById('mpProdMeta').innerHTML = metaHtml;
+
+  // Вкладки — счётчики
+  document.getElementById('mpTabReviewsCnt').textContent = p.reviews.length;
+  var totalSellers = (p.sellers_new||[]).length + (p.sellers_used||[]).length;
+  document.getElementById('mpTabSellersCnt').textContent = totalSellers;
+
+  // Контент вкладок
+  mpRenderDescription(p);
+  mpRenderSpecs(p);
+  mpRenderReviews(p);
+  mpRenderSellers(p);
+  mpSwitchTab('description');
+}
+
+function mpBackToCatalog(){
+  MP.view = 'catalog';
+  MP.productId = null;
+  document.getElementById('mpDetail').classList.remove('on');
+  document.getElementById('mpCatalog').classList.remove('hide');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── Описание ──────────────────────────────────────────────────────
+function mpRenderDescription(p){
+  document.getElementById('mpDescContent').innerHTML = '<div class="mp-desc">'+p.description+'</div>';
+}
+
+// ── Характеристики ────────────────────────────────────────────────
+function mpRenderSpecs(p){
+  var html = '<div class="mp-specs">'
+    + Object.keys(p.specs).map(function(k){
+        return '<div class="mp-spec-row"><div class="mp-spec-k">'+mpEsc(k)+'</div><div class="mp-spec-v">'+mpEsc(p.specs[k])+'</div></div>';
+      }).join('')
+    + '</div>';
+  document.getElementById('mpSpecsContent').innerHTML = html;
+}
+
+// ── Отзывы ────────────────────────────────────────────────────────
+function mpRenderReviews(p){
+  var revs = p.reviews || [];
+  if(!revs.length){
+    document.getElementById('mpReviewsContent').innerHTML = '<div class="mp-sell-empty">Отзывов пока нет</div>';
+    return;
+  }
+  // Средняя оценка и распределение
+  var avg = revs.reduce(function(s,r){ return s+r.rating; },0) / revs.length;
+  var dist = [0,0,0,0,0];
+  revs.forEach(function(r){ dist[r.rating-1]++; });
+
+  var html = '<div class="mp-reviews-summary">'
+    + '<div class="mp-rv-avg"><div class="mp-rv-avg-num">'+avg.toFixed(1)+'</div>'
+    + '<div class="mp-rv-avg-stars">'+mpStars(avg)+'</div>'
+    + '<div class="mp-rv-avg-cnt">'+revs.length+' '+mpDeclension(revs.length,['отзыв','отзыва','отзывов'])+'</div></div>'
+    + '<div class="mp-rv-bars">';
+  for(var i=4; i>=0; i--){
+    var pct = revs.length ? Math.round(dist[i]/revs.length*100) : 0;
+    html += '<div class="mp-rv-bar"><span class="mp-rv-bar-lbl">'+(i+1)+'</span>'
+      + '<div class="mp-rv-bar-track"><div class="mp-rv-bar-fill" style="width:'+pct+'%"></div></div>'
+      + '<span class="mp-rv-bar-cnt">'+dist[i]+'</span></div>';
+  }
+  html += '</div></div><div class="mp-rv-list">';
+  html += revs.map(function(r){
+    return '<div class="mp-rv-card"><div class="mp-rv-top">'
+      + '<div class="mp-rv-avatar">'+mpInitials(r.author)+'</div>'
+      + '<div><div class="mp-rv-author">'+mpEsc(r.author)+'</div>'
+      + '<div class="mp-rv-date">'+mpFmtDate(r.date)+'</div></div>'
+      + '<div class="mp-rv-stars">'+mpStars(r.rating)+'</div></div>'
+      + '<div class="mp-rv-text">'+mpEsc(r.text)+'</div></div>';
+  }).join('');
+  html += '</div>';
+  document.getElementById('mpReviewsContent').innerHTML = html;
+}
+
+// ── Продавцы ──────────────────────────────────────────────────────
+function mpRenderSellers(p){
+  var newList = (p.sellers_new||[]).slice().sort(function(a,b){ return a.price - b.price; });
+  var usedList = (p.sellers_used||[]).slice().sort(function(a,b){ return a.price - b.price; });
+
+  // Обновить счётчики кнопок
+  document.getElementById('mpSellNewCnt').textContent = newList.length;
+  document.getElementById('mpSellUsedCnt').textContent = usedList.length;
+
+  document.getElementById('mpSellNewList').innerHTML = mpRenderSellerList(newList);
+  document.getElementById('mpSellUsedList').innerHTML = mpRenderSellerList(usedList);
+  mpSwitchSellerTab(MP.sellerTab);
+}
+
+function mpRenderSellerList(list){
+  if(!list.length){
+    return '<div class="mp-sell-empty">Нет предложений в данной категории</div>';
+  }
+  return '<div class="mp-sell-list">' + list.map(function(item){
+    var seller = MP_SELLERS.filter(function(s){ return s.id === item.seller_id; })[0];
+    if(!seller) return '';
+    var waLink = 'https://wa.me/' + seller.wa;
+    return '<div class="mp-sell-card">'
+      + '<div class="mp-sell-ava">🏪</div>'
+      + '<div class="mp-sell-body">'
+      + '<div class="mp-sell-name">'+mpEsc(seller.name)+'</div>'
+      + '<div class="mp-sell-loc"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 16s6-5.686 6-10A6 6 0 002 6c0 4.314 6 10 6 10zm0-7a3 3 0 110-6 3 3 0 010 6z"/></svg>'+mpEsc(seller.address)+'</div>'
+      + '<div class="mp-sell-rating"><span class="stars">'+mpStars(seller.rating)+'</span><span class="val">'+seller.rating+'</span></div>'
+      + (item.note ? '<div style="font-size:.74rem;color:var(--mp-tx3);margin-bottom:6px">'+mpEsc(item.note)+'</div>' : '')
+      + '<div class="mp-sell-bottom">'
+      + '<div class="mp-sell-price">'+mpFmt(item.price)+' сом</div>'
+      + '<div class="mp-sell-stock '+(item.in_stock?'in':'out')+'">'+(item.in_stock?'В наличии':'Нет в наличии')+'</div>'
+      + '<a class="mp-sell-contact" href="'+mpEsc(waLink)+'" target="_blank" rel="noopener">'
+      + '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.601 2.326A7.854 7.854 0 008.026 0C3.598 0 0 3.597 0 8.026a7.98 7.98 0 001.195 4.219L0 16l3.897-1.179A7.983 7.983 0 008.026 16C12.454 16 16 12.403 16 7.974a7.95 7.95 0 00-2.399-5.648z"/></svg>'
+      + 'Написать</a></div></div></div>';
+  }).join('') + '</div>';
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+// ──────────────────────────────────────────────────────────────────────
+function mpSwitchTab(tab){
+  MP.detailTab = tab;
+  document.querySelectorAll('.mp-tab').forEach(function(t){ t.classList.remove('on'); });
+  document.querySelectorAll('.mp-tpanel').forEach(function(p){ p.classList.remove('on'); });
+  var tabBtn = document.querySelector('.mp-tab[data-tab="'+tab+'"]');
+  var tabPanel = document.getElementById('mpPanel_'+tab);
+  if(tabBtn) tabBtn.classList.add('on');
+  if(tabPanel) tabPanel.classList.add('on');
+}
+
+function mpSwitchSellerTab(tab){
+  MP.sellerTab = tab;
+  document.querySelectorAll('.mp-sell-tab').forEach(function(t){ t.classList.remove('on'); });
+  document.querySelector('.mp-sell-tab[data-st="'+tab+'"]').classList.add('on');
+  document.getElementById('mpSellNewList').style.display = tab === 'new' ? 'block' : 'none';
+  document.getElementById('mpSellUsedList').style.display = tab === 'used' ? 'block' : 'none';
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  ХЕЛПЕРЫ
+// ──────────────────────────────────────────────────────────────────────
+function mpDeclension(n, forms){
+  // forms: [1, 2-4, 5-20]
+  var abs = Math.abs(n) % 100;
+  var n1 = abs % 10;
+  if(abs > 10 && abs < 20) return n + ' ' + forms[2];
+  if(n1 > 1 && n1 < 5) return n + ' ' + forms[1];
+  if(n1 === 1) return n + ' ' + forms[0];
+  return n + ' ' + forms[2];
+}
+
+function mpLighten(hex){
+  // Осветлить HEX-цвет на 40% для градиента
+  var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  r = Math.min(255, r + Math.round((255-r)*0.4));
+  g = Math.min(255, g + Math.round((255-g)*0.4));
+  b = Math.min(255, b + Math.round((255-b)*0.4));
+  return '#' + [r,g,b].map(function(c){ return c.toString(16).padStart(2,'0'); }).join('');
+}
+
+function mpFmtDate(d){
+  if(!d) return '—';
+  var dt = new Date(d);
+  return dt.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+}
+
+// ──────────────────────────────────────────────────────────────────────
+//  ОБРАБОТЧИКИ СОБЫТИЙ
+// ──────────────────────────────────────────────────────────────────────
+function mpOnSearch(val){
+  MP.filters.search = val;
+  mpRenderCatalog();
+}
+
+function mpOnCategory(cat){
+  MP.filters.category = cat;
+  document.querySelectorAll('.mp-cat').forEach(function(c){ c.classList.remove('on'); });
+  document.querySelector('.mp-cat[data-cat="'+cat+'"]').classList.add('on');
+  mpRenderCatalog();
+}
+
+function mpOnBrand(brand){
+  MP.filters.brand = brand;
+  mpRenderCatalog();
+}
+
+function mpOnSort(sort){
+  MP.filters.sort = sort;
+  mpRenderCatalog();
+}
+
+// Обработка кнопки "Назад" в браузере
+window.addEventListener('popstate', function(){
+  if(MP.view === 'detail') mpBackToCatalog();
+});
+
+// ──────────────────────────────────────────────────────────────────────
+//  ИНИЦИАЛИЗАЦИЯ
+// ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function(){
+  mpApplyTheme();
+  mpRenderCatalog();
+
+  // Мобильный поиск — синхронизация с десктопным
+  var heroSearch = document.getElementById('mpHeroSearch');
+  var hdrSearch = document.getElementById('mpHdrSearch');
+  if(heroSearch) heroSearch.addEventListener('input', function(){ mpOnSearch(this.value); if(hdrSearch) hdrSearch.value = this.value; });
+  if(hdrSearch) hdrSearch.addEventListener('input', function(){ mpOnSearch(this.value); if(heroSearch) heroSearch.value = this.value; });
+
+  // Категории
+  document.querySelectorAll('.mp-cat').forEach(function(btn){
+    btn.addEventListener('click', function(){ mpOnCategory(this.dataset.cat); });
+  });
+
+  // Фильтры
+  var brandSel = document.getElementById('mpBrandFilter');
+  if(brandSel) brandSel.addEventListener('change', function(){ mpOnBrand(this.value); });
+
+  var sortSel = document.getElementById('mpSortFilter');
+  if(sortSel) sortSel.addEventListener('change', function(){ mpOnSort(this.value); });
+
+  // Вкладки товара
+  document.querySelectorAll('.mp-tab').forEach(function(t){
+    t.addEventListener('click', function(){ mpSwitchTab(this.dataset.tab); });
+  });
+
+  // Вкладки продавцов
+  document.querySelectorAll('.mp-sell-tab').forEach(function(t){
+    t.addEventListener('click', function(){ mpSwitchSellerTab(this.dataset.st); });
+  });
+});
+</script>

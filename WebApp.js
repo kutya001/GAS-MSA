@@ -4,17 +4,21 @@
 // ══════════════════════════════════════════════════════════════════════
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.p) || '';
-  var webAppUrl = ScriptApp.getService().getUrl();
-  if (page === 'catalog') {
-    var html = HtmlService.createHtmlOutputFromFile('PhoneMarket').getContent();
-    html = html.replace('__WEBAPP_URL__', webAppUrl);
-    return HtmlService.createHtmlOutput(html)
-      .setTitle('PhoneMarket — Каталог товаров')
+  var url  = ScriptApp.getService().getUrl();
+
+  // Маркетплейс — отдельный сайт-каталог
+  if (page === 'marketplace') {
+    var mp = HtmlService.createTemplateFromFile('MarketplaceFrontend');
+    mp.webAppUrl = url;
+    return mp.evaluate()
+      .setTitle('МобилТрек · Маркетплейс')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover');
   }
+
+  // Основное приложение учёта
   var tpl = HtmlService.createTemplateFromFile('Frontend');
-  tpl.webAppUrl = webAppUrl;
+  tpl.webAppUrl = url;
   return tpl.evaluate()
     .setTitle('МобилТрек Pro')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)

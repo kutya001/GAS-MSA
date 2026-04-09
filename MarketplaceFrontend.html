@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>МобилТрек · Маркетплейс</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<?!= include('MarketplaceStyles') ?>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     HEADER
+     ══════════════════════════════════════════════════════════════════ -->
+<header class="mp-hdr">
+  <div class="mp-hdr-in">
+    <div class="mp-logo" onclick="mpBackToCatalog()">
+      <div class="mp-logo-mark">М</div>
+      <div class="mp-logo-txt">
+        <div class="mp-logo-name">МобилТрек</div>
+        <div class="mp-logo-sub">Маркетплейс</div>
+      </div>
+    </div>
+
+    <div class="mp-hsrch">
+      <span class="mp-hsrch-ico">🔍</span>
+      <input type="text" id="mpHdrSearch" placeholder="Поиск телефонов и аксессуаров...">
+    </div>
+
+    <div class="mp-hdr-acts">
+      <a class="mp-hbtn" href="<?!= webAppUrl ?>" title="Вернуться в систему учёта">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.354 1.646a.5.5 0 010 .708L5.707 8l5.647 5.646a.5.5 0 01-.708.708l-6-6a.5.5 0 010-.708l6-6a.5.5 0 01.708 0z"/></svg>
+        <span>Учёт</span>
+      </a>
+      <button class="mp-theme-btn" onclick="mpToggleTheme()" title="Сменить тему">
+        <span id="mpThIco">🌙</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     КАТАЛОГ (главный вид)
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="mpCatalog" class="mp-catalog">
+
+  <!-- ── Hero-секция ─────────────────────────────────────────────── -->
+  <section class="mp-hero">
+    <h1>Каталог техники</h1>
+    <p>Сравнивайте цены от проверенных продавцов Бишкека на телефоны и аксессуары</p>
+    <div class="mp-hero-srch">
+      <span class="mp-hero-srch-ico">🔍</span>
+      <input type="text" id="mpHeroSearch" placeholder="Найти товар...">
+    </div>
+  </section>
+
+  <!-- ── Контент каталога ────────────────────────────────────────── -->
+  <div class="mp-wrap">
+
+    <!-- Категории -->
+    <div class="mp-cats">
+      <button class="mp-cat on" data-cat="all">Все товары</button>
+      <button class="mp-cat" data-cat="phones">📱 Смартфоны</button>
+      <button class="mp-cat" data-cat="accessories">🎧 Аксессуары</button>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="mp-filters">
+      <select class="mp-fsel" id="mpBrandFilter">
+        <option value="all">Все бренды</option>
+        <option value="Apple">Apple</option>
+        <option value="Samsung">Samsung</option>
+        <option value="Xiaomi">Xiaomi</option>
+        <option value="POCO">POCO</option>
+        <option value="Honor">Honor</option>
+        <option value="Google">Google</option>
+        <option value="Realme">Realme</option>
+        <option value="Baseus">Baseus</option>
+        <option value="Nillkin">Nillkin</option>
+        <option value="Spigen">Spigen</option>
+        <option value="Anker">Anker</option>
+      </select>
+      <select class="mp-fsel" id="mpSortFilter">
+        <option value="popular">По популярности</option>
+        <option value="price_asc">Цена: по возрастанию</option>
+        <option value="price_desc">Цена: по убыванию</option>
+        <option value="rating">По рейтингу</option>
+        <option value="name">По названию</option>
+      </select>
+      <span class="mp-fcnt" id="mpCount"></span>
+    </div>
+
+    <!-- Сетка товаров -->
+    <div class="mp-grid" id="mpGrid"></div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     ДЕТАЛЬНЫЙ ВИД ТОВАРА
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="mpDetail" class="mp-detail">
+  <div class="mp-wrap">
+
+    <!-- Хлебные крошки -->
+    <div class="mp-bread" id="mpBread"></div>
+
+    <!-- Шапка товара -->
+    <div class="mp-prod-head">
+      <div class="mp-prod-img" id="mpProdImg"></div>
+      <div class="mp-prod-info">
+        <div class="mp-prod-cat" id="mpProdCat"></div>
+        <h1 class="mp-prod-name" id="mpProdName"></h1>
+        <div class="mp-prod-brand" id="mpProdBrand"></div>
+        <div class="mp-prod-rating">
+          <span class="mp-prod-stars" id="mpProdStars"></span>
+          <span class="mp-prod-rval" id="mpProdRval"></span>
+          <span class="mp-prod-rcnt" id="mpProdRcnt"></span>
+        </div>
+        <div class="mp-prod-price-range">
+          <div class="mp-prod-price-lbl">Диапазон цен</div>
+          <div class="mp-prod-price-val" id="mpProdPriceVal"></div>
+          <div class="mp-prod-price-sub" id="mpProdPriceSub"></div>
+        </div>
+        <div class="mp-prod-meta" id="mpProdMeta"></div>
+      </div>
+    </div>
+
+    <!-- Вкладки -->
+    <div class="mp-tabs">
+      <button class="mp-tab on" data-tab="description">Описание</button>
+      <button class="mp-tab" data-tab="specs">Характеристики</button>
+      <button class="mp-tab" data-tab="reviews">Отзывы <span class="mp-tab-cnt" id="mpTabReviewsCnt">0</span></button>
+      <button class="mp-tab" data-tab="sellers">Продавцы <span class="mp-tab-cnt" id="mpTabSellersCnt">0</span></button>
+    </div>
+
+    <!-- Панели вкладок -->
+    <div class="mp-tpanel on" id="mpPanel_description">
+      <div id="mpDescContent"></div>
+    </div>
+    <div class="mp-tpanel" id="mpPanel_specs">
+      <div id="mpSpecsContent"></div>
+    </div>
+    <div class="mp-tpanel" id="mpPanel_reviews">
+      <div id="mpReviewsContent"></div>
+    </div>
+    <div class="mp-tpanel" id="mpPanel_sellers">
+      <!-- Переключатель Новые / Б/У -->
+      <div class="mp-sell-tabs">
+        <button class="mp-sell-tab on" data-st="new">Новые <span class="stcnt" id="mpSellNewCnt">0</span></button>
+        <button class="mp-sell-tab" data-st="used">Б/У <span class="stcnt" id="mpSellUsedCnt">0</span></button>
+      </div>
+      <div id="mpSellNewList"></div>
+      <div id="mpSellUsedList" style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     FOOTER
+     ══════════════════════════════════════════════════════════════════ -->
+<footer class="mp-footer">
+  <p>© 2026 МобилТрек · Маркетплейс — Каталог техники Бишкека</p>
+</footer>
+
+<?!= include('MarketplaceScripts') ?>
+</body>
+</html>

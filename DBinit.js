@@ -159,6 +159,32 @@ var SCHEMA = {
     widths: [50,80,150,300,600,140,140],
     note: 'Номенклатурные позиции. attribute_values — JSON-объект {attr_id: значение}',
   },
+
+  // ── Маркетплейс: каталог товаров ────────────────────────────────
+  'MP_Товары': {
+    headers: ['id','category','brand','name','description','specs','emoji','color','rating','created_at'],
+    color: '#FFF9C4', tabColor: '#F9A825',
+    widths: [50,100,100,250,400,400,60,80,60,140],
+    note: 'Каталог товаров маркетплейса. category: phones/accessories. specs — JSON',
+  },
+  'MP_Продавцы': {
+    headers: ['id','name','address','phone','wa','rating','created_at'],
+    color: '#FFF9C4', tabColor: '#F9A825',
+    widths: [50,200,300,150,150,60,140],
+    note: 'Продавцы маркетплейса',
+  },
+  'MP_Листинги': {
+    headers: ['id','product_id','seller_id','price','condition','in_stock','note','created_at'],
+    color: '#FFF9C4', tabColor: '#F9A825',
+    widths: [50,80,80,100,100,80,250,140],
+    note: 'Предложения продавцов. condition: Новый / Б/У',
+  },
+  'MP_Отзывы': {
+    headers: ['id','product_id','author','rating','text','created_at'],
+    color: '#FFF9C4', tabColor: '#F9A825',
+    widths: [50,80,200,60,400,140],
+    note: 'Отзывы пользователей о товарах',
+  },
 };
 
 // ──────────────────────────────────────────────────────────────────────

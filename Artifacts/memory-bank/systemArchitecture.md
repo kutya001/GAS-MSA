@@ -32,6 +32,7 @@
 │  Sales.js      — Продажи                         │
 │  Payments.js   — Оплаты                          │
 │  Analytics.js  — Дашборд, отчёты                 │
+│  Marketplace.js — Маркетплейс CRUD              │
 │  MDM.js        — Master Data Management          │
 │         │                                        │
 └─────────┼───────────────────────────────────────┘
@@ -41,7 +42,7 @@
 │                                                  │
 │  20 листов: Ref_*, Кошельки, КассовыеОперации,  │
 │  Склады, Закупки, Продажи, Оплаты,              │
-│  Категории, Статьи, MDM_*                        │
+│  Категории, Статьи, MDM_*, MP_*                 │
 │                                                  │
 │  Иерархия классификации:                         │
 │  Ref_Классы → Ref_ТипыПродуктов (2 уровня)      │
@@ -56,6 +57,19 @@
 │  Tailwind CSS + vanilla JS (standalone SPA)      │
 │  Классы/Типы → фильтры/навигация                │
 │  Products + resolved specs + stock из Закупок    │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│           Маркетплейс (standalone каталог)        │
+│                                                  │
+│  URL: ?p=marketplace → MarketplaceFrontend.html  │
+│  MarketplaceStyles.html + MarketplaceScripts.html│
+│  Демо: 20 товаров, 6 продавцов (Бишкек)         │
+│  Продавцы: табы Новые/Б/У, WhatsApp-ссылки      │
+│  DB: MP_Товары, MP_Продавцы,                     │
+│      MP_Листинги, MP_Отзывы                      │
+│  CRUD: Marketplace.js                            │
+│  Тёмная тема + responsive (960/640/380px)        │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -190,6 +204,7 @@ CHUNK = 80000        — размер чанка кэша (байт)
 
 `doGet(e)` в WebApp.js проверяет `e.parameter.p`:
 - `p=catalog` → `PhoneMarket.html` (витрина)
+- `p=marketplace` → `MarketplaceFrontend.html` (маркетплейс)
 - без параметра → `Frontend.html` (admin-панель)
 
 Реальный URL деплоя получается через `ScriptApp.getService().getUrl()` и передаётся в шаблоны как `webAppUrl` (в iframe `location.href` — URL песочницы googleusercontent.com, не деплоя).
@@ -228,7 +243,39 @@ Standalone HTML: Tailwind CSS CDN + Google Fonts (Inter, Nunito) + vanilla JS ES
 - `buildNavLinks()` — динамические ссылки в хедере из классов
 - `esc(str)` — XSS-safe HTML encoding
 
-## 9. Деплой
+## 9. Маркетплейс (standalone каталог с продавцами)
+
+Отдельный сайт-каталог, доступный по `?p=marketplace`, не входящий в admin-панель и не связанный с PhoneMarket.
+
+### 9.1 Маршрутизация
+`doGet(e)` в WebApp.js: `e.parameter.p === 'marketplace'` → `MarketplaceFrontend.html`. Передаётся `webAppUrl` через GAS template `<?!= webAppUrl ?>`.
+
+Навигация: кнопка «Каталог товаров» в секции «Маркетплейс» сайдбара Frontend.html → `window.open(WEBAPP_URL+'?p=marketplace', '_blank')`.
+
+### 9.2 Архитектура файлов
+- **MarketplaceFrontend.html** — layout template, включает Styles + Scripts через `<?!= include() ?>`
+- **MarketplaceStyles.html** — CSS: токены `--mp-*`, тёмная тема `[data-theme=dark]`, responsive breakpoints (960/640/380px)
+- **MarketplaceScripts.html** — JS: объект `MP` state, демо-данные (20 товаров + 6 продавцов), фильтрация/сортировка/поиск, карточка товара с табами, `mpApi()` bridge
+- **Marketplace.js** — бэкенд CRUD для Google Sheets (MP_Товары, MP_Продавцы, MP_Листинги, MP_Отзывы)
+
+### 9.3 Модель данных
+4 листа (tabColor `#F9A825`):
+- **MP_Товары**: category (Смартфон/Аксессуар), brand, name, description, specs (JSON), emoji, color, rating
+- **MP_Продавцы**: name, address, phone, wa, rating
+- **MP_Листинги**: product_id, seller_id, price, condition (Новый/Б/У), in_stock, note
+- **MP_Отзывы**: product_id, author, rating, text
+
+### 9.4 Демо-данные
+Встроены в `MarketplaceScripts.html` как JS-массивы для работы без настройки БД:
+- `MP_PRODUCTS` — 20 товаров (12 смартфонов + 8 аксессуаров, бренды: Apple, Samsung, Xiaomi, POCO, Honor, Google, Realme)
+- `MP_SELLERS` — 6 продавцов Бишкека с WhatsApp-номерами
+- Каждый товар имеет `sellers` с полями `price`, `condition` (Новый/Б/У), `in_stock`
+
+### 9.5 Фронтенд-структура
+- **Каталог**: hero-секция, категории-pills (Все/Смартфоны/Аксессуары), бренд-фильтр, сортировка (цена↑↓/рейтинг/имя), поиск, сетка карточек
+- **Карточка товара**: breadcrumbs, product head (emoji + рейтинг + цена от), 4 вкладки (Описание / Характеристики / Отзывы / Продавцы), продавцы разделены на табы «Новые» / «Б/У», карточки продавцов с ценой + WhatsApp-кнопкой
+
+## 10. Деплой
 
 ```
 clasp push    — файлы .js → .gs
@@ -248,3 +295,4 @@ clasp deploy  — публикация Web App
 | 2026-04-09 | Публичная витрина PhoneMarket: getPublicCatalog() API, doGet(?p=catalog) маршрутизация, PhoneMarket.html (Tailwind + vanilla JS), stock из Закупок, resolved specs из MDM |
 | 2026-04-09 | Двусторонняя навигация Admin ↔ PhoneMarket; исправление URL: location.href → ScriptApp.getService().getUrl() + GAS template variable webAppUrl → WEBAPP_URL |
 | 2026-04-09 | Багфикс: `<?= webAppUrl ?>` → `<?!= webAppUrl ?>` (force-print) — экранирование ломало JS; `PhoneMarket.html.html` добавлен в `.claspignore` |
+| 2026-04-09 | Маркетплейс: standalone каталог `?p=marketplace`, 4 новых файла (MarketplaceFrontend/Styles/Scripts.html + Marketplace.js), DB 4 листа MP_*, демо-данные, тёмная тема, responsive |
