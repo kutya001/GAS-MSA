@@ -48,6 +48,7 @@
     </style>
 </head>
 <body class="min-h-screen">
+<script>var WEBAPP_URL = '<?= webAppUrl ?>';</script>
 
     <!-- Header -->
     <header class="gradient-bg sticky top-0 z-50 shadow-lg">
@@ -73,7 +74,7 @@
                 <nav id="navLinks" class="hidden md:flex items-center gap-6">
                     <button onclick="navigate('home')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Главная</button>
                     <button onclick="navigate('catalog')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Каталог</button>
-                    <a id="adminLinkStatic" onclick="this.href=location.href.split('?')[0]" target="_blank" class="ml-2 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors">← Панель управления</a>
+                    <a href="#" onclick="window.open(WEBAPP_URL,'_blank');return false;" class="ml-2 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors">← Панель управления</a>
                 </nav>
                 <button onclick="toggleMobileMenu()" class="md:hidden text-white p-2">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,7 +87,7 @@
             <div class="px-4 py-3 space-y-2">
                 <button onclick="navigate('home'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Главная</button>
                 <button onclick="navigate('catalog'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Каталог</button>
-                <a id="adminLinkMobileStatic" onclick="this.href=location.href.split('?')[0]" target="_blank" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium border-t border-white/10 mt-2 pt-2">← Панель управления</a>
+                <a href="#" onclick="window.open(WEBAPP_URL,'_blank');return false;" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium border-t border-white/10 mt-2 pt-2">← Панель управления</a>
             </div>
         </div>
     </header>
@@ -188,7 +189,7 @@
         //  NAV LINKS — динамические ссылки на категории в хедере
         // ═══════════════════════════════════════════════════════════════
         function buildNavLinks() {
-            var baseUrl = location.href.split('?')[0];
+            var baseUrl = WEBAPP_URL;
             const nav = document.getElementById('navLinks');
             const mobile = document.getElementById('mobileMenu').querySelector('div');
             let links = '<button onclick="navigate(\'home\')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Главная</button>';
