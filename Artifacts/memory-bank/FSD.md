@@ -263,7 +263,7 @@ URL: `WEBAPP_URL?p=catalog`. Маршрутизация в `doGet(e)` WebApp.js.
 - Admin → PhoneMarket: кнопка «Каталог PhoneMarket ↗» в сайдбаре
 - PhoneMarket → Admin: кнопка «← Панель управления» в header
 
-URL деплоя передаётся через `ScriptApp.getService().getUrl()` → GAS template `webAppUrl` → `WEBAPP_URL` (в iframe `location.href` — URL песочницы, не деплоя).
+URL деплоя передаётся через `ScriptApp.getService().getUrl()` → GAS template `<?!= webAppUrl ?>` (force-print) → `WEBAPP_URL`. Важно: использовать `<?!= ?>`, а не `<?= ?>` — последний экранирует спецсимволы внутри `<script>`, ломая JS-парсер.
 
 ### Бэкенд API
 `getPublicCatalog()` (MDM.js) — денормализованные данные:

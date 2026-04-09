@@ -6,9 +6,9 @@ function doGet(e) {
   var page = (e && e.parameter && e.parameter.p) || '';
   var webAppUrl = ScriptApp.getService().getUrl();
   if (page === 'catalog') {
-    var tpl = HtmlService.createTemplateFromFile('PhoneMarket');
-    tpl.webAppUrl = webAppUrl;
-    return tpl.evaluate()
+    var html = HtmlService.createHtmlOutputFromFile('PhoneMarket').getContent();
+    html = html.replace('__WEBAPP_URL__', webAppUrl);
+    return HtmlService.createHtmlOutput(html)
       .setTitle('PhoneMarket — Каталог товаров')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover');

@@ -15,6 +15,7 @@
 | 2026-04-09 | **WebApp.js**: `doGet(e)` принимает query parameter `?p=catalog` → рендерит PhoneMarket.html; без параметра — Frontend.html (admin panel) как раньше |
 | 2026-04-09 | **Двусторонняя навигация**: Frontend.html — кнопка «Каталог PhoneMarket ↗» в сайдбаре; PhoneMarket.html — кнопка «← Панель управления» в header/mobile menu |
 | 2026-04-09 | **Исправление навигации**: `location.href` внутри GAS iframe — URL песочницы (googleusercontent.com), не деплоя. Заменён на `ScriptApp.getService().getUrl()` через GAS template variable `webAppUrl` → глобальная `WEBAPP_URL` на фронтенде. Исправлены: WebApp.js (doGet передаёт webAppUrl в шаблоны), Frontend.html (WEBAPP_URL для кнопки каталога), PhoneMarket.html (WEBAPP_URL для кнопки «Панель управления» и buildNavLinks) |
+| 2026-04-09 | **Багфикс**: `<?= webAppUrl ?>` → `<?!= webAppUrl ?>` — GAS printing scriptlet `<?= ?>` экранирует HTML-сущности внутри `<script>`, ломая JS парсинг. Force-print `<?!= ?>` не экранирует (URL из ScriptApp — доверенный). Добавлен `PhoneMarket.html.html` в `.claspignore` для исключения из деплоя |
 | 2026-04-09 | **PageMDM.html**: полный редизайн интерфейса — двухколоночный layout; контекстное добавление |
 | 2026-04-09 | Оптимизация производительности: кэш _ss/_sh, batch _update, getMasterData(), _now(), updated_at в 8 таблиц |
 
@@ -27,11 +28,11 @@
 - [x] PhoneMarket: наличие товара из Закупок (stock badge)
 - [x] Двусторонняя навигация Admin ↔ PhoneMarket
 - [x] Исправление URL навигации (location.href → ScriptApp.getService().getUrl())
+- [x] Багфикс: `<?= ?>` → `<?!= ?>` для webAppUrl; PhoneMarket.html.html исключён из деплоя
 
 ## Известные проблемы
 
 - MDM-формулы (тип `calculated`): определён в схеме, но движок вычислений не реализован.
-- Файл `PhoneMarket.html.html` (исходный шаблон) остаётся в проекте — можно удалить.
 - После `clasp push` нужно обновить деплой (`clasp deploy`) — URL `/exec` показывает последнюю задеплоенную версию, а не HEAD.
 
 ## Следующие шаги
