@@ -73,6 +73,7 @@
                 <nav id="navLinks" class="hidden md:flex items-center gap-6">
                     <button onclick="navigate('home')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Главная</button>
                     <button onclick="navigate('catalog')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Каталог</button>
+                    <a id="adminLinkStatic" onclick="this.href=location.href.split('?')[0]" target="_blank" class="ml-2 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors">← Панель управления</a>
                 </nav>
                 <button onclick="toggleMobileMenu()" class="md:hidden text-white p-2">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,6 +86,7 @@
             <div class="px-4 py-3 space-y-2">
                 <button onclick="navigate('home'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Главная</button>
                 <button onclick="navigate('catalog'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Каталог</button>
+                <a id="adminLinkMobileStatic" onclick="this.href=location.href.split('?')[0]" target="_blank" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium border-t border-white/10 mt-2 pt-2">← Панель управления</a>
             </div>
         </div>
     </header>
@@ -186,6 +188,7 @@
         //  NAV LINKS — динамические ссылки на категории в хедере
         // ═══════════════════════════════════════════════════════════════
         function buildNavLinks() {
+            var baseUrl = location.href.split('?')[0];
             const nav = document.getElementById('navLinks');
             const mobile = document.getElementById('mobileMenu').querySelector('div');
             let links = '<button onclick="navigate(\'home\')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Главная</button>';
@@ -193,6 +196,7 @@
             catalogData.classes.forEach(function(c) {
                 links += `<button onclick="navigate('catalog', ${c.id})" class="text-white/90 hover:text-white text-sm font-medium transition-colors">${esc(c.name)}</button>`;
             });
+            links += `<a href="${baseUrl}" target="_blank" class="ml-2 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors">← Панель управления</a>`;
             nav.innerHTML = links;
 
             let mobileLinks = '<button onclick="navigate(\'home\'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Главная</button>';
@@ -200,6 +204,7 @@
             catalogData.classes.forEach(function(c) {
                 mobileLinks += `<button onclick="navigate('catalog', ${c.id}); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">${esc(c.name)}</button>`;
             });
+            mobileLinks += `<a href="${baseUrl}" target="_blank" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium border-t border-white/10 mt-2 pt-2">← Панель управления</a>`;
             mobile.innerHTML = mobileLinks;
         }
 
