@@ -2,7 +2,16 @@
 //  МобилТрек Pro · WebApp.gs
 //  Точка входа веб-приложения
 // ══════════════════════════════════════════════════════════════════════
-function doGet() {
+function doGet(e) {
+  var page = (e && e.parameter && e.parameter.p) || '';
+  if (page === 'catalog') {
+    return HtmlService
+      .createTemplateFromFile('PhoneMarket')
+      .evaluate()
+      .setTitle('PhoneMarket — Каталог товаров')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover');
+  }
   return HtmlService
     .createTemplateFromFile('Frontend')
     .evaluate()

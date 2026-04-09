@@ -579,3 +579,119 @@ function getMDMContext(p) {
     return _ok(result);
   } catch(e) { return _err(e.message); }
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  ПУБЛИЧНЫЙ КАТАЛОГ (для PhoneMarket)
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Возвращает денормализованный каталог товаров для публичной витрины.
+ * Включает: классы, типы, товары с resolved-атрибутами + остаток со склада.
+ */
+function getPublicCatalog() {
+  try {
+    var cached = _cGet('public_catalog');
+    if (cached) return _ok(cached);
+
+    // Классы / Типы
+    var classRows = _rows(SH.CLASSES).filter(function(r) { return r.id && r.name; });
+    var typeRows  = _rows(SH.PROD_TYPES).filter(function(r) { return r.id && r.name; });
+    var classMap  = {};
+    classRows.forEach(function(c) { classMap[parseInt(c.id)] = c.name; });
+    var typeMap = {};
+    typeRows.forEach(function(t) { typeMap[parseInt(t.id)] = t.name; });
+
+    // Шаблоны + атрибуты
+    var tRows = _rows(SH.MDM_TEMPLATES).filter(function(r) { return r.id; });
+    var aRows = _rows(SH.MDM_ATTRS).filter(function(r) { return r.id && r.template_id; });
+    var attrMap = {};
+    aRows.forEach(function(a) {
+      var tid = parseInt(a.template_id);
+      if (!attrMap[tid]) attrMap[tid] = [];
+      attrMap[tid].push({
+        id:        parseInt(a.id),
+        name:      a.name || '',
+        type:      a.type || 'string',
+        ref_table: a.ref_table || '',
+        sort_order: parseInt(a.sort_order) || 0,
+      });
+    });
+    var tplMap = {};
+    tRows.forEach(function(t) {
+      var tid = parseInt(t.id);
+      tplMap[tid] = {
+        name:     t.name || '',
+        class_id: t.class_id ? parseInt(t.class_id) : null,
+        type_id:  t.type_id  ? parseInt(t.type_id)  : null,
+        attrs:    (attrMap[tid] || []).sort(function(a, b) { return a.sort_order - b.sort_order; }),
+      };
+    });
+
+    // Справочники для резолва reference-атрибутов
+    var refData = {};
+    Object.keys(MDM_REF_TABLES).forEach(function(key) {
+      var cfg = MDM_REF_TABLES[key];
+      var map = {};
+      _rows(SH[cfg.sheet]).forEach(function(r) {
+        if (r.id && r.name) map[parseInt(r.id)] = String(r.name);
+      });
+      refData[key] = map;
+    });
+
+    // Остатки по product_id из Закупок (status «В наличии»)
+    var stockMap = {};
+    _rows(SH.PURCHASES).forEach(function(r) {
+      if (r.product_id && r.status === 'В наличии') {
+        var pid = parseInt(r.product_id);
+        var hasImei = (r.has_imei === 'TRUE' || r.has_imei === true || r.has_imei === 1);
+        var qty = hasImei ? 1 : (parseInt(r.qty) || 1);
+        stockMap[pid] = (stockMap[pid] || 0) + qty;
+      }
+    });
+
+    // Сборка товаров
+    var products = _rows(SH.MDM_PRODUCTS)
+      .filter(function(r) { return r.id; })
+      .map(function(r) {
+        var av = {};
+        try { av = JSON.parse(r.attribute_values || '{}'); } catch(e) {}
+        var tpl = tplMap[parseInt(r.template_id)] || {};
+
+        // Резолв атрибутов → объект «Название»: «Значение»
+        var specs = {};
+        (tpl.attrs || []).forEach(function(attr) {
+          var val = av[String(attr.id)];
+          if (val === undefined || val === '' || val === null) return;
+          if (attr.type === 'boolean') {
+            val = (val === 'TRUE' || val === true || val === '1' || val === 1) ? 'Да' : 'Нет';
+          } else if (attr.type === 'reference' && attr.ref_table && refData[attr.ref_table]) {
+            val = refData[attr.ref_table][parseInt(val)] || val;
+          }
+          specs[attr.name] = String(val);
+        });
+
+        var pid = parseInt(r.id);
+        return {
+          id:         pid,
+          name:       r.name || '',
+          sku:        r.sku  || '',
+          tpl_name:   tpl.name || '',
+          class_id:   tpl.class_id || 0,
+          type_id:    tpl.type_id  || 0,
+          class_name: classMap[tpl.class_id] || '',
+          type_name:  typeMap[tpl.type_id]   || '',
+          specs:      specs,
+          stock:      stockMap[pid] || 0,
+        };
+      });
+
+    var result = {
+      classes:  classRows.map(function(c) { return { id: parseInt(c.id), name: c.name }; }),
+      types:    typeRows.map(function(t) { return { id: parseInt(t.id), class_id: parseInt(t.class_id), name: t.name }; }),
+      products: products,
+    };
+
+    _cSet('public_catalog', result, CACHE_TX);
+    return _ok(result);
+  } catch(e) { return _err(e.message); }
+}

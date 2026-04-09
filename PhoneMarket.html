@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhoneMarket — Каталог товаров</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Nunito', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
+                            300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
+                            600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@700;800&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        .slide-up { animation: slideUp 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.12); }
+        .product-card { transition: all 0.3s ease; }
+        .gradient-bg { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%); }
+        .badge-stock { background: linear-gradient(135deg, #10b981, #059669); }
+        .badge-out   { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        @media (max-width: 768px) {
+            .mobile-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.75rem !important; }
+        }
+        @media (min-width: 769px) {
+            .mobile-grid { grid-template-columns: repeat(4, 1fr) !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Header -->
+    <header class="gradient-bg sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-3">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="navigate('home')">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="text-white font-display font-bold text-xl hidden sm:block">PhoneMarket</span>
+                </div>
+                <div class="flex-1 max-w-xl">
+                    <div class="relative">
+                        <input type="text" id="searchInput" placeholder="Поиск товаров..."
+                               class="w-full px-4 py-2.5 pl-10 rounded-xl bg-white/20 text-white placeholder-white/70 border border-white/30 focus:bg-white/30 focus:border-white/50 transition-all text-sm"
+                               oninput="handleSearch(this.value)">
+                        <svg class="w-5 h-5 text-white/70 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <div id="searchResults" class="hidden absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl overflow-hidden z-50 max-h-80 overflow-y-auto"></div>
+                    </div>
+                </div>
+                <nav id="navLinks" class="hidden md:flex items-center gap-6">
+                    <button onclick="navigate('home')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Главная</button>
+                    <button onclick="navigate('catalog')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Каталог</button>
+                </nav>
+                <button onclick="toggleMobileMenu()" class="md:hidden text-white p-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div id="mobileMenu" class="hidden md:hidden bg-primary-800 border-t border-white/10">
+            <div class="px-4 py-3 space-y-2">
+                <button onclick="navigate('home'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Главная</button>
+                <button onclick="navigate('catalog'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Каталог</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="min-h-[calc(100vh-200px)]"></main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-10 mt-16">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
+                        <span class="text-white font-display font-bold text-lg">PhoneMarket</span>
+                    </div>
+                    <p class="text-sm leading-relaxed">Каталог товаров. Полный ассортимент телефонов и аксессуаров с актуальным наличием.</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-3">Навигация</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><button onclick="navigate('home')" class="hover:text-white transition-colors">Главная</button></li>
+                        <li><button onclick="navigate('catalog')" class="hover:text-white transition-colors">Каталог</button></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-3">Информация</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><span>Наличие обновляется в реальном времени</span></li>
+                        <li><span>Данные из системы МобилТрек Pro</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 mt-8 pt-6 text-center text-sm">
+                © 2025 PhoneMarket. Каталог товаров МобилТрек Pro.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════
+        //  DATA & STATE
+        // ═══════════════════════════════════════════════════════════════
+        let catalogData = { classes: [], types: [], products: [] };
+        let isLoading = true;
+        let currentView = 'home';
+        let currentClassId = null;
+        let currentTypeId = null;
+        let currentProductId = null;
+        let currentSort = 'name';
+
+        // ═══════════════════════════════════════════════════════════════
+        //  INIT — загрузка данных из бэкенда
+        // ═══════════════════════════════════════════════════════════════
+        renderLoading();
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res.ok) {
+                    catalogData = res.data;
+                    isLoading = false;
+                    buildNavLinks();
+                    navigate('home');
+                } else {
+                    showError(res.error || 'Ошибка загрузки данных');
+                }
+            })
+            .withFailureHandler(function(err) {
+                isLoading = false;
+                showError(err.message || 'Не удалось загрузить каталог');
+            })
+            .getPublicCatalog();
+
+        // ═══════════════════════════════════════════════════════════════
+        //  НАВИГАЦИЯ
+        // ═══════════════════════════════════════════════════════════════
+        function navigate(view, param1, param2) {
+            currentView = view;
+            if (view === 'home') {
+                currentClassId = null;
+                currentTypeId = null;
+                renderHome();
+            } else if (view === 'catalog') {
+                currentClassId = param1 !== undefined ? param1 : null;
+                currentTypeId  = param2 !== undefined ? param2 : null;
+                currentSort = 'name';
+                renderCatalog();
+            } else if (view === 'product') {
+                currentProductId = param1;
+                renderProduct(param1);
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('searchInput').value = '';
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  NAV LINKS — динамические ссылки на категории в хедере
+        // ═══════════════════════════════════════════════════════════════
+        function buildNavLinks() {
+            const nav = document.getElementById('navLinks');
+            const mobile = document.getElementById('mobileMenu').querySelector('div');
+            let links = '<button onclick="navigate(\'home\')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Главная</button>';
+            links += '<button onclick="navigate(\'catalog\')" class="text-white/90 hover:text-white text-sm font-medium transition-colors">Каталог</button>';
+            catalogData.classes.forEach(function(c) {
+                links += `<button onclick="navigate('catalog', ${c.id})" class="text-white/90 hover:text-white text-sm font-medium transition-colors">${esc(c.name)}</button>`;
+            });
+            nav.innerHTML = links;
+
+            let mobileLinks = '<button onclick="navigate(\'home\'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Главная</button>';
+            mobileLinks += '<button onclick="navigate(\'catalog\'); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">Каталог</button>';
+            catalogData.classes.forEach(function(c) {
+                mobileLinks += `<button onclick="navigate('catalog', ${c.id}); toggleMobileMenu()" class="block w-full text-left text-white/90 hover:text-white py-2 text-sm font-medium">${esc(c.name)}</button>`;
+            });
+            mobile.innerHTML = mobileLinks;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  LOADING / ERROR
+        // ═══════════════════════════════════════════════════════════════
+        function renderLoading() {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="flex flex-col items-center justify-center py-32">
+                    <div class="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-4"></div>
+                    <p class="text-gray-500 text-sm">Загрузка каталога...</p>
+                </div>`;
+        }
+
+        function showError(msg) {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="flex flex-col items-center justify-center py-32">
+                    <div class="text-5xl mb-4">⚠️</div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Ошибка</h3>
+                    <p class="text-gray-500 text-sm mb-4">${esc(msg)}</p>
+                    <button onclick="location.reload()" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm">Обновить</button>
+                </div>`;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  HELPERS
+        // ═══════════════════════════════════════════════════════════════
+        function esc(str) {
+            const d = document.createElement('div');
+            d.textContent = str || '';
+            return d.innerHTML;
+        }
+
+        function getFilteredProducts() {
+            let items = catalogData.products;
+            if (currentClassId) items = items.filter(p => p.class_id === currentClassId);
+            if (currentTypeId)  items = items.filter(p => p.type_id === currentTypeId);
+            return sortProducts(items);
+        }
+
+        function sortProducts(items) {
+            const arr = [...items];
+            if (currentSort === 'name')       arr.sort((a, b) => a.name.localeCompare(b.name));
+            else if (currentSort === 'name-desc') arr.sort((a, b) => b.name.localeCompare(a.name));
+            else if (currentSort === 'stock')  arr.sort((a, b) => b.stock - a.stock);
+            else if (currentSort === 'sku')    arr.sort((a, b) => a.sku.localeCompare(b.sku));
+            return arr;
+        }
+
+        function getTypesForClass(classId) {
+            return catalogData.types.filter(t => t.class_id === classId);
+        }
+
+        function getClassName(classId) {
+            const c = catalogData.classes.find(c => c.id === classId);
+            return c ? c.name : '';
+        }
+
+        function getTypeName(typeId) {
+            const t = catalogData.types.find(t => t.id === typeId);
+            return t ? t.name : '';
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  SVG PLACEHOLDER — генерация по хэшу имени
+        // ═══════════════════════════════════════════════════════════════
+        function nameHash(name) {
+            let h = 0;
+            for (let i = 0; i < name.length; i++) {
+                h = ((h << 5) - h) + name.charCodeAt(i);
+                h = h & h;
+            }
+            return Math.abs(h);
+        }
+
+        function hslColor(name, s, l) {
+            return `hsl(${nameHash(name) % 360}, ${s}%, ${l}%)`;
+        }
+
+        function getProductSVG(product) {
+            const c1 = hslColor(product.name, 60, 35);
+            const c2 = hslColor(product.name, 50, 50);
+            const letter = (product.name || 'P').charAt(0).toUpperCase();
+            const isPhone = /смартфон|телефон|phone|iphone|samsung|xiaomi|pixel|huawei/i.test(
+                product.type_name + ' ' + product.class_name + ' ' + product.tpl_name + ' ' + product.name
+            );
+
+            if (isPhone) {
+                return `data:image/svg+xml,${encodeURIComponent(`<svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg"><rect x="40" y="10" width="120" height="260" rx="22" fill="${c1}" stroke="${c2}" stroke-width="2"/><rect x="48" y="20" width="104" height="224" rx="16" fill="#111827"/><rect x="48" y="20" width="104" height="224" rx="16" fill="url(%23g)" opacity=".3"/><circle cx="100" cy="255" r="5" fill="${c2}"/><rect x="80" y="16" width="40" height="4" rx="2" fill="#333"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${c2}" stop-opacity=".4"/><stop offset="100%" stop-color="${c1}" stop-opacity=".1"/></linearGradient></defs></svg>`)}`;
+            }
+            return `data:image/svg+xml,${encodeURIComponent(`<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="180" height="180" rx="24" fill="${c1}"/><rect x="10" y="10" width="180" height="180" rx="24" fill="url(%23g)" opacity=".3"/><text x="100" y="118" text-anchor="middle" fill="white" font-size="64" font-family="sans-serif" font-weight="700">${letter}</text><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="white" stop-opacity=".2"/><stop offset="100%" stop-color="${c1}" stop-opacity="0"/></linearGradient></defs></svg>`)}`;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  AVAILABILITY BADGE
+        // ═══════════════════════════════════════════════════════════════
+        function stockBadge(stock, size) {
+            const sm = size === 'sm';
+            if (stock > 0) {
+                return `<span class="inline-flex items-center gap-1 badge-stock text-white ${sm ? 'text-[10px] px-2 py-0.5' : 'text-xs px-3 py-1'} rounded-full font-medium">
+                    <span class="w-1.5 h-1.5 bg-white rounded-full"></span>В наличии${!sm ? ' (' + stock + ' шт)' : ''}
+                </span>`;
+            }
+            return `<span class="inline-flex items-center gap-1 badge-out text-white ${sm ? 'text-[10px] px-2 py-0.5' : 'text-xs px-3 py-1'} rounded-full font-medium">
+                <span class="w-1.5 h-1.5 bg-white/60 rounded-full"></span>Нет в наличии
+            </span>`;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  RENDER: PRODUCT CARD
+        // ═══════════════════════════════════════════════════════════════
+        function renderProductCard(p) {
+            const specEntries = Object.entries(p.specs || {}).slice(0, 3);
+            return `
+                <div class="product-card bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer fade-in" onclick="navigate('product', ${p.id})">
+                    <div class="relative bg-gradient-to-b from-gray-50 to-gray-100 p-6 flex items-center justify-center" style="min-height:180px;">
+                        <img src="${getProductSVG(p)}" alt="${esc(p.name)}" class="max-h-[140px] object-contain"/>
+                        <div class="absolute top-3 left-3">${stockBadge(p.stock, 'sm')}</div>
+                    </div>
+                    <div class="p-4">
+                        <p class="text-[11px] text-gray-400 mb-0.5">${esc(p.type_name)}${p.tpl_name ? ' • ' + esc(p.tpl_name) : ''}</p>
+                        <h3 class="font-semibold text-gray-800 text-sm leading-tight mb-1.5 line-clamp-2">${esc(p.name)}</h3>
+                        ${p.sku ? `<p class="text-[11px] text-gray-400 mb-2">SKU: ${esc(p.sku)}</p>` : ''}
+                        ${specEntries.length > 0 ? `
+                            <div class="space-y-0.5 mb-2">
+                                ${specEntries.map(([k, v]) => `<p class="text-[11px] text-gray-500 truncate"><span class="text-gray-400">${esc(k)}:</span> ${esc(v)}</p>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-50">
+                            ${stockBadge(p.stock, 'sm')}
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  RENDER: HOME
+        // ═══════════════════════════════════════════════════════════════
+        function renderHome() {
+            const main = document.getElementById('mainContent');
+            const classes = catalogData.classes;
+            const products = catalogData.products;
+            const inStock = products.filter(p => p.stock > 0);
+
+            // Иконки категорий (фоллбэк по индексу)
+            const icons = ['📱','🎧','🔌','🛡️','💻','⌚','🎮','📷'];
+
+            main.innerHTML = `
+                <!-- Hero -->
+                <section class="gradient-bg relative overflow-hidden">
+                    <div class="absolute inset-0 opacity-10">
+                        <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <circle cx="80" cy="20" r="40" fill="white"/>
+                            <circle cx="20" cy="80" r="30" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="max-w-7xl mx-auto px-4 py-16 md:py-24 relative z-10">
+                        <div class="text-center max-w-3xl mx-auto">
+                            <h1 class="text-3xl md:text-5xl font-display font-bold text-white mb-4 leading-tight">
+                                Каталог товаров
+                            </h1>
+                            <p class="text-white/80 text-base md:text-lg mb-6">
+                                Полный ассортимент — ${products.length} позиций. В наличии: ${inStock.length}.
+                            </p>
+                            <button onclick="navigate('catalog')"
+                                    class="px-8 py-3 bg-white text-primary-700 font-semibold rounded-xl hover:bg-white/90 transition-all shadow-lg text-sm md:text-base">
+                                Открыть каталог →
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Категории -->
+                ${classes.length > 0 ? `
+                <section class="max-w-7xl mx-auto px-4 -mt-8 relative z-20">
+                    <div class="grid grid-cols-2 md:grid-cols-${Math.min(classes.length, 4)} gap-4">
+                        ${classes.map((c, i) => {
+                            const cnt = products.filter(p => p.class_id === c.id).length;
+                            return `
+                            <div onclick="navigate('catalog', ${c.id})" class="bg-white rounded-2xl p-5 shadow-md cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1 text-center">
+                                <div class="text-3xl mb-2">${icons[i % icons.length]}</div>
+                                <h3 class="font-semibold text-gray-800 text-sm md:text-base">${esc(c.name)}</h3>
+                                <p class="text-gray-500 text-xs mt-1">${cnt} товаров</p>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </section>
+                ` : ''}
+
+                <!-- Товары в наличии -->
+                ${inStock.length > 0 ? `
+                <section class="max-w-7xl mx-auto px-4 mt-12">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl md:text-2xl font-display font-bold text-gray-800">🔥 В наличии</h2>
+                        <button onclick="navigate('catalog')" class="text-primary-600 hover:text-primary-700 text-sm font-medium">Весь каталог →</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mobile-grid">
+                        ${inStock.slice(0, 8).map(p => renderProductCard(p)).join('')}
+                    </div>
+                </section>
+                ` : ''}
+
+                <!-- Все товары (если есть ещё) -->
+                ${products.length > inStock.length ? `
+                <section class="max-w-7xl mx-auto px-4 mt-12">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl md:text-2xl font-display font-bold text-gray-800">📦 Весь ассортимент</h2>
+                        <button onclick="navigate('catalog')" class="text-primary-600 hover:text-primary-700 text-sm font-medium">Показать все →</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mobile-grid">
+                        ${products.filter(p => p.stock === 0).slice(0, 8).map(p => renderProductCard(p)).join('')}
+                    </div>
+                </section>
+                ` : ''}
+
+                <!-- Info -->
+                <section class="max-w-7xl mx-auto px-4 mt-16 mb-8">
+                    <div class="bg-gradient-to-r from-primary-50 to-blue-50 rounded-3xl p-8 md:p-12">
+                        <h2 class="text-xl md:text-2xl font-display font-bold text-gray-800 text-center mb-8">PhoneMarket</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="text-center">
+                                <div class="w-14 h-14 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                    <svg class="w-7 h-7 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                                </div>
+                                <h3 class="font-semibold text-gray-800 mb-2">Полный каталог</h3>
+                                <p class="text-gray-600 text-sm">Весь товарный ассортимент с подробными характеристиками</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                    <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </div>
+                                <h3 class="font-semibold text-gray-800 mb-2">Актуальное наличие</h3>
+                                <p class="text-gray-600 text-sm">Данные о наличии обновляются в реальном времени из системы учёта</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                    <svg class="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                                </div>
+                                <h3 class="font-semibold text-gray-800 mb-2">Категории и фильтры</h3>
+                                <p class="text-gray-600 text-sm">Удобная навигация по категориям и быстрый поиск нужного товара</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            `;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  RENDER: CATALOG
+        // ═══════════════════════════════════════════════════════════════
+        function renderCatalog() {
+            const main = document.getElementById('mainContent');
+            const filtered = getFilteredProducts();
+            const types = currentClassId ? getTypesForClass(currentClassId) : [];
+            const className = currentClassId ? getClassName(currentClassId) : '';
+            const typeName  = currentTypeId ? getTypeName(currentTypeId) : '';
+
+            // Breadcrumb text
+            let breadcrumb = 'Все товары';
+            if (className) breadcrumb = className;
+            if (typeName)  breadcrumb = typeName;
+
+            main.innerHTML = `
+                <div class="max-w-7xl mx-auto px-4 py-6">
+                    <!-- Breadcrumbs -->
+                    <div class="flex items-center gap-2 text-sm text-gray-500 mb-6 flex-wrap">
+                        <button onclick="navigate('home')" class="hover:text-primary-600 transition-colors">Главная</button>
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        ${currentClassId && className ? `
+                            <button onclick="navigate('catalog')" class="hover:text-primary-600 transition-colors">Каталог</button>
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            ${currentTypeId && typeName ? `
+                                <button onclick="navigate('catalog', ${currentClassId})" class="hover:text-primary-600 transition-colors">${esc(className)}</button>
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                <span class="text-gray-800 font-medium">${esc(typeName)}</span>
+                            ` : `
+                                <span class="text-gray-800 font-medium">${esc(className)}</span>
+                            `}
+                        ` : `
+                            <span class="text-gray-800 font-medium">Каталог</span>
+                        `}
+                    </div>
+
+                    <!-- Class Tabs -->
+                    <div class="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-2">
+                        <button onclick="navigate('catalog')" class="px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${!currentClassId ? 'bg-primary-600 text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}">
+                            Все товары
+                        </button>
+                        ${catalogData.classes.map(c => `
+                            <button onclick="navigate('catalog', ${c.id})" class="px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${currentClassId === c.id ? 'bg-primary-600 text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}">
+                                ${esc(c.name)}
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    <!-- Type Sub-Tabs (if class selected) -->
+                    ${types.length > 0 ? `
+                    <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-2">
+                        <span class="text-sm text-gray-500 py-2 whitespace-nowrap">Тип:</span>
+                        <button onclick="navigate('catalog', ${currentClassId})" class="px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${!currentTypeId ? 'bg-primary-100 text-primary-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}">Все</button>
+                        ${types.map(t => `
+                            <button onclick="navigate('catalog', ${currentClassId}, ${t.id})" class="px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${currentTypeId === t.id ? 'bg-primary-100 text-primary-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}">
+                                ${esc(t.name)}
+                            </button>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+
+                    <!-- Results + Sort -->
+                    <div class="flex items-center justify-between mb-4">
+                        <p class="text-sm text-gray-500">Найдено: <span class="font-semibold text-gray-800">${filtered.length}</span> товаров</p>
+                        <select id="sortSelect" onchange="onSort(this.value)" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:border-primary-500">
+                            <option value="name" ${currentSort === 'name' ? 'selected' : ''}>По названию (А→Я)</option>
+                            <option value="name-desc" ${currentSort === 'name-desc' ? 'selected' : ''}>По названию (Я→А)</option>
+                            <option value="stock" ${currentSort === 'stock' ? 'selected' : ''}>По наличию</option>
+                            <option value="sku" ${currentSort === 'sku' ? 'selected' : ''}>По SKU</option>
+                        </select>
+                    </div>
+
+                    <!-- Grid -->
+                    <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mobile-grid">
+                        ${filtered.map(p => renderProductCard(p)).join('')}
+                    </div>
+
+                    ${filtered.length === 0 ? `
+                        <div class="text-center py-16">
+                            <div class="text-5xl mb-4">🔍</div>
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Товары не найдены</h3>
+                            <p class="text-gray-500 mb-4">В этой категории пока нет товаров</p>
+                            <button onclick="navigate('catalog')" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm">Все товары</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function onSort(val) {
+            currentSort = val;
+            const filtered = getFilteredProducts();
+            document.getElementById('productsGrid').innerHTML = filtered.map(p => renderProductCard(p)).join('');
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  RENDER: PRODUCT DETAIL
+        // ═══════════════════════════════════════════════════════════════
+        function renderProduct(productId) {
+            const product = catalogData.products.find(p => p.id === productId);
+            if (!product) {
+                document.getElementById('mainContent').innerHTML = `
+                    <div class="text-center py-20">
+                        <div class="text-5xl mb-4">🤷</div>
+                        <h2 class="text-lg font-semibold text-gray-800 mb-2">Товар не найден</h2>
+                        <button onclick="navigate('catalog')" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm mt-4">В каталог</button>
+                    </div>`;
+                return;
+            }
+
+            const specs = Object.entries(product.specs || {});
+            const similar = catalogData.products
+                .filter(p => p.id !== productId && p.type_id === product.type_id)
+                .slice(0, 4);
+
+            document.getElementById('mainContent').innerHTML = `
+                <div class="max-w-7xl mx-auto px-4 py-6">
+                    <!-- Breadcrumbs -->
+                    <div class="flex items-center gap-2 text-sm text-gray-500 mb-6 flex-wrap">
+                        <button onclick="navigate('home')" class="hover:text-primary-600 transition-colors">Главная</button>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        <button onclick="navigate('catalog')" class="hover:text-primary-600 transition-colors">Каталог</button>
+                        ${product.class_name ? `
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            <button onclick="navigate('catalog', ${product.class_id})" class="hover:text-primary-600 transition-colors">${esc(product.class_name)}</button>
+                        ` : ''}
+                        ${product.type_name ? `
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            <button onclick="navigate('catalog', ${product.class_id}, ${product.type_id})" class="hover:text-primary-600 transition-colors">${esc(product.type_name)}</button>
+                        ` : ''}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        <span class="text-gray-800 font-medium">${esc(product.name)}</span>
+                    </div>
+
+                    <!-- Product Header -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10 slide-up">
+                        <!-- Image -->
+                        <div class="bg-gradient-to-b from-gray-50 to-gray-100 rounded-3xl p-8 flex items-center justify-center" style="min-height:350px;">
+                            <img src="${getProductSVG(product)}" alt="${esc(product.name)}" class="max-h-[280px] object-contain"/>
+                        </div>
+
+                        <!-- Info -->
+                        <div>
+                            ${product.type_name ? `<p class="text-sm text-primary-600 font-medium mb-1">${esc(product.type_name)}${product.tpl_name ? ' • ' + esc(product.tpl_name) : ''}</p>` : ''}
+                            <h1 class="text-2xl md:text-3xl font-display font-bold text-gray-900 mb-3">${esc(product.name)}</h1>
+
+                            ${product.sku ? `<p class="text-sm text-gray-500 mb-4">SKU: <span class="font-mono text-gray-700">${esc(product.sku)}</span></p>` : ''}
+
+                            <!-- Stock -->
+                            <div class="bg-gray-50 rounded-2xl p-5 mb-6">
+                                <p class="text-sm text-gray-500 mb-2">Наличие:</p>
+                                <div class="flex items-center gap-3">
+                                    ${stockBadge(product.stock)}
+                                    ${product.stock > 0 ? `<span class="text-lg font-bold text-green-600">${product.stock} шт</span>` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Category info -->
+                            <div class="space-y-2 text-sm text-gray-600 mb-6">
+                                ${product.class_name ? `<p><span class="text-gray-400">Класс:</span> ${esc(product.class_name)}</p>` : ''}
+                                ${product.type_name ? `<p><span class="text-gray-400">Тип:</span> ${esc(product.type_name)}</p>` : ''}
+                                ${product.tpl_name ? `<p><span class="text-gray-400">Шаблон:</span> ${esc(product.tpl_name)}</p>` : ''}
+                            </div>
+
+                            ${specs.length > 0 ? `
+                            <button onclick="document.getElementById('specsSection').scrollIntoView({behavior: 'smooth'})"
+                                    class="w-full md:w-auto px-8 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg hover:shadow-xl text-sm">
+                                Характеристики ↓
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Specs Table -->
+                    ${specs.length > 0 ? `
+                    <div id="specsSection" class="mb-10">
+                        <h2 class="text-xl font-display font-bold text-gray-800 mb-4">Характеристики</h2>
+                        <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                            ${specs.map(([key, value], idx) => `
+                                <div class="flex flex-col sm:flex-row sm:items-center px-5 py-4 ${idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}">
+                                    <span class="text-sm text-gray-500 sm:w-1/3 mb-1 sm:mb-0">${esc(key)}</span>
+                                    <span class="text-sm font-medium text-gray-800 sm:w-2/3">${esc(value)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Similar Products -->
+                    ${similar.length > 0 ? `
+                    <section class="mt-12">
+                        <h2 class="text-xl md:text-2xl font-display font-bold text-gray-800 mb-6">Похожие товары</h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mobile-grid">
+                            ${similar.map(p => renderProductCard(p)).join('')}
+                        </div>
+                    </section>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  SEARCH
+        // ═══════════════════════════════════════════════════════════════
+        function handleSearch(query) {
+            const resultsDiv = document.getElementById('searchResults');
+            if (!query.trim()) {
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+            const q = query.toLowerCase();
+            const results = catalogData.products.filter(p =>
+                p.name.toLowerCase().includes(q) ||
+                p.sku.toLowerCase().includes(q) ||
+                p.tpl_name.toLowerCase().includes(q) ||
+                p.type_name.toLowerCase().includes(q) ||
+                p.class_name.toLowerCase().includes(q) ||
+                Object.values(p.specs || {}).some(v => String(v).toLowerCase().includes(q))
+            ).slice(0, 10);
+
+            if (results.length === 0) {
+                resultsDiv.innerHTML = `<div class="p-6 text-center text-gray-500"><p class="text-sm">Ничего не найдено</p></div>`;
+            } else {
+                resultsDiv.innerHTML = results.map(p => `
+                    <div onclick="navigate('product', ${p.id})" class="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0">
+                        <img src="${getProductSVG(p)}" alt="${esc(p.name)}" class="w-10 h-10 object-contain flex-shrink-0"/>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-800 truncate">${esc(p.name)}</p>
+                            <p class="text-xs text-gray-500">${esc(p.type_name)}${p.sku ? ' • ' + esc(p.sku) : ''}</p>
+                        </div>
+                        ${stockBadge(p.stock, 'sm')}
+                    </div>
+                `).join('');
+            }
+            resultsDiv.classList.remove('hidden');
+        }
+
+        // Close search on outside click
+        document.addEventListener('click', function(e) {
+            const sr = document.getElementById('searchResults');
+            const si = document.getElementById('searchInput');
+            if (!si.contains(e.target) && !sr.contains(e.target)) {
+                sr.classList.add('hidden');
+            }
+        });
+
+        // ═══════════════════════════════════════════════════════════════
+        //  MOBILE MENU
+        // ═══════════════════════════════════════════════════════════════
+        function toggleMobileMenu() {
+            document.getElementById('mobileMenu').classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>

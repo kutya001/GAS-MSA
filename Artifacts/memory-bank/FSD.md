@@ -1,6 +1,6 @@
 # Functional Specification Document (FSD) — МобилТрек Pro
 
-> **Дата последнего обновления:** 2026-04-08  
+> **Дата последнего обновления:** 2026-04-09  
 > **Статус:** Актуальный
 
 ## 1. Обзор системы
@@ -22,6 +22,7 @@
 | MDM | `MDM.js` | `PageMDM.html` | ✅ Реализован |
 | Долги | — | `PageDebts.html` | ✅ Реализован |
 | Настройки | `WebApp.js` | `PageSettings.html` | ✅ Реализован |
+| PhoneMarket | `MDM.js` | `PhoneMarket.html` | ✅ Реализован |
 
 ---
 
@@ -193,6 +194,7 @@ string, integer, float, boolean, date, time, datetime, color_rgb, enum_radio, en
 - `getMdmDictionaries()`, `addMdmDictionary(p)`, `updateMdmDictionary(p)`, `deleteMdmDictionary(p)`
 - `getMdmTemplates()`, `saveMdmTemplate(p)`, `deleteMdmTemplate(p)`
 - `getMdmProducts(p)`, `saveMdmProduct(p)`, `deleteMdmProduct(p)`
+- `getPublicCatalog()` — денормализованный каталог для публичной витрины
 
 > Подробная спецификация MDM: [Artifacts/Documents/FSD MDM Интеграция.md](../Documents/FSD%20MDM%20Интеграция.md)
 
@@ -247,6 +249,43 @@ Overlay-клик проверяет `mousedown` + `mouseup`: оба должны
 
 ### Toast-уведомления
 Позиция: **верхний правый угол** (`top:16px; right:14px`). Типы: `s` (успех), `e` (ошибка), `i` (инфо), `w` (предупреждение).
+
+---
+
+## 12. PhoneMarket (публичный каталог)
+
+Публичная витрина-каталог всего товарного ассортимента из MDM с актуальным наличием.
+
+### Доступ
+URL: `WEBAPP_URL?p=catalog`. Маршрутизация в `doGet(e)` WebApp.js.
+
+### Бэкенд API
+`getPublicCatalog()` (MDM.js) — денормализованные данные:
+- **classes**: `[{id, name}]`
+- **types**: `[{id, class_id, name}]`
+- **products**: `[{id, name, sku, tpl_name, class_id, type_id, class_name, type_name, specs:{attr_name: value}, stock}]`
+  - `specs` — resolved: reference→имя, boolean→«Да»/«Нет»
+  - `stock` — кол-во из Закупок со status=«В наличии»
+
+### Фронтенд (страницы)
+- **home**: hero-секция + категории (classes) + товары в наличии + весь ассортимент
+- **catalog**: class-вкладки + type-подфильтры + сортировка (name/stock/sku) + сетка карточек
+- **product**: breadcrumbs + SVG + specs-таблица + бейдж наличия + похожие товары
+
+### Наличие
+Бейджи на каждой карточке и странице товара:
+- Зелёный: «В наличии (N шт)»
+- Красный: «Нет в наличии»
+
+### Поиск
+По полям: name, sku, tpl_name, type_name, class_name, значения specs. Ограничение: 10 результатов.
+
+### Технологии
+- Tailwind CSS v3 (CDN)
+- Google Fonts: Inter + Nunito
+- Vanilla JS ES6+
+- SVG-placeholder генерация по хэшу имени товара
+- XSS-защита через `esc()` helper
 
 ---
 

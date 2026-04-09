@@ -1,6 +1,6 @@
 # System Architecture — МобилТрек Pro
 
-> **Дата последнего обновления:** 2026-04-08
+> **Дата последнего обновления:** 2026-04-09
 
 ## 1. Общая архитектура
 
@@ -21,7 +21,7 @@
 ┌─────────────────────────────────────────────────┐
 │              Google Apps Script (V8)              │
 │                                                  │
-│  WebApp.js     — doGet(), include()              │
+│  WebApp.js     — doGet(e), include(), routing    │
 │  Config.js     — SH, TZ, CACHE_TTL              │
 │  Helpers.js    — _ss, _sh, _rows, _append, ...   │
 │  DBinit.js     — SCHEMA, initDB()               │
@@ -46,6 +46,16 @@
 │  Иерархия классификации:                         │
 │  Ref_Классы → Ref_ТипыПродуктов (2 уровня)      │
 │  MDM_Шаблоны = 3-й уровень (привязан к типу)    │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│             PhoneMarket (публичная витрина)       │
+│                                                  │
+│  URL: ?p=catalog → PhoneMarket.html              │
+│  google.script.run.getPublicCatalog()            │
+│  Tailwind CSS + vanilla JS (standalone SPA)      │
+│  Классы/Типы → фильтры/навигация                │
+│  Products + resolved specs + stock из Закупок    │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -172,7 +182,45 @@ CHUNK = 80000        — размер чанка кэша (байт)
 
 **Escape/overlay**: ScriptHelpers Escape-handler роутит через `MF_INST[id].tryClose()`; глобальный click-overlay удалён.
 
-## 7. Деплой
+## 8. Публичная витрина PhoneMarket
+
+Отдельная страница, доступная по `?p=catalog`, не входящая в admin-панель.
+
+### 8.1 Маршрутизация
+
+`doGet(e)` в WebApp.js проверяет `e.parameter.p`:
+- `p=catalog` → `PhoneMarket.html` (витрина)
+- без параметра → `Frontend.html` (admin-панель)
+
+### 8.2 Backend API
+
+`getPublicCatalog()` в MDM.js — денормализованный каталог:
+- **classes**: `[{id, name}]` из `Ref_Классы`
+- **types**: `[{id, class_id, name}]` из `Ref_ТипыПродуктов`
+- **products**: `[{id, name, sku, tpl_name, class_id, type_id, class_name, type_name, specs:{}, stock}]`
+  - `specs` — resolved-атрибуты: reference→имя из справочника, boolean→«Да»/«Нет»
+  - `stock` — количество единиц из таблицы Закупки со status «В наличии»
+- Кэш: `public_catalog` (TTL = CACHE_TX = 60 сек)
+
+### 8.3 Frontend (PhoneMarket.html)
+
+Standalone HTML: Tailwind CSS CDN + Google Fonts (Inter, Nunito) + vanilla JS ES6+.
+
+**Страницы (client-side routing через `navigate(view, param1, param2)`):**
+- **home** — hero-секция, категории-карточки (из classes), товары в наличии, весь ассортимент
+- **catalog** — class-вкладки + type-подфильтры + сортировка (name/name-desc/stock/sku) + сетка карточек
+- **product** — breadcrumbs, SVG-изображение, specs-таблица, бейдж наличия, похожие товары
+
+**Ключевые функции:**
+- `getPublicCatalog()` → загрузка при инициализации через `google.script.run`
+- `renderProductCard(p)` — карточка с SVG, specs preview (3 атрибута), stock badge
+- `stockBadge(stock, size)` — зелёный «В наличии (N шт)» / красный «Нет в наличии»
+- `getProductSVG(product)` — hash-based SVG placeholder (phone icon для телефонов, letter icon для остальных)
+- `handleSearch(query)` — поиск по name, sku, type, class, specs values
+- `buildNavLinks()` — динамические ссылки в хедере из классов
+- `esc(str)` — XSS-safe HTML encoding
+
+## 9. Деплой
 
 ```
 clasp push    — файлы .js → .gs
@@ -189,3 +237,4 @@ clasp deploy  — публикация Web App
 | 2026-04-08 | FormEngine rewrite: бейдж режима, drag-safe overlay, unsaved changes, background sync, toast top-right, стандартные кнопки |
 | 2026-04-08 | Async validate, IMEI uniqueness (сервер+фронт), inline оплаты закупок/продаж, редактирование продаж, моментальная оплата поставщику при создании |
 | 2026-04-09 | Оптимизация производительности: кэширование _ss/_sh, batch _update (setValues), _adjustBalance/_adjustWarehouse прямая запись, getMasterData() комбо-API; добавлено updated_at во все таблицы с created_at; формат created_at/updated_at → dd.MM.yyyy - HH-mm-ss |
+| 2026-04-09 | Публичная витрина PhoneMarket: getPublicCatalog() API, doGet(?p=catalog) маршрутизация, PhoneMarket.html (Tailwind + vanilla JS), stock из Закупок, resolved specs из MDM |
