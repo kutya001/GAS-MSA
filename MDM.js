@@ -268,7 +268,7 @@ function addMDMProduct(p) {
         sku:              (p.sku || '').trim(),
         name:             (p.name || '').trim(),
         attribute_values: av,
-        created_at:       _today(),
+        created_at:       _now(),
       });
 
       _cDel(['mdm_products_all', 'mdm_products_t' + p.template_id]);

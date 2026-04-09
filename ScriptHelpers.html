@@ -202,6 +202,15 @@ const MOCK={
   deleteMDMProduct:()=>({status:'ok',data:{}}),
   getSettings:()=>({status:'ok',data:{company_name:'МобилТрек',base_currency:'KGS'}}),
   saveSettings:()=>({status:'ok',data:true}),
+  getMasterData:()=>({status:'ok',data:{
+    refs:MOCK.getRefData().data,
+    wallets:MOCK.getWallets().data,
+    warehouses:MOCK.getWarehouses().data,
+    cats:MOCK.getCats().data,
+    articles:MOCK.getArticles().data,
+    mdm:MOCK.getMDMContext().data,
+    settings:MOCK.getSettings().data,
+  }}),
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -330,17 +339,17 @@ function _setHTML(el, html) {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  MASTER DATA
+//  MASTER DATA (1 вызов вместо 7 — минимизация round-trip)
 // ════════════════════════════════════════════════════════════════
 async function loadMasterData(){
-  const [refs,wallets,whs,cats,arts,mdm,settings]=await Promise.all([api('getRefData'),api('getWallets'),api('getWarehouses'),api('getCats'),api('getArticles'),api('getMDMContext'),api('getSettings')]);
-  if(refs) ST.refs=refs;
-  if(wallets) ST.wallets=wallets;
-  if(whs) ST.warehouses=whs;
-  if(cats) ST.cats=cats;
-  if(arts) ST.articles=arts;
-  if(mdm) ST.mdm=mdm;
-  if(settings && settings.base_currency) CUR=settings.base_currency;
+  const d = await api('getMasterData');
+  if(d.refs) ST.refs=d.refs;
+  if(d.wallets) ST.wallets=d.wallets;
+  if(d.warehouses) ST.warehouses=d.warehouses;
+  if(d.cats) ST.cats=d.cats;
+  if(d.articles) ST.articles=d.articles;
+  if(d.mdm) ST.mdm=d.mdm;
+  if(d.settings && d.settings.base_currency) CUR=d.settings.base_currency;
   populateAllSelects();
 }
 

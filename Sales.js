@@ -95,7 +95,7 @@ function addSale(p) {
         manager_id: parseInt(p.manager_id) || '',
         wallet_id:  parseInt(p.wallet_id)  || '',
         total_kgs: total, paid_kgs: paid, debt_kgs: debt,
-        note: p.note || '', created_at: _today(),
+        note: p.note || '', created_at: _now(),
       };
       var newId = _append(SH.SALES, obj);
 

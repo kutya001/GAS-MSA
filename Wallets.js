@@ -48,7 +48,7 @@ function addWallet(p) {
         current_balance: startBal,
         total_in:        0,
         total_out:       0,
-        created_at:      _today(),
+        created_at:      _now(),
       };
       var newId = _append(SH.WALLETS, obj);
       _cDel(['wallets']);
@@ -70,7 +70,7 @@ function updateWallet(p) {
   });
 }
 
-// Атомарное обновление баланса кошелька (Materialized Balance)
+// Атомарное обновление баланса кошелька (Materialized Balance, прямая запись)
 function _adjustBalance(walletId, amount, isIncome) {
   var sh    = _sh(SH.WALLETS);
   var rowN  = _findRow(sh, walletId);
@@ -78,22 +78,27 @@ function _adjustBalance(walletId, amount, isIncome) {
   var ncol  = sh.getLastColumn();
   var heads = sh.getRange(1, 1, 1, ncol).getValues()[0];
   var vals  = sh.getRange(rowN, 1, 1, ncol).getValues()[0];
-  var obj   = {};
-  for (var i = 0; i < heads.length; i++) obj[heads[i]] = vals[i];
 
-  var cur  = parseFloat(obj.current_balance) || (parseFloat(obj.start_balance) || 0);
-  var tIn  = parseFloat(obj.total_in)  || 0;
-  var tOut = parseFloat(obj.total_out) || 0;
+  var cbIdx = heads.indexOf('current_balance');
+  var tiIdx = heads.indexOf('total_in');
+  var toIdx = heads.indexOf('total_out');
+  var sbIdx = heads.indexOf('start_balance');
+  var uaIdx = heads.indexOf('updated_at');
+
+  var cur  = parseFloat(vals[cbIdx]) || (parseFloat(vals[sbIdx]) || 0);
+  var tIn  = parseFloat(vals[tiIdx])  || 0;
+  var tOut = parseFloat(vals[toIdx]) || 0;
   var amt  = parseFloat(amount) || 0;
 
   if (isIncome) { cur += amt; tIn  += amt; }
   else          { cur -= amt; tOut += amt; }
 
-  _update(SH.WALLETS, walletId, {
-    current_balance: Math.round(cur),
-    total_in:        Math.round(tIn),
-    total_out:       Math.round(tOut),
-  });
+  vals[cbIdx] = Math.round(cur);
+  vals[tiIdx] = Math.round(tIn);
+  vals[toIdx] = Math.round(tOut);
+  if (uaIdx >= 0) vals[uaIdx] = _now();
+
+  sh.getRange(rowN, 1, 1, ncol).setValues([vals]);
   _cDel(['wallets']);
 }
 
@@ -201,7 +206,7 @@ function _appendCashOp(p) {
     amount:      parseFloat(p.amount)||0,
     op_date:     p.op_date     || _today(),
     counterpart: p.counterpart || '', comment: p.comment || '',
-    created_at:  _today(),
+    created_at:  _now(),
   };
   return _append(SH.CASH_OPS, obj);
 }

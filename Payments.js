@@ -50,7 +50,7 @@ function addPayment(p) {
       var newId   = _append(SH.PAYMENTS, {
         sale_id: parseInt(p.sale_id), wallet_id: parseInt(p.wallet_id),
         amount: amt, pay_date: p.pay_date || _today(),
-        debt_after: Math.round(newDebt), note: p.note || '', created_at: _today(),
+        debt_after: Math.round(newDebt), note: p.note || '', created_at: _now(),
       });
 
       // Обновляем долг в продаже

@@ -17,17 +17,24 @@ function _withLock(fn) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  ДОСТУП К SPREADSHEET
+//  ДОСТУП К SPREADSHEET (с кэшированием на время выполнения)
 // ══════════════════════════════════════════════════════════════════════
+var _ssCache = null;
+var _shCache = {};
+
 function _ss() {
+  if (_ssCache) return _ssCache;
   var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
   if (!id) throw new Error('SPREADSHEET_ID не задан. Запустите initDB().');
-  return SpreadsheetApp.openById(id);
+  _ssCache = SpreadsheetApp.openById(id);
+  return _ssCache;
 }
 
 function _sh(name) {
+  if (_shCache[name]) return _shCache[name];
   var sh = _ss().getSheetByName(name);
   if (!sh) throw new Error('Лист "' + name + '" не найден. Запустите initDB().');
+  _shCache[name] = sh;
   return sh;
 }
 
@@ -104,22 +111,26 @@ function _findRow(sh, id) {
   return found ? found.getRow() : -1;
 }
 
-// Точечное обновление полей строки (O(1))
+// Точечное обновление полей строки — батч через setValues (1 запись вместо N)
 function _update(sheetName, id, obj) {
   var sh    = _sh(sheetName);
   var rowN  = _findRow(sh, id);
   if (rowN < 2) return false;
-  var heads = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  var updates = [];
+  var ncol  = sh.getLastColumn();
+  var heads = sh.getRange(1, 1, 1, ncol).getValues()[0];
+  var vals  = sh.getRange(rowN, 1, 1, ncol).getValues()[0];
+  var changed = false;
   for (var j = 0; j < heads.length; j++) {
     var h = heads[j];
     if (h !== 'id' && obj[h] !== undefined) {
-      updates.push({ col: j + 1, val: obj[h] });
+      vals[j] = obj[h];
+      changed = true;
     }
   }
-  updates.forEach(function(u) {
-    sh.getRange(rowN, u.col).setValue(u.val);
-  });
+  // Автоматически проставляем updated_at
+  var uaIdx = heads.indexOf('updated_at');
+  if (uaIdx >= 0) vals[uaIdx] = _now();
+  if (changed) sh.getRange(rowN, 1, 1, ncol).setValues([vals]);
   return true;
 }
 
@@ -215,6 +226,7 @@ function _cDel(keys) {
 function _ok(data)  { return { status: 'ok',    data: data }; }
 function _err(msg)  { return { status: 'error', message: String(msg) }; }
 function _today()   { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); }
+function _now()     { return Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy - HH-mm-ss'); }
 
 function _inRange(d, from, to) {
   if (!d) return true;

@@ -132,7 +132,7 @@ function addPurchase(p) {
           sku:  (p.sku || '').trim(),
           name: (p.product_name || '').trim(),
           attribute_values: av,
-          created_at: _today(),
+          created_at: _now(),
         });
         _cDel(['mdm_products_all', 'mdm_context']);
       }
@@ -147,7 +147,7 @@ function addPurchase(p) {
         class_id: parseInt(p.class_id) || '', type_id: parseInt(p.type_id) || '',
         product_id: productId || '',
         status: 'В наличии', note: p.note || '',
-        created_at: _today(),
+        created_at: _now(),
       };
       var newId = _append(SH.PURCHASES, obj);
 
@@ -164,7 +164,7 @@ function addPurchase(p) {
             amount: payAmt,
             pay_date: p.purchase_date || _today(),
             note: 'Оплата при закупке',
-            created_at: _today(),
+            created_at: _now(),
           });
           var catId = _findOrCreateCat('Закуп товара', 'Расход');
           _appendCashOp({
@@ -290,7 +290,7 @@ function addPurchasePayment(p) {
         amount:      amt,
         pay_date:    p.pay_date || _today(),
         note:        p.note || '',
-        created_at:  _today(),
+        created_at:  _now(),
       });
 
       // Кассовая операция расхода

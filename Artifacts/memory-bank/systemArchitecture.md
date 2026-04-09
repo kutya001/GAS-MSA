@@ -66,11 +66,11 @@ CHUNK = 80000        — размер чанка кэша (байт)
 
 | Функция | Назначение |
 |---------|-----------|
-| `_ss()` | Получить SpreadsheetApp по ID |
-| `_sh(name)` | Получить лист по имени из `SH` |
+| `_ss()` | Получить SpreadsheetApp по ID (кэшируется на время выполнения) |
+| `_sh(name)` | Получить лист по имени из `SH` (кэшируется на время выполнения) |
 | `_rows(sheetName)` | Все строки как массив объектов |
 | `_append(sheetName, obj)` | Вставка строки с авто-PK |
-| `_update(sheetName, id, obj)` | Обновление по ID через TextFinder |
+| `_update(sheetName, id, obj)` | Batch-обновление через setValues + авто updated_at |
 | `_delete(sheetName, id)` | Удаление строки по ID |
 | `_findById(sheetName, id)` | Найти одну запись |
 | `_buildMap(sheet, keyCol, valCol)` | Словарь для JOIN'ов |
@@ -78,7 +78,8 @@ CHUNK = 80000        — размер чанка кэша (байт)
 | `_withLock(fn)` | Обёртка с LockService |
 | `_cGet(key)`, `_cSet(key, data, ttl)`, `_cDel(keys)` | Chunk-based кэш |
 | `_ok(data)`, `_err(msg)` | Стандартные обёртки ответов |
-| `_today()` | Текущая дата в TZ |
+| `_today()` | Текущая дата в TZ (yyyy-MM-dd) |
+| `_now()` | Текущий timestamp (dd.MM.yyyy - HH-mm-ss) |
 
 ### 2.3 Схема БД (`DBinit.js`)
 
@@ -187,3 +188,4 @@ clasp deploy  — публикация Web App
 | 2026-04-08 | Закупки: _pAutoFillAttrs; Продажи: рассрочка is_installment; FormEngine: showIf-aware валидация |
 | 2026-04-08 | FormEngine rewrite: бейдж режима, drag-safe overlay, unsaved changes, background sync, toast top-right, стандартные кнопки |
 | 2026-04-08 | Async validate, IMEI uniqueness (сервер+фронт), inline оплаты закупок/продаж, редактирование продаж, моментальная оплата поставщику при создании |
+| 2026-04-09 | Оптимизация производительности: кэширование _ss/_sh, batch _update (setValues), _adjustBalance/_adjustWarehouse прямая запись, getMasterData() комбо-API; добавлено updated_at во все таблицы с created_at; формат created_at/updated_at → dd.MM.yyyy - HH-mm-ss |

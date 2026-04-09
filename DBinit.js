@@ -78,47 +78,47 @@ var SCHEMA = {
   },
   // ── Кошельки: +current_balance, +total_in, +total_out ───────────────
   'Кошельки': {
-    headers: ['id','name','currency_id','icon','start_balance','current_balance','total_in','total_out','note','created_at'],
+    headers: ['id','name','currency_id','icon','start_balance','current_balance','total_in','total_out','note','created_at','updated_at'],
     color: '#FFF3E0', tabColor: '#F57C00',
-    widths: [50,220,80,60,130,130,110,110,220,110],
+    widths: [50,220,80,60,130,130,110,110,220,140,140],
     note: 'Кошельки. current_balance обновляется атомарно при каждой операции (Materialized)',
   },
   'КассовыеОперации': {
-    headers: ['id','op_date','op_type','wallet_id','cat_id','article_id','amount','counterpart','comment','created_at'],
+    headers: ['id','op_date','op_type','wallet_id','cat_id','article_id','amount','counterpart','comment','created_at','updated_at'],
     color: '#FFF8E1', tabColor: '#FBC02D',
-    widths: [50,110,90,80,80,80,120,200,300,110],
+    widths: [50,110,90,80,80,80,120,200,300,140,140],
     note: 'Все денежные операции. op_type: Приход / Расход',
   },
 
   // ── Склады: +current_items, +current_cost_kgs ────────────────────────
   'Склады': {
-    headers: ['id','name','address','responsible','note','current_items','current_cost_kgs','created_at'],
+    headers: ['id','name','address','responsible','note','current_items','current_cost_kgs','created_at','updated_at'],
     color: '#E3F2FD', tabColor: '#1565C0',
-    widths: [50,220,300,200,220,100,130,110],
+    widths: [50,220,300,200,220,100,130,140,140],
     note: 'Склады. current_items/current_cost_kgs обновляются атомарно (Materialized)',
   },
   'Закупки': {
-    headers: ['id','purchase_date','wh_id','supplier_id','cost_usd','rate','cost_kgs','has_imei','imei','qty','condition','class_id','type_id','product_id','status','note','created_at'],
+    headers: ['id','purchase_date','wh_id','supplier_id','cost_usd','rate','cost_kgs','has_imei','imei','qty','condition','class_id','type_id','product_id','status','note','created_at','updated_at'],
     color: '#EDE7F6', tabColor: '#6A1B9A',
-    widths: [50,110,80,80,90,70,110,90,160,60,90,80,80,80,80,100,200,110],
+    widths: [50,110,80,80,90,70,110,90,160,60,90,80,80,80,80,100,200,140,140],
     note: 'has_imei=TRUE → поштучный учёт. status: В наличии / Продано / Удалено. product_id → MDM_Номенклатура',
   },
   'Продажи': {
-    headers: ['id','purchase_id','buyer','wa','sale_date','manager_id','wallet_id','total_kgs','paid_kgs','debt_kgs','note','created_at'],
+    headers: ['id','purchase_id','buyer','wa','sale_date','manager_id','wallet_id','total_kgs','paid_kgs','debt_kgs','note','created_at','updated_at'],
     color: '#FCE4EC', tabColor: '#C62828',
-    widths: [50,90,220,160,110,80,80,120,120,120,200,110],
+    widths: [50,90,220,160,110,80,80,120,120,120,200,140,140],
     note: 'debt_kgs обновляется при каждой оплате',
   },
   'Оплаты': {
-    headers: ['id','sale_id','wallet_id','amount','pay_date','debt_after','note','created_at'],
+    headers: ['id','sale_id','wallet_id','amount','pay_date','debt_after','note','created_at','updated_at'],
     color: '#F3E5F5', tabColor: '#7B1FA2',
-    widths: [50,80,80,120,110,120,250,110],
+    widths: [50,80,80,120,110,120,250,140,140],
     note: 'Платежи по продажам (рассрочки)',
   },
   'ОплатыЗакупок': {
-    headers: ['id','purchase_id','wallet_id','amount','pay_date','note','created_at'],
+    headers: ['id','purchase_id','wallet_id','amount','pay_date','note','created_at','updated_at'],
     color: '#F3E5F5', tabColor: '#7B1FA2',
-    widths: [50,80,80,120,110,250,110],
+    widths: [50,80,80,120,110,250,140,140],
     note: 'Платежи по закупкам (оплаты поставщикам)',
   },
   'Категории': {
@@ -154,9 +154,9 @@ var SCHEMA = {
     note: 'Атрибуты шаблонов (EAV-метаданные). type: string|integer|float|boolean|date|time|datetime|color_rgb|enum_radio|enum_checkbox|reference|calculated. ref_table — ключ таблицы-справочника из SH',
   },
   'MDM_Номенклатура': {
-    headers: ['id','template_id','sku','name','attribute_values','created_at'],
+    headers: ['id','template_id','sku','name','attribute_values','created_at','updated_at'],
     color: '#E0F7FA', tabColor: '#00838F',
-    widths: [50,80,150,300,600,110],
+    widths: [50,80,150,300,600,140,140],
     note: 'Номенклатурные позиции. attribute_values — JSON-объект {attr_id: значение}',
   },
 };

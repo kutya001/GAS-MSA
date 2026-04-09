@@ -28,7 +28,7 @@ function addWarehouse(p) {
         name: p.name || '', address: p.address || '',
         responsible: p.responsible || '', note: p.note || '',
         current_items: 0, current_cost_kgs: 0,
-        created_at: _today(),
+        created_at: _now(),
       };
       var newId = _append(SH.WAREHOUSES, obj);
       _cDel(['refData']);
@@ -49,7 +49,7 @@ function updateWarehouse(p) {
   });
 }
 
-// Атомарное обновление остатков склада (Materialized Stock)
+// Атомарное обновление остатков склада (Materialized Stock, прямая запись)
 function _adjustWarehouse(whId, qty, costKgs, add) {
   var sh   = _sh(SH.WAREHOUSES);
   var rowN = _findRow(sh, whId);
@@ -57,13 +57,18 @@ function _adjustWarehouse(whId, qty, costKgs, add) {
   var ncol  = sh.getLastColumn();
   var heads = sh.getRange(1, 1, 1, ncol).getValues()[0];
   var vals  = sh.getRange(rowN, 1, 1, ncol).getValues()[0];
-  var obj   = {};
-  for (var i = 0; i < heads.length; i++) obj[heads[i]] = vals[i];
-  var curItems = parseFloat(obj.current_items) || 0;
-  var curCost  = parseFloat(obj.current_cost_kgs) || 0;
+
+  var ciIdx = heads.indexOf('current_items');
+  var ccIdx = heads.indexOf('current_cost_kgs');
+  var uaIdx = heads.indexOf('updated_at');
+
+  var curItems = parseFloat(vals[ciIdx]) || 0;
+  var curCost  = parseFloat(vals[ccIdx]) || 0;
   var delta = add ? 1 : -1;
-  _update(SH.WAREHOUSES, whId, {
-    current_items:    Math.max(0, curItems + delta * qty),
-    current_cost_kgs: Math.max(0, Math.round(curCost + delta * costKgs * qty)),
-  });
+
+  vals[ciIdx] = Math.max(0, curItems + delta * qty);
+  vals[ccIdx] = Math.max(0, Math.round(curCost + delta * costKgs * qty));
+  if (uaIdx >= 0) vals[uaIdx] = _now();
+
+  sh.getRange(rowN, 1, 1, ncol).setValues([vals]);
 }

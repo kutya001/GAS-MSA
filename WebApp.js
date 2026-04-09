@@ -41,3 +41,28 @@ function saveSettings(p) {
     } catch(e) { return _err(e.message); }
   });
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  КОМБИНИРОВАННАЯ ЗАГРУЗКА (1 вызов вместо 7 — убираем round-trip)
+// ══════════════════════════════════════════════════════════════════════
+function getMasterData() {
+  try {
+    var refs     = getRefData();
+    var wallets  = getWallets();
+    var whs      = getWarehouses();
+    var cats     = getCats();
+    var arts     = getArticles();
+    var mdm      = getMDMContext();
+    var settings = getSettings();
+
+    return _ok({
+      refs:       refs.data,
+      wallets:    wallets.data,
+      warehouses: whs.data,
+      cats:       cats.data,
+      articles:   arts.data,
+      mdm:        mdm.data,
+      settings:   settings.data,
+    });
+  } catch(e) { return _err(e.message); }
+}
