@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Чек #<?= receiptId ?></title>
+  <style>
+    body { font-family: 'Courier New', Courier, monospace; width: 80mm; margin: 0 auto; padding: 10px; font-size: 12px; line-height: 1.2; }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .hr { border-bottom: 1px dashed #000; margin: 10px 0; }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th { text-align: left; border-bottom: 1px solid #000; }
+    .table td { padding: 5px 0; vertical-align: top; }
+    .right { text-align: right; }
+    .total { font-size: 16px; margin-top: 10px; }
+    @media print {
+      body { width: 100%; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body onload="window.print()">
+  <div class="center bold" style="font-size: 18px;">МОБИЛТРЕК Pro</div>
+  <div class="center">Учёт продаж техники</div>
+  <div class="hr"></div>
+  
+  <div>Чек: #<?= receiptId ?></div>
+  <div>Дата: <?= saleDate ?></div>
+  <div>Менеджер: <?= managerName ?></div>
+  <div class="hr"></div>
+  
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Товар</th>
+        <th class="right">Сумма</th>
+      </tr>
+    </thead>
+    <tbody>
+      <? for (var i = 0; i < items.length; i++) { ?>
+        <tr>
+          <td>
+            <?= items[i].product_name ?><br>
+            <small><?= items[i].qty ?> x <?= items[i].price ?></small>
+          </td>
+          <td class="right"><?= (items[i].qty * items[i].price).toLocaleString('ru-RU') ?></td>
+        </tr>
+      <? } ?>
+    </tbody>
+  </table>
+  
+  <div class="hr"></div>
+  <div class="total right bold">ИТОГО: <?= totalAmount.toLocaleString('ru-RU') ?> KGS</div>
+  <div class="hr"></div>
+  
+  <div class="center">Спасибо за покупку!</div>
+  <div class="center">www.mobiltrack.kg</div>
+  
+  <div class="no-print" style="margin-top: 50px; text-align: center;">
+    <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer;">ПЕЧАТЬ</button>
+  </div>
+</body>
+</html>

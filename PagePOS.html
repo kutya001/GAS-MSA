@@ -1,0 +1,318 @@
+<!-- ══ POS TERMINAL ════════════════════════════════════════════════════════ -->
+<div class="page" id="page-pos">
+  <div class="pos-layout">
+    <!-- Левая панель: Каталог -->
+    <div class="pos-catalog">
+      <div class="sh">
+        <h2>POS Терминал</h2>
+        <div class="sh-acts">
+           <input type="text" id="posSearch" class="fi" placeholder="🔍 Поиск / Сканер (SKU, IMEI...)" oninput="filterPOS()">
+        </div>
+      </div>
+      
+      <div class="pos-filters" id="posClasses">
+        <!-- Кнопки категорий из ST.refs.classes -->
+      </div>
+      
+      <div class="pos-grid" id="posGrid">
+        <!-- Карточки товаров -->
+      </div>
+    </div>
+
+    <!-- Правая панель: Корзина -->
+    <div class="pos-cart">
+      <div class="cart-header">
+        <h3>🛒 Чек</h3>
+        <button class="btn btn-g btn-xs" onclick="clearCart()">Очистить</button>
+      </div>
+      
+      <div class="cart-items" id="cartItems">
+        <!-- Список в корзине -->
+      </div>
+      
+      <div class="cart-footer">
+        <div class="cart-total">
+          <span>ИТОГО</span>
+          <span id="posTotal" class="total-val">0</span>
+        </div>
+        
+        <div class="pos-payment">
+          <label>Кошелёк оплаты</label>
+          <select id="posWallet" class="fi">
+            <!-- Опции подгружаются -->
+          </select>
+          
+          <div class="change-calc">
+            <div class="fi-row">
+              <label>Получено</label>
+              <input type="number" id="posReceived" class="fi" placeholder="0" oninput="calcChange()">
+            </div>
+            <div class="fi-row">
+              <label>Сдача</label>
+              <div id="posChange" class="change-val">0</div>
+            </div>
+          </div>
+          
+          <button id="btnPay" class="btn btn-p btn-lg btn-block" style="margin-top:20px; font-weight:bold; height:60px; font-size:1.2rem" onclick="payOrder()">
+            ОПЛАТИТЬ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.pos-layout { display: flex; gap: 20px; height: calc(100vh - 120px); overflow: hidden; }
+.pos-catalog { flex: 7; display: flex; flex-direction: column; overflow: hidden; }
+.pos-cart { flex: 3; background: var(--bg-card); border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid var(--border); }
+
+.pos-filters { display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
+.pos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; overflow-y: auto; padding-right: 5px; flex-grow: 1; }
+
+.pcard { background: var(--bg-page); border: 1px solid var(--border); border-radius: 10px; padding: 12px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; position: relative; }
+.pcard:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: var(--p-main); }
+.pcard .pname { font-weight: 600; font-size: 0.9rem; margin-bottom: 5px; line-height: 1.2; height: 2.4em; overflow: hidden; }
+.pcard .pinfo { font-size: 0.75rem; opacity: 0.7; }
+.pcard .pprice { font-weight: 700; color: var(--p-main); font-size: 1.1rem; margin-top: 8px; }
+.pcard .pqty { position: absolute; top: 8px; right: 8px; font-size: 0.7rem; background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); }
+
+.cart-header { padding: 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.cart-items { flex-grow: 1; overflow-y: auto; padding: 10px; }
+.cart-item { display: flex; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); align-items: center; }
+.ci-info { flex-grow: 1; }
+.ci-name { font-size: 0.85rem; font-weight: 500; }
+.ci-price { font-size: 0.8rem; opacity: 0.8; }
+.ci-acts { display: flex; align-items: center; gap: 8px; }
+.ci-qty { font-weight: 600; min-width: 20px; text-align: center; }
+
+.cart-footer { padding: 15px; background: var(--bg-page); border-top: 1px solid var(--border); }
+.cart-total { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.4rem; margin-bottom: 15px; color: var(--p-main); }
+
+.change-calc { background: var(--bg-card); padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border); }
+.fi-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.fi-row label { font-size: 0.8rem; }
+.fi-row .fi { width: 100px; text-align: right; }
+.change-val { font-weight: 700; color: var(--tg); font-family: 'JetBrains Mono', monospace; }
+</style>
+
+<script>
+var POS_RAW_DATA = [];
+var CART = [];
+
+async function loadPOS() {
+  if (!CURRENT_SHIFT) {
+    toast('Откройте смену для работы с POS', 'w');
+    nav('shifts'); return;
+  }
+  
+  // Кнопки фильтров
+  const filters = document.getElementById('posClasses');
+  filters.innerHTML = `<button class="btn btn-g btn-sm on" onclick="filterPOSClass(0, this)">Все</button>` + 
+    ST.refs.classes.map(c => `<button class="btn btn-g btn-sm" onclick="filterPOSClass(${c.id}, this)">${esc(c.name)}</button>`).join('');
+    
+  // Кошельки
+  fillSel('posWallet', ST.wallets, 'id', 'name', '— Кошелёк —');
+  // По умолчанию первый доступный KGS кошелек
+  const defW = ST.wallets.find(w => w.currency === 'KGS');
+  if (defW) document.getElementById('posWallet').value = defW.id;
+
+  const res = await api('getPOSCatalog');
+  POS_RAW_DATA = res;
+  renderPOSGrid(res);
+}
+
+function renderPOSGrid(items) {
+  const grid = document.getElementById('posGrid');
+  if (!items.length) { grid.innerHTML = eRow(1, 'Товаров нет в наличии'); return; }
+  
+  grid.innerHTML = items.map(item => `
+    <div class="pcard" onclick="addToCart(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+      <div class="pqty">${item.total_qty}</div>
+      <div class="pname">${esc(item.product_name)}</div>
+      <div class="pinfo">${esc(item.wh_name)}</div>
+      <div class="pprice">${fmtN(item.price)}</div>
+    </div>
+  `).join('');
+}
+
+function addToCart(item) {
+  if (item.has_imei) {
+    // Всплывашка выбора IMEI если их несколько
+    if (item.variants.length > 1) {
+      // Здесь можно открыть MF или кастомную подменюшку. 
+      // Для простоты берем первый или открываем выбор.
+      promptImeiChoice(item);
+      return;
+    }
+    const variant = item.variants[0];
+    addToCartFinal({
+      purchase_id: variant.purchase_id,
+      name: item.product_name + ' (IMEI: ' + variant.imei + ')',
+      price: item.price,
+      qty: 1,
+      has_imei: true
+    });
+  } else {
+    addToCartFinal({
+      purchase_id: item.purchase_id,
+      name: item.product_name,
+      price: item.price,
+      qty: 1,
+      has_imei: false
+    });
+  }
+}
+
+function addToCartFinal(posItem) {
+  const existing = CART.find(c => c.purchase_id === posItem.purchase_id);
+  if (existing && !posItem.has_imei) {
+    existing.qty++;
+  } else if (!existing) {
+    CART.push(posItem);
+  } else if (existing && posItem.has_imei) {
+    toast('Данный экземпляр уже в корзине', 'w');
+    return;
+  }
+  renderCart();
+  toast('Добавлено: ' + posItem.name, 's', 1000);
+}
+
+function renderCart() {
+  const list = document.getElementById('cartItems');
+  list.innerHTML = CART.map((c, idx) => `
+    <div class="cart-item">
+      <div class="ci-info">
+        <div class="ci-name">${esc(c.name)}</div>
+        <div class="ci-price">${fmtN(c.price)} x ${c.qty}</div>
+      </div>
+      <div class="ci-acts">
+        <button class="btn btn-g btn-xs" onclick="changeQty(${idx}, -1)">–</button>
+        <div class="ci-qty">${c.qty}</div>
+        <button class="btn btn-g btn-xs" onclick="changeQty(${idx}, 1)">+</button>
+      </div>
+      <button class="btn btn-r btn-xs" onclick="removeFromCart(${idx})">🗑️</button>
+    </div>
+  `).join('');
+  
+  const total = CART.reduce((sum, c) => sum + c.price * c.qty, 0);
+  document.getElementById('posTotal').textContent = fmtN(total);
+  calcChange();
+}
+
+function changeQty(idx, delta) {
+  if (CART[idx].has_imei && delta > 0) return;
+  CART[idx].qty += delta;
+  if (CART[idx].qty <= 0) CART.splice(idx, 1);
+  renderCart();
+}
+
+function removeFromCart(idx) {
+  CART.splice(idx, 1);
+  renderCart();
+}
+
+function clearCart() {
+  if (!confirm('Очистить чек?')) return;
+  CART = [];
+  renderCart();
+}
+
+function calcChange() {
+  const total = CART.reduce((sum, c) => sum + c.price * c.qty, 0);
+  const received = parseFloat(document.getElementById('posReceived').value) || 0;
+  const change = received > total ? received - total : 0;
+  document.getElementById('posChange').textContent = fmtN(change);
+}
+
+async function payOrder() {
+  if (!CART.length) return toast('Добавьте товары', 'w');
+  const wid = document.getElementById('posWallet').value;
+  if (!wid) return toast('Выберите кошелёк', 'w');
+  
+  const total = CART.reduce((sum, c) => sum + c.price * c.qty, 0);
+  
+  try {
+    const res = await api('processPosSale', {
+      cart: CART,
+      wallet_id: wid,
+      shift_id: CURRENT_SHIFT.id,
+      manager_id: CURRENT_SHIFT.manager_id
+    });
+    
+    toast('Продажа успешно оформлена: ' + res.receipt_id, 's');
+    
+    // Печать (открытие в iframe или новом окне)
+    const printUrl = WEBAPP_URL + '?p=receipt&id=' + res.receipt_id;
+    window.open(printUrl, 'POSReceipt', 'width=400,height=600');
+    
+    CART = [];
+    renderCart();
+    document.getElementById('posReceived').value = '';
+    loadPOS(); // Рефреш каталога
+  } catch(e) {}
+}
+
+function filterPOS() {
+  const q = document.getElementById('posSearch').value.toLowerCase();
+  const filtered = POS_RAW_DATA.filter(item => 
+    item.product_name.toLowerCase().includes(q) || 
+    (item.variants && item.variants.some(v => v.imei.includes(q)))
+  );
+  renderPOSGrid(filtered);
+}
+
+function filterPOSClass(cid, btn) {
+  document.querySelectorAll('#posClasses .btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  if (cid === 0) { renderPOSGrid(POS_RAW_DATA); return; }
+  
+  const filtered = POS_RAW_DATA.filter(item => {
+    // В POS_RAW_DATA нет напрямую class_id, нужно дотянуть или фильтровать по имени
+    const cls = ST.refs.classes.find(c => c.id == cid);
+    return item.class_name === cls.name;
+  });
+  renderPOSGrid(filtered);
+}
+
+// Мини-модалка выбора IMEI
+function promptImeiChoice(item) {
+  const div = document.createElement('div');
+  div.id = 'modal-imei-choice';
+  div.className = 'ov open';
+  div.innerHTML = `
+    <div class="m" style="max-width:400px">
+      <div class="m-h">Выберите IMEI для ${esc(item.product_name)}</div>
+      <div class="m-b">
+        <div class="v-list">
+          ${item.variants.map(v => `
+            <div class="v-item" onclick="selectImeiFromModal('${item.product_name}', ${v.purchase_id}, '${v.imei}', ${item.price})">
+              <b>${esc(v.imei)}</b>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="m-f"><button class="btn btn-g" onclick="closeM('modal-imei-choice')">Отмена</button></div>
+    </div>
+  `;
+  document.body.appendChild(div);
+}
+
+window.selectImeiFromModal = function(name, pid, imei, price) {
+  addToCartFinal({
+    purchase_id: pid,
+    name: name + ' (IMEI: ' + imei + ')',
+    price: price,
+    qty: 1,
+    has_imei: true
+  });
+  closeM('modal-imei-choice');
+  document.getElementById('modal-imei-choice').remove();
+};
+</script>
+
+<style>
+.v-list { display: flex; flex-direction: column; gap: 8px; }
+.v-item { padding: 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+.v-item:hover { background: var(--p-main); color: white; }
+</style>

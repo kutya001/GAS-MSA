@@ -1,0 +1,115 @@
+<!-- ══ SHIFTS ════════════════════════════════════════════════════════ -->
+<div class="page" id="page-shifts">
+  <div class="sh">
+    <h2>Управление сменами</h2>
+    <p>Контроль кассовой дисциплины и выручки за смену</p>
+    <div class="sh-acts" id="shiftActs">
+      <!-- Динамические кнопки открытия/закрытия -->
+    </div>
+  </div>
+
+  <div id="shiftStatusCard" style="margin-bottom:20px"></div>
+  
+  <div class="sh" style="margin-top:20px">
+    <h3>История смен</h3>
+  </div>
+  <div id="shiftsTable"></div>
+</div>
+
+<script>
+// Глобальный статус текущей смены (подгружается при навигации)
+var CURRENT_SHIFT = null;
+
+// Форма открытия смены
+var openShiftForm = new MainForm({
+  id: 'mfOpenShift', title: 'Открыть новую смену',
+  fields: [
+    { key: 'manager_id', label: 'Менеджер', type: 'select', required: true,
+      getOptions: function() { return ST.refs.managers; }
+    },
+    { key: 'note', label: 'Примечание', type: 'text', span: 2 }
+  ],
+  onSave: async function(values) {
+    await api('openShift', values);
+    toast('Смена открыта', 's');
+    await checkShiftStatus();
+    loadShifts();
+  },
+  afterMount: function(mode, rec, form) {
+    form.fillField('manager_id', ST.refs.managers, 'id', 'name', '—');
+  }
+});
+
+// Форма закрытия смены
+var closeShiftForm = new MainForm({
+  id: 'mfCloseShift', title: 'Закрыть смену',
+  fields: [
+    { key: 'info', label: 'Информация', type: 'html', span: 2 },
+    { key: 'note', label: 'Примечание', type: 'textarea', span: 2 }
+  ],
+  onSave: async function(values, id) {
+    await api('closeShift', { id: id, note: values.note });
+    toast('Смена закрыта', 's');
+    await checkShiftStatus();
+    loadShifts();
+  }
+});
+
+// Проверка статуса смены
+async function checkShiftStatus() {
+  const res = await api('getShiftStatus');
+  CURRENT_SHIFT = res;
+  
+  const acts = document.getElementById('shiftActs');
+  const card = document.getElementById('shiftStatusCard');
+  const indicator = document.getElementById('shiftIndicator'); // в Topbar
+  
+  if (CURRENT_SHIFT) {
+    acts.innerHTML = `<button class="btn btn-r btn-sm" onclick="closeShiftForm.openEdit(CURRENT_SHIFT)">Закрыть смену</button>`;
+    card.innerHTML = `
+      <div class="wcard on" style="width:100%; border-left: 4px solid #3F51B5">
+        <div class="wname">🟢 Смена открыта: ${esc(ST.refs.managers.find(m => m.id == CURRENT_SHIFT.manager_id)?.name || 'Менеджер')}</div>
+        <div class="wcurr">Начало: ${CURRENT_SHIFT.opened_at}</div>
+        <div style="margin-top:10px; font-size:0.8rem; opacity:0.8">${esc(CURRENT_SHIFT.note)}</div>
+      </div>
+    `;
+    if (indicator) {
+      indicator.innerHTML = `<span class="badge bg">🟢 Смена: ${esc(ST.refs.managers.find(m => m.id == CURRENT_SHIFT.manager_id)?.name || 'ON')}</span>`;
+    }
+  } else {
+    acts.innerHTML = `<button class="btn btn-p btn-sm" onclick="openShiftForm.openCreate()">Открыть смену</button>`;
+    card.innerHTML = `
+      <div class="wcard" style="width:100%; opacity:0.6">
+        <div class="wname">🔴 Смена закрыта</div>
+        <p>Откройте смену для начала работы с POS-терминалом</p>
+      </div>
+    `;
+    if (indicator) {
+      indicator.innerHTML = `<span class="badge br">🔴 Смена закрыта</span>`;
+    }
+  }
+}
+
+var _shiftsDT = null;
+function loadShifts() {
+  if (!_shiftsDT) {
+    _shiftsDT = new DT({
+      id: 'shifts', containerId: 'shiftsTable',
+      cols: [
+        { key: 'id', label: 'ID', w: '50px' },
+        { key: 'manager_name', label: 'Менеджер' },
+        { key: 'opened_at', label: 'Открыта', w: '140px' },
+        { key: 'closed_at', label: 'Закрыта', w: '140px', render: v => v || '—' },
+        { key: 'status', label: 'Статус', render: v => `<span class="badge ${v === 'Открыта' ? 'bg' : 'bc'}">${v}</span>` },
+        { key: 'revenue', label: 'Выручка', align: 'right', mono: true, render: v => fmtN(v) },
+        { key: 'note', label: 'Примечание' }
+      ]
+    });
+  }
+  
+  api('getShiftHistory').then(data => {
+    _shiftsDT.setData(data);
+  });
+}
+
+</script>

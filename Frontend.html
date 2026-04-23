@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -30,6 +30,10 @@
     <div class="sb-sec">Торговля</div>
     <button class="sb-item" data-p="purchases">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.5A.5.5 0 01.5 1H2a.5.5 0 01.485.379L2.89 3H14.5a.5.5 0 01.49.598l-1 5a.5.5 0 01-.465.401l-9.397.472L4.415 11H13a.5.5 0 010 1H4a.5.5 0 01-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 01-.5-.5z"/><circle cx="6" cy="14" r="1"/><circle cx="11" cy="14" r="1"/></svg>Закупки</button>
+    <button class="sb-item" data-p="pos">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11 1a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V2a1 1 0 011-1h6zM5 0a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V2a2 2 0 00-2-2H5z"/><path d="M8 12a1 1 0 100-2 1 1 0 000 2z"/></svg>POS-терминал</button>
+    <button class="sb-item" data-p="shifts">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3.5a.5.5 0 00-1 0V9a.5.5 0 00.252.434l3.5 2a.5.5 0 00.496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 108 0a8 8 0 000 16zm7-8A7 7 0 111 8a7 7 0 0114 0z"/></svg>Смены</button>
     <button class="sb-item" data-p="sales">
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2.5 2.5 0 012.5 2.5V4h-5v-.5A2.5 2.5 0 018 1zm3.5 3v-.5a3.5 3.5 0 10-7 0V4H1v10a2 2 0 002 2h10a2 2 0 002-2V4h-3.5z"/></svg>Продажи</button>
     <button class="sb-item" data-p="payments">
@@ -74,6 +78,7 @@
     <button class="burger" onclick="openSb()">☰</button>
     <span class="topbar-title" id="tbTitle">Дашборд</span>
     <div class="topbar-right">
+      <div id="shiftIndicator" style="margin-right:15px"></div>
       <span class="topbar-date" id="tbDate"></span>
       <button class="sync-btn" id="syncBtn" onclick="syncAll()" title="Синхронизировать данные">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -85,6 +90,8 @@
   </header>
   <div class="content">
     <?!= include('PageDashboard') ?>
+    <?!= include('PagePOS') ?>
+    <?!= include('PageShifts') ?>
     <?!= include('PagePurchases') ?>
     <?!= include('PageSales') ?>
     <?!= include('PagePayments') ?>

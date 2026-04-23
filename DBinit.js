@@ -84,9 +84,9 @@ var SCHEMA = {
     note: 'Кошельки. current_balance обновляется атомарно при каждой операции (Materialized)',
   },
   'КассовыеОперации': {
-    headers: ['id','op_date','op_type','wallet_id','cat_id','article_id','amount','counterpart','comment','created_at','updated_at'],
+    headers: ['id','op_date','op_type','wallet_id','cat_id','article_id','amount','counterpart','comment','shift_id','created_at','updated_at'],
     color: '#FFF8E1', tabColor: '#FBC02D',
-    widths: [50,110,90,80,80,80,120,200,300,140,140],
+    widths: [50,110,90,80,80,80,120,200,300,80,140,140],
     note: 'Все денежные операции. op_type: Приход / Расход',
   },
 
@@ -104,9 +104,9 @@ var SCHEMA = {
     note: 'has_imei=TRUE → поштучный учёт. status: В наличии / Продано / Удалено. product_id → MDM_Номенклатура',
   },
   'Продажи': {
-    headers: ['id','purchase_id','buyer','wa','sale_date','manager_id','wallet_id','total_kgs','paid_kgs','debt_kgs','note','created_at','updated_at'],
+    headers: ['id','purchase_id','buyer','wa','sale_date','manager_id','wallet_id','total_kgs','paid_kgs','debt_kgs','note','shift_id','receipt_id','is_returned','created_at','updated_at'],
     color: '#FCE4EC', tabColor: '#C62828',
-    widths: [50,90,220,160,110,80,80,120,120,120,200,140,140],
+    widths: [50,90,220,160,110,80,80,120,120,120,200,80,100,80,140,140],
     note: 'debt_kgs обновляется при каждой оплате',
   },
   'Оплаты': {
@@ -114,6 +114,12 @@ var SCHEMA = {
     color: '#F3E5F5', tabColor: '#7B1FA2',
     widths: [50,80,80,120,110,120,250,140,140],
     note: 'Платежи по продажам (рассрочки)',
+  },
+  'Смены': {
+    headers: ['id','manager_id','opened_at','closed_at','status','start_balances','end_balances','revenue_kgs','note','created_at','updated_at'],
+    color: '#E8EAF6', tabColor: '#3F51B5',
+    widths: [50,80,140,140,90,300,300,100,200,140,140],
+    note: 'Учет кассовых смен. status: Открыта / Закрыта. balances - JSON',
   },
   'ОплатыЗакупок': {
     headers: ['id','purchase_id','wallet_id','amount','pay_date','note','created_at','updated_at'],
