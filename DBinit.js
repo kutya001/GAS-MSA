@@ -16,6 +16,7 @@ function initDB() {
   Logger.log('МобилТрек Pro · Инициализация БД v3.0...');
 
   _createSchema(ss);
+  patchWalletsTable();    // Фикс для колонки is_pos и заполнения
   _seedData(ss);
   _formatAll(ss);
   _syncAllSeq();          // Шаг 1: инициализируем счётчики PK
@@ -200,7 +201,23 @@ function _createSchema(ss) {
   Object.keys(SCHEMA).forEach(function(name) {
     var cfg = SCHEMA[name];
     var sh  = ss.getSheetByName(name) || ss.insertSheet(name);
-    if (sh.getLastRow() === 0) sh.appendRow(cfg.headers);
+    
+    if (sh.getLastRow() === 0) {
+      sh.appendRow(cfg.headers);
+    } else {
+      // Синхронизация заголовков (Schema Migration)
+      var currentHeaders = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+      var missing = cfg.headers.filter(function(h) { return currentHeaders.indexOf(h) === -1; });
+      
+      if (missing.length > 0) {
+        Logger.log('Обновление схемы для ' + name + ': добавление ' + missing.join(', '));
+        missing.forEach(function(h) {
+          var newColIdx = sh.getLastColumn() + 1;
+          sh.getRange(1, newColIdx).setValue(h);
+        });
+      }
+    }
+
     sh.setFrozenRows(1);
     if (cfg.tabColor) sh.setTabColor(cfg.tabColor);
     if (cfg.note)     sh.getRange(1,1).setNote(cfg.note);
