@@ -109,6 +109,7 @@ function processPosSale(p) {
 
         const saleObj = {
           purchase_id: item.purchase_id,
+          qty: qty, // Новое поле: сохраняем проданное кол-во
           buyer: p.buyer || 'Розничный покупатель',
           wa: p.phone || '',
           sale_date: saleDate,
@@ -189,33 +190,21 @@ function processPosReturn(p) {
         
         // 2. Возвращаем товар в Закупки
         const pur = _findById(SH.PURCHASES, sale.purchase_id);
+        const returnedQty = sale.qty ? parseInt(sale.qty) : 1;
+
         if (pur.has_imei === 'TRUE') {
-          _update(SH.PURCHASES, sale.purchase_id, { status: 'В наличии' });
+          _update(SH.PURCHASES, sale.purchase_id, { status: 'В наличии', qty: 1 });
         } else {
-          // Если продали часть, возвращаем количество. 
-          // В POS одна запись в Продажи соответствует количеству в чеке.
-          // Нам нужно знать, какое кол-во было продано. 
-          // В текущей схеме Продаж нет явного поля qty (оно высчитывается через total / price или хранится в Закупках).
-          // В POS мы храним total_kgs = qty * price.
-          // Для простоты считаем по сумме и стоимости из Закупки.
-          const unitCost = parseFloat(pur.cost_kgs) || 0;
-          const soldQty = 1; // Упрощение для MV: в POS пока 1 строка = 1 модель (если не IMEI) или 1 шт (если IMEI)
-          // На самом деле в processPosSale мы считали itemTotal = item.price * qty.
-          // В POS версионности "Продаж" не было qty. Добавим его в будущем? 
-          // Пока исходим из того, что в POS 1 строка корзины = 1 запись в Продажи.
-          
-          // ТАК КАК В SCHEMA НЕТ QTY В ПРОДАЖАХ, МЫ ВЕРНЕМ 1 ШТУКУ (или нужно было хранить qty в Продажах)
-          // Исправим SCHEMA в DBinit позже если понадобится, но сейчас следуем ТЗ.
-          
+          // Возвращаем именно то количество, которое было в строке продажи
           if (pur.status === 'Продано') {
-            _update(SH.PURCHASES, sale.purchase_id, { status: 'В наличии', qty: 1 });
+            _update(SH.PURCHASES, sale.purchase_id, { status: 'В наличии', qty: returnedQty });
           } else {
-            _update(SH.PURCHASES, sale.purchase_id, { qty: parseInt(pur.qty) + 1 });
+            _update(SH.PURCHASES, sale.purchase_id, { qty: parseInt(pur.qty) + returnedQty });
           }
         }
         
-        // 3. Обновляем склад
-        _adjustWarehouse(parseInt(pur.wh_id), 1, parseFloat(pur.cost_kgs) || 0, true);
+        // 3. Обновляем склад на фактическое кол-во
+        _adjustWarehouse(parseInt(pur.wh_id), returnedQty, parseFloat(pur.cost_kgs) || 0, true);
         
         returnAmount += parseFloat(sale.paid_kgs) || 0;
       });

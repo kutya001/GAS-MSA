@@ -93,6 +93,10 @@ function _adjustBalance(walletId, amount, isIncome) {
   var sbIdx = heads.indexOf('start_balance');
   var uaIdx = heads.indexOf('updated_at');
 
+  if (cbIdx === -1 || tiIdx === -1 || toIdx === -1) {
+    throw new Error('Критическая ошибка: Архитектура листа "Кошельки" нарушена. Materialized-колонки не найдены.');
+  }
+
   var cur  = parseFloat(vals[cbIdx]) || (parseFloat(vals[sbIdx]) || 0);
   var tIn  = parseFloat(vals[tiIdx])  || 0;
   var tOut = parseFloat(vals[toIdx]) || 0;
