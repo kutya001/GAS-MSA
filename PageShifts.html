@@ -44,7 +44,7 @@ var openShiftForm = new MainForm({
 var closeShiftForm = new MainForm({
   id: 'mfCloseShift', title: 'Закрыть смену',
   fields: [
-    { key: 'info', label: 'Информация', type: 'html', span: 2 },
+    { key: 'summary', label: 'Остатки по кошелькам', type: 'html', span: 2 },
     { key: 'note', label: 'Примечание', type: 'textarea', span: 2 }
   ],
   onSave: async function(values, id) {
@@ -52,29 +52,121 @@ var closeShiftForm = new MainForm({
     toast('Смена закрыта', 's');
     await checkShiftStatus();
     loadShifts();
+  },
+  afterMount: function(mode, rec, form) {
+    // Считаем расчетный остаток по каждому POS кошельку
+    let html = '<div class="v-list">';
+    ST.wallets.filter(w => w.is_pos).forEach(w => {
+       html += `<div class="v-item" style="display:flex; justify-content:space-between">
+                  <span>${esc(w.name)}</span>
+                  <b class="mono">${fmtN(w.balance)} ${esc(w.currency)}</b>
+                </div>`;
+    });
+    html += '</div><p style="font-size:0.8rem; margin-top:10px; color:var(--text-mut)">Нажмите «Сохранить» для фиксации итогов и закрытия смены.</p>';
+    form.fillField('summary', html);
   }
 });
+
+// Детализация смены
+async function showShiftDetails(id) {
+  const data = await api('getShiftDetails', { shift_id: id });
+  if (!data) return;
+  
+  const mId = 'modal-shift-details';
+  const shift = data.shift;
+  
+  let html = `
+    <div class="m" style="max-width:800px; width:95%">
+      <div class="m-h">Детали смены #${id} (${shift.status})</div>
+      <div class="m-b">
+        <div class="rtabs" id="sdTabs">
+          <button class="rtab on" data-target="sd-fin">💰 Итоги</button>
+          <button class="rtab" data-target="sd-sales">🧾 Чеки</button>
+          <button class="rtab" data-target="sd-ops">🔄 Операции</button>
+        </div>
+        
+        <div class="sd-content on" id="sd-fin" style="padding-top:15px">
+          <h4>Финансовый итог</h4>
+          <table class="table-sm">
+            <thead><tr><th>Кошелёк</th><th>На начало</th><th>На конец</th></tr></thead>
+            <tbody>
+              ${ST.wallets.filter(w => w.is_pos).map(w => {
+                const sB = shift.start_balances[w.id] || 0;
+                const eB = shift.end_balances[w.id] || 0;
+                return `<tr><td>${esc(w.name)}</td><td class="mono">${fmtN(sB)}</td><td class="mono"><b>${fmtN(eB)}</b></td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          <p style="margin-top:15px"><b>Выручка за смену (инкассо):</b> <span class="tg fw7">${fmtN(shift.revenue_kgs)} KGS</span></p>
+        </div>
+        
+        <div class="sd-content" id="sd-sales" style="padding-top:15px; display:none">
+          <h4>Продажи и чеки</h4>
+          <div class="tw"><table class="table-sm">
+            <thead><tr><th>ID Чека</th><th>Товар</th><th>Сумма</th></tr></thead>
+            <tbody>
+              ${data.sales.map(s => `<tr><td>${esc(s.receipt_id)}</td><td>${esc(s.product_name)}</td><td class="mono">${fmtN(s.total)}</td></tr>`).join('') || '<tr><td colspan="3">Нет продаж</td></tr>'}
+            </tbody>
+          </table></div>
+        </div>
+        
+        <div class="sd-content" id="sd-ops" style="padding-top:15px; display:none">
+          <h4>Движение средств</h4>
+          <div class="tw"><table class="table-sm">
+            <thead><tr><th>Тип</th><th>Категория</th><th>Сумма</th><th>Комментарий</th></tr></thead>
+            <tbody>
+              ${data.ops.map(o => {
+                const inc = o.op_type === 'Приход';
+                return `<tr><td><span class="badge ${inc?'bg':'br'}">${o.op_type}</span></td><td>${esc(o.cat_name)}</td><td class="mono">${fmtN(o.amount)}</td><td>${esc(o.comment)}</td></tr>`;
+              }).join('') || '<tr><td colspan="4">Нет операций</td></tr>'}
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="m-f"><button class="btn btn-g" onclick="closeM('${mId}')">Закрыть</button></div>
+    </div>
+  `;
+  
+  let div = document.getElementById(mId);
+  if (!div) { div = document.createElement('div'); div.id = mId; div.className = 'ov'; document.body.appendChild(div); }
+  div.innerHTML = html;
+  div.classList.add('open');
+  
+  // Логика табов
+  div.querySelectorAll('.rtab').forEach(btn => {
+    btn.onclick = () => {
+      div.querySelectorAll('.rtab').forEach(b => b.classList.remove('on'));
+      div.querySelectorAll('.sd-content').forEach(c => c.style.display = 'none');
+      btn.classList.add('on');
+      document.getElementById(btn.dataset.target).style.display = 'block';
+    };
+  });
+}
 
 // Проверка статуса смены
 async function checkShiftStatus() {
   const res = await api('getShiftStatus');
+  // API возвращает объект или null. Если объект, он может быть в .data (из-за обертки _ok)
+  // Но в Shifts.js getShiftStatus возвращает _ok(openShift || null).
+  // Значит на фронте результат api() для GAS — это сам объект {status:'ok', data:...}
   CURRENT_SHIFT = res;
   
   const acts = document.getElementById('shiftActs');
   const card = document.getElementById('shiftStatusCard');
-  const indicator = document.getElementById('shiftIndicator'); // в Topbar
+  const indicator = document.getElementById('shiftIndicator');
   
   if (CURRENT_SHIFT) {
     acts.innerHTML = `<button class="btn btn-r btn-sm" onclick="closeShiftForm.openEdit(CURRENT_SHIFT)">Закрыть смену</button>`;
+    const mgr = ST.refs.managers.find(m => m.id == CURRENT_SHIFT.manager_id);
     card.innerHTML = `
-      <div class="wcard on" style="width:100%; border-left: 4px solid #3F51B5">
-        <div class="wname">🟢 Смена открыта: ${esc(ST.refs.managers.find(m => m.id == CURRENT_SHIFT.manager_id)?.name || 'Менеджер')}</div>
+      <div class="wcard on" style="width:100%; border-left: 4px solid var(--p-main)">
+        <div class="wname">🟢 Смена открыта: ${esc(mgr ? mgr.name : 'Менеджер')}</div>
         <div class="wcurr">Начало: ${CURRENT_SHIFT.opened_at}</div>
-        <div style="margin-top:10px; font-size:0.8rem; opacity:0.8">${esc(CURRENT_SHIFT.note)}</div>
+        <div style="margin-top:10px; font-size:0.8rem; opacity:0.8">${esc(CURRENT_SHIFT.note || '')}</div>
       </div>
     `;
     if (indicator) {
-      indicator.innerHTML = `<span class="badge bg">🟢 Смена: ${esc(ST.refs.managers.find(m => m.id == CURRENT_SHIFT.manager_id)?.name || 'ON')}</span>`;
+      indicator.innerHTML = `<span class="badge bg" style="cursor:pointer" onclick="nav('shifts')">🟢 Смена: ${esc(mgr ? mgr.name.split(' ')[0] : 'ON')}</span>`;
     }
   } else {
     acts.innerHTML = `<button class="btn btn-p btn-sm" onclick="openShiftForm.openCreate()">Открыть смену</button>`;
@@ -85,7 +177,7 @@ async function checkShiftStatus() {
       </div>
     `;
     if (indicator) {
-      indicator.innerHTML = `<span class="badge br">🔴 Смена закрыта</span>`;
+      indicator.innerHTML = `<span class="badge br" style="cursor:pointer" onclick="nav('shifts')">🔴 Смена закрыта</span>`;
     }
   }
 }
@@ -102,7 +194,9 @@ function loadShifts() {
         { key: 'closed_at', label: 'Закрыта', w: '140px', render: v => v || '—' },
         { key: 'status', label: 'Статус', render: v => `<span class="badge ${v === 'Открыта' ? 'bg' : 'bc'}">${v}</span>` },
         { key: 'revenue', label: 'Выручка', align: 'right', mono: true, render: v => fmtN(v) },
-        { key: 'note', label: 'Примечание' }
+        { label: 'Действия', align: 'center', sortable: false, w: '80px',
+          render: (v, r) => `<button class="btn btn-g btn-xs" onclick="showShiftDetails(${r.id})">👁️ Детали</button>`
+        }
       ]
     });
   }

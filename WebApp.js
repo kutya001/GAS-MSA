@@ -9,32 +9,38 @@ function doGet(e) {
   // Квитанция POS (печать чека)
   if (page === 'receipt') {
     var receiptId = (e && e.parameter && e.parameter.id) || '';
-    var sales = _rows(SH.SALES).filter(function(r) { return r.receipt_id === receiptId; });
+    var localData = (e && e.parameter && e.parameter.local) || '';
     
-    if (sales.length > 0) {
-      var prodMap = _buildMap(SH.MDM_PRODUCTS, 'id', 'name');
-      var mgrMap  = _buildMap(SH.MANAGERS, 'id', 'name');
-      var items   = sales.map(function(s) {
-        var pur = _findById(SH.PURCHASES, s.purchase_id) || {};
-        return {
-          product_name: prodMap[parseInt(pur.product_id)] || 'Товар',
-          qty: 1, // В POS 1 строка = 1 запись (упрощение)
-          price: parseFloat(s.total_kgs)
-        };
-      });
-      
-      var res = HtmlService.createTemplateFromFile('POSReceipt');
-      res.receiptId = receiptId;
-      res.saleDate  = sales[0].sale_date;
-      res.managerName = mgrMap[parseInt(sales[0].manager_id)] || 'Менеджер';
-      res.items = items;
-      res.totalAmount = items.reduce(function(sum, x){ return sum + x.price; }, 0);
-      
-      return res.evaluate()
-        .setTitle('Чек #' + receiptId)
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    var res = HtmlService.createTemplateFromFile('POSReceipt');
+    res.localData = localData;
+
+    // Если печатаем из БД
+    if (!localData && receiptId) {
+      var sales = _rows(SH.SALES).filter(function(r) { return r.receipt_id === receiptId; });
+      if (sales.length > 0) {
+        var prodMap = _buildMap(SH.MDM_PRODUCTS, 'id', 'name');
+        var mgrMap  = _buildMap(SH.MANAGERS, 'id', 'name');
+        var items   = sales.map(function(s) {
+          var pur = _findById(SH.PURCHASES, s.purchase_id) || {};
+          return {
+            product_name: prodMap[parseInt(pur.product_id)] || 'Товар',
+            qty: 1,
+            price: parseFloat(s.total_kgs)
+          };
+        });
+        res.receiptId = receiptId;
+        res.saleDate  = sales[0].sale_date;
+        res.managerName = mgrMap[parseInt(sales[0].manager_id)] || 'Менеджер';
+        res.items = items;
+        res.totalAmount = items.reduce(function(sum, x){ return sum + x.price; }, 0);
+      } else {
+        return HtmlService.createHtmlOutput('Чек не найден');
+      }
     }
-    return HtmlService.createHtmlOutput('Чек не найден');
+
+    return res.evaluate()
+      .setTitle('Чек POS')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   // Маркетплейс — отдельный сайт-каталог

@@ -1,4 +1,4 @@
-﻿<!-- ══ WALLETS ════════════════════════════════════════════════════════ -->
+<!-- ══ WALLETS ════════════════════════════════════════════════════════ -->
 <div class="page" id="page-wallets">
   <div class="sh"><h2>Кошельки / Кассы</h2><p>Остатки по кассам — весь расчёт строго по кошелькам</p>
     <div class="sh-acts"><button class="btn btn-p btn-sm" onclick="walletForm.openCreate()">+ Кошелёк</button></div>
@@ -39,11 +39,13 @@ var walletForm = new MainForm({
       getOptions: function() { return ST.refs.currencies || []; }
     },
     { key: 'icon',          label: 'Иконка',           type: 'text',   placeholder: '💰', default: '💰' },
+    { key: 'is_pos',        label: '🛒 Использовать в POS', type: 'checkbox', default: true },
     { key: 'start_balance', label: 'Начальный баланс', type: 'number', default: 0, step: 0.01 },
     { key: 'note',          label: 'Примечание',       type: 'text',   span: 2 }
   ],
   onSave: async function(values, editId) {
     var data = { name: values.name, currency_id: +values.currency_id, icon: values.icon || '💰',
+                 is_pos: !!values.is_pos,
                  start_balance: parseFloat(values.start_balance) || 0, note: values.note };
     if (editId) await api('updateWallet', Object.assign({ id: editId }, data));
     else        await api('addWallet', data);

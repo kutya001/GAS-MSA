@@ -12,21 +12,22 @@ function getWallets() {
     var cached = _cGet('wallets');
     if (cached) return _ok(cached);
 
-    var wallets    = _rows(SH.WALLETS).filter(function(r){ return r.id && r.name; });
-    var currencies = _rows(SH.CURRENCIES);
-    var currMap = {};
-    currencies.forEach(function(c){ currMap[parseInt(c.id)] = c.name; });
-
-    var result = wallets.map(function(w) {
+    var rows = _rows(SH.WALLETS);
+    var curMap = _buildMap(SH.CURRENCIES, 'id', 'name');
+    var result = rows.map(function(r) {
       return {
-        id:        parseInt(w.id),
-        name:      w.name,
-        currency:  currMap[parseInt(w.currency_id)] || String(w.currency_id) || 'KGS',
-        icon:      w.icon || '💰',
-        note:      w.note || '',
-        balance:   Math.round(parseFloat(w.current_balance) || (parseFloat(w.start_balance) || 0)),
-        total_in:  Math.round(parseFloat(w.total_in)  || 0),
-        total_out: Math.round(parseFloat(w.total_out) || 0),
+        id:            parseInt(r.id),
+        name:          r.name,
+        currency_id:   parseInt(r.currency_id),
+        currency:      curMap[parseInt(r.currency_id)] || '?',
+        icon:          r.icon || '💰',
+        start_balance: parseFloat(r.start_balance) || 0,
+        balance:       parseFloat(r.current_balance) || 0,
+        total_in:      parseFloat(r.total_in) || 0,
+        total_out:     parseFloat(r.total_out) || 0,
+        note:          r.note || '',
+        is_pos:        r.is_pos === 'TRUE',
+        created_at:    r.created_at
       };
     });
 
@@ -38,21 +39,21 @@ function getWallets() {
 function addWallet(p) {
   return _withLock(function() {
     try {
-      var startBal = parseFloat(p.start_balance) || 0;
       var obj = {
-        name:            p.name || '',
-        currency_id:     parseInt(p.currency_id) || 1,
+        name:            p.name,
+        currency_id:     parseInt(p.currency_id),
         icon:            p.icon || '💰',
-        start_balance:   startBal,
-        note:            p.note || '',
-        current_balance: startBal,
+        start_balance:   parseFloat(p.start_balance) || 0,
+        current_balance: parseFloat(p.start_balance) || 0,
         total_in:        0,
         total_out:       0,
-        created_at:      _now(),
+        note:            p.note || '',
+        is_pos:          p.is_pos === true ? 'TRUE' : 'FALSE',
+        created_at:      _now()
       };
-      var newId = _append(SH.WALLETS, obj);
-      _cDel(['wallets']);
-      return _ok({ id: newId });
+      var id = _append(SH.WALLETS, obj);
+      _cDel(['wallets', 'dashboard']);
+      return _ok({ id: id });
     } catch(e) { return _err(e.message); }
   });
 }
@@ -60,11 +61,18 @@ function addWallet(p) {
 function updateWallet(p) {
   return _withLock(function() {
     try {
-      _update(SH.WALLETS, p.id, {
-        name: p.name || '', currency_id: parseInt(p.currency_id) || 1,
-        icon: p.icon || '💰', note: p.note || '',
-      });
-      _cDel(['wallets']);
+      var id = parseInt(p.id);
+      var obj = {
+        name:        p.name,
+        currency_id: parseInt(p.currency_id),
+        icon:        p.icon || '💰',
+        note:        p.note || '',
+        is_pos:      p.is_pos === true ? 'TRUE' : 'FALSE',
+        updated_at:  _now()
+      };
+      // Note: start_balance and materialized balances are not updated here
+      _update(SH.WALLETS, id, obj);
+      _cDel(['wallets', 'dashboard']);
       return _ok({});
     } catch(e) { return _err(e.message); }
   });

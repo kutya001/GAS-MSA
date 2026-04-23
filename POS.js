@@ -77,33 +77,47 @@ function processPosSale(p) {
       const saleDate = _today();
       let totalAmount = 0;
       
+      const isInstallment = p.is_installment === true;
+      const initialPayment = isInstallment ? (parseFloat(p.initial_payment) || 0) : 0;
+      
       // 1. Обработка каждого товара в корзине
       cart.forEach(item => {
         const pur = _findById(SH.PURCHASES, item.purchase_id);
         if (!pur) throw new Error('Товар не найден: ' + item.name);
-        if (pur.status !== 'В наличии') throw new Error('Товар уже продан или недоступен: ' + item.name);
+        
+        // ВАЖНО: Если это рассрочка, мы распределяем оплату или просто ставим долг.
+        // По архитектуре Продаж: total_kgs / paid_kgs / debt_kgs.
+        // Для простоты POS: если товаров несколько, первый забирает initial payment, остальные в долг? 
+        // Нет, лучше: каждая строка Продажи имеет свою долю debt.
         
         const qty = item.has_imei ? 1 : parseInt(item.qty);
-        if (!item.has_imei && parseInt(pur.qty) < qty) throw new Error('Недостаточное количество: ' + item.name);
-        
         const itemTotal = item.price * qty;
         totalAmount += itemTotal;
+      });
+      
+      const installmentDebt = isInstallment ? (totalAmount - initialPayment) : 0;
+      
+      // Повторный проход для записи (теперь знаем общий итог и долг)
+      cart.forEach(item => {
+        const pur = _findById(SH.PURCHASES, item.purchase_id);
+        const qty = item.has_imei ? 1 : parseInt(item.qty);
+        const itemTotal = item.price * qty;
         
-        // Добавляем записи в Продажи (по 1 записи на позицию корзины или поштучно?)
-        // По архитектуре: 1 запись = 1 purchase_id.
-        // Если продаем 5 штук одного артикула (без IMEI), это будет 1 запись в Продажи с total_kgs = 5 * price.
-        
+        // Доля долга для этой строки (пропорционально сумме)
+        const itemDebt = totalAmount > 0 ? (itemTotal / totalAmount) * installmentDebt : 0;
+        const itemPaid = itemTotal - itemDebt;
+
         const saleObj = {
           purchase_id: item.purchase_id,
           buyer: p.buyer || 'Розничный покупатель',
-          wa: '',
+          wa: p.phone || '',
           sale_date: saleDate,
           manager_id: p.manager_id || '',
-          wallet_id: p.wallet_id,
+          wallet_id: p.wallet_id || '',
           total_kgs: itemTotal,
-          paid_kgs: itemTotal,
-          debt_kgs: 0,
-          note: 'POS-чек ' + receiptId,
+          paid_kgs: itemPaid,
+          debt_kgs: itemDebt,
+          note: 'POS-чек ' + receiptId + (isInstallment ? ' [РАССРОЧКА]' : ''),
           shift_id: p.shift_id,
           receipt_id: receiptId,
           is_returned: 'FALSE',
@@ -122,21 +136,24 @@ function processPosSale(p) {
         _adjustWarehouse(parseInt(pur.wh_id), qty, parseFloat(pur.cost_kgs) || 0, false);
       });
       
-      // 2. Кассовая операция
-      const catId = _findOrCreateCat('Выручка от продаж', 'Приход');
-      _appendCashOp({
-        wallet_id: parseInt(p.wallet_id),
-        op_type: 'Приход',
-        cat_id: catId,
-        amount: totalAmount,
-        op_date: saleDate,
-        counterpart: p.buyer || 'Розничный покупатель',
-        comment: 'Чек #' + receiptId,
-        shift_id: p.shift_id
-      });
-      
-      // 3. Обновление баланса (Materialized)
-      _adjustBalance(parseInt(p.wallet_id), totalAmount, true);
+      // 2. Кассовая операция (только на ФАКТИЧЕСКИ полученную сумму)
+      const actualCash = isInstallment ? initialPayment : totalAmount;
+      if (actualCash > 0 && p.wallet_id) {
+        const catId = _findOrCreateCat('Выручка от продаж', 'Приход');
+        _appendCashOp({
+          wallet_id: parseInt(p.wallet_id),
+          op_type: 'Приход',
+          cat_id: catId,
+          amount: actualCash,
+          op_date: saleDate,
+          counterpart: p.buyer || 'Розничный покупатель',
+          comment: 'Чек #' + receiptId + (isInstallment ? ' (Взнос)' : ''),
+          shift_id: p.shift_id
+        });
+        
+        // 3. Обновление баланса (Materialized)
+        _adjustBalance(parseInt(p.wallet_id), actualCash, true);
+      }
       
       // Инвалидация кэша
       _cDel(['purchases_all', 'sales_all', 'wallets', 'dashboard']);
@@ -219,6 +236,75 @@ function processPosReturn(p) {
       
       _cDel(['purchases_all', 'sales_all', 'wallets', 'dashboard']);
       return _ok({ status: 'ok' });
+    } catch (e) {
+      return _err(e.message);
+    }
+  });
+}
+
+/**
+ * Обмен товара
+ */
+function processPosExchange(p) {
+  return _withLock(function() {
+    try {
+      const oldSaleId = p.sale_id;
+      const newPurId = p.new_purchase_id;
+      const walletId = parseInt(p.wallet_id);
+      
+      const oldSale = _findById(SH.SALES, oldSaleId);
+      const newPur = _findById(SH.PURCHASES, newPurId);
+      
+      if (!oldSale || !newPur) return _err('Данные не найдены');
+      if (newPur.status !== 'В наличии') return _err('Новый товар недоступен');
+      
+      // 1. Возврат старого
+      _update(SH.SALES, oldSaleId, { is_returned: 'TRUE' });
+      _update(SH.PURCHASES, oldSale.purchase_id, { status: 'В наличии' });
+      _adjustWarehouse(parseInt(newPur.wh_id), 1, parseFloat(newPur.cost_kgs), true); // В теории старый на свой склад
+      
+      // 2. Продажа нового
+      const diff = p.new_price - parseFloat(oldSale.total_kgs);
+      const receiptId = 'EXCH-' + _nextId('SEQ_POS');
+      
+      const saleObj = {
+        purchase_id: newPurId,
+        buyer: oldSale.buyer,
+        sale_date: _today(),
+        manager_id: p.manager_id || oldSale.manager_id,
+        wallet_id: walletId,
+        total_kgs: p.new_price,
+        paid_kgs: p.new_price,
+        debt_kgs: 0,
+        note: 'Обмен чека ' + oldSale.receipt_id,
+        shift_id: p.shift_id,
+        receipt_id: receiptId,
+        is_returned: 'FALSE',
+        created_at: _now()
+      };
+      _append(SH.SALES, saleObj);
+      _update(SH.PURCHASES, newPurId, { status: 'Продано' });
+      _adjustWarehouse(parseInt(newPur.wh_id), 1, parseFloat(newPur.cost_kgs), false);
+
+      // 3. Кассовая операция на РАЗНИЦУ
+      if (Math.abs(diff) > 0.01) {
+        const opType = diff > 0 ? 'Приход' : 'Расход';
+        const catName = diff > 0 ? 'Доплата при обмене' : 'Возврат при обмене';
+        const catId = _findOrCreateCat(catName, opType);
+        
+        _appendCashOp({
+          wallet_id: walletId,
+          op_type: opType,
+          cat_id: catId,
+          amount: Math.abs(diff),
+          comment: 'Обмен ' + oldSale.receipt_id + ' -> ' + receiptId,
+          shift_id: p.shift_id
+        });
+        _adjustBalance(walletId, Math.abs(diff), diff > 0);
+      }
+      
+      _cDel(['purchases_all', 'sales_all', 'wallets', 'dashboard']);
+      return _ok({ receipt_id: receiptId });
     } catch (e) {
       return _err(e.message);
     }

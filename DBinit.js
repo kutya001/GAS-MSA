@@ -78,9 +78,9 @@ var SCHEMA = {
   },
   // ── Кошельки: +current_balance, +total_in, +total_out ───────────────
   'Кошельки': {
-    headers: ['id','name','currency_id','icon','start_balance','current_balance','total_in','total_out','note','created_at','updated_at'],
+    headers: ['id','name','currency_id','icon','start_balance','current_balance','total_in','total_out','note','is_pos','created_at','updated_at'],
     color: '#FFF3E0', tabColor: '#F57C00',
-    widths: [50,220,80,60,130,130,110,110,220,140,140],
+    widths: [50,220,80,60,130,130,110,110,220,80,140,140],
     note: 'Кошельки. current_balance обновляется атомарно при каждой операции (Materialized)',
   },
   'КассовыеОперации': {

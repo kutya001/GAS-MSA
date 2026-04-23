@@ -19,6 +19,23 @@
     }
   </style>
 </head>
+<?
+  var receiptId = receiptId;
+  var saleDate = saleDate;
+  var managerName = managerName;
+  var items = items;
+  var totalAmount = totalAmount;
+
+  // Если переданы локальные данные (для мгновенной печати без обращения к БД)
+  if (localData) {
+    var raw = JSON.parse(localData);
+    receiptId = raw.receipt_id;
+    saleDate = raw.saleDate;
+    managerName = raw.managerName;
+    items = raw.items;
+    totalAmount = raw.totalAmount;
+  }
+?>
 <body onload="window.print()">
   <div class="center bold" style="font-size: 18px;">МОБИЛТРЕК Pro</div>
   <div class="center">Учёт продаж техники</div>
