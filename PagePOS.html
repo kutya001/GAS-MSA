@@ -7,6 +7,7 @@
         <div class="pos-search-wrap">
            <input type="text" id="posSearch" class="fi fi-lg" placeholder="🔍 Поиск / Сканер (SKU, IMEI...)" oninput="handlePosSearch()">
            <button class="btn btn-g" onclick="focusSearch()" title="Фокус на поиск (📱)">📱</button>
+           <button class="btn btn-r" onclick="showReturnModalPos()" title="Возврат / Обмен">↩️ Возврат</button>
         </div>
       </div>
       
@@ -351,10 +352,11 @@ async function payOrder() {
   const phone = document.getElementById('posPhone').value;
   
   if (isInst && (!buyer || !phone)) return toast('Заполните данные покупателя', 'w');
-  if (!SEL_WALLET_ID && !isInst) return toast('Выберите кошелек', 'w');
   
   const total = CART.reduce((s, x) => s + x.price * x.qty, 0);
-  const initial = isInst ? parseFloat(document.getElementById('posInitial').value) : total;
+  const initialAmt = isInst ? (parseFloat(document.getElementById('posInitial').value) || 0) : total;
+  
+  if (!SEL_WALLET_ID && (!isInst || initialAmt > 0)) return toast('Выберите кошелек для взноса', 'w');
   
   // 1. Быстрая подготовка данных для чека
   const localId = 'POS-PROV-' + Date.now();
@@ -391,7 +393,7 @@ async function payOrder() {
       buyer: buyer,
       phone: phone,
       is_installment: isInst,
-      initial_payment: initial
+      initial_payment: initialAmt
     });
     toast('Оплата успешно подтверждена: ' + res.receipt_id, 's');
     loadPOS(); // Рефреш каталога в фоне
@@ -405,4 +407,65 @@ async function payOrder() {
 function focusSearch() { document.getElementById('posSearch').focus(); }
 function toggleCartMobile() { document.getElementById('posCartPanel').classList.toggle('open'); }
 
+// ── Логика возвратов в POS ──────────────────────────────────────
+async function showReturnModalPos() {
+  const q = prompt('Введите номер чека или IMEI товара для возврата:');
+  if (!q) return;
+  
+  const data = await api('getSaleByReceipt', { query: q });
+  if (!data || !data.length) return toast('Ничего не найдено', 'w');
+  
+  const mId = 'modal-pos-return';
+  let html = `
+    <div class="m" style="max-width:500px">
+      <div class="m-h">Найдено в чеках: ${q}</div>
+      <div class="m-b">
+        <div class="v-list">
+          ${data.map(s => `
+            <div class="v-item" style="border-bottom:1px solid var(--border); padding:10px 0">
+               <div><b>${esc(s.product_name)}</b></div>
+               <div style="font-size:0.8rem; color:var(--text-mut)">${s.receipt_id} · ${fmtD(s.sale_date)} · ${fmtN(s.total)} KGS</div>
+               <div style="margin-top:8px; display:flex; gap:5px">
+                 <button class="btn btn-r btn-xs" onclick="doPosReturnItem(${s.id})">↩️ Вернуть</button>
+                 <button class="btn btn-p btn-xs" onclick="doPosExchangeItem(${JSON.stringify(s).replace(/"/g, '&quot;')})">🔄 Обменять</button>
+               </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="m-f"><button class="btn btn-g" onclick="closeM('${mId}')">Закрыть</button></div>
+    </div>
+  `;
+  
+  let div = document.getElementById(mId);
+  if(!div) { div = document.createElement('div'); div.id = mId; div.className = 'ov'; document.body.appendChild(div); }
+  div.innerHTML = html; div.classList.add('open');
+}
+
+async function doPosReturnItem(saleId) {
+  if (!confirm('Оформить возврат?')) return;
+  if (!SEL_WALLET_ID) return toast('Сначала выберите кошелек для возврата средств', 'w');
+  
+  await api('processPosReturn', { 
+    sale_ids: [saleId], 
+    wallet_id: SEL_WALLET_ID,
+    shift_id: CURRENT_SHIFT.id 
+  });
+  toast('Возврат оформлен', 's');
+  closeM('modal-pos-return');
+  loadPOS();
+}
+
+function doPosExchangeItem(sale) {
+  closeM('modal-pos-return');
+  // Используем логику из PageSales.html (она уже есть в глобальном пространстве если PageSales загружен, 
+  // но лучше продублировать или сделать глобальным хелпером). 
+  // В данном проекте метод promptExchangeChoice живет в PageSales.html. 
+  // Для автономности POS добавим минимальный вызов здесь.
+  if (typeof promptExchangeChoice === 'function') {
+    promptExchangeChoice(sale);
+  } else {
+    toast('Функция обмена доступна через раздел Продажи', 'i');
+  }
+}
 </script>

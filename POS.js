@@ -310,3 +310,37 @@ function processPosExchange(p) {
     }
   });
 }
+
+/**
+ * Поиск позиций чека (для возврата/обмена)
+ */
+function getSaleByReceipt(p) {
+  try {
+    const q = String(p.query).toUpperCase();
+    if (!q) return _err('Введите номер чека или IMEI');
+
+    const sales = _rows(SH.SALES);
+    const purMap = _buildMap(SH.PURCHASES, 'id', null);
+    const prodMap = _buildMap(SH.MDM_PRODUCTS, 'id', 'name');
+
+    const filtered = sales.filter(s => {
+      if (s.is_returned === 'TRUE') return false;
+      const pur = purMap[parseInt(s.purchase_id)] || {};
+      return s.receipt_id.toUpperCase() === q || (pur.imei && pur.imei.toUpperCase() === q);
+    }).map(s => {
+      const pur = purMap[parseInt(s.purchase_id)] || {};
+      return {
+        id: parseInt(s.id),
+        receipt_id: s.receipt_id,
+        product_name: prodMap[parseInt(pur.product_id)] || '?',
+        imei: pur.imei || '',
+        total: parseFloat(s.total_kgs) || 0,
+        sale_date: s.sale_date
+      };
+    });
+
+    return _ok(filtered);
+  } catch (e) {
+    return _err(e.message);
+  }
+}
