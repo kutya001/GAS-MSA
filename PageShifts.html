@@ -74,56 +74,94 @@ async function showShiftDetails(id) {
   
   const mId = 'modal-shift-details';
   const shift = data.shift;
+  const isClosed = shift.status === 'Закрыта';
   
   let html = `
-    <div class="m" style="max-width:800px; width:95%">
-      <div class="m-h">Детали смены #${id} (${shift.status})</div>
-      <div class="m-b">
-        <div class="rtabs" id="sdTabs">
+    <div class="m" style="max-width:850px; width:95%; animation: slideUp 0.3s ease;">
+      <div class="m-h">
+        <span>Детали смены #${id}</span>
+        <span class="badge ${shift.status === 'Открыта' ? 'bg' : 'bgr'}">${shift.status}</span>
+      </div>
+      <div class="m-b" style="background: var(--bg); padding:10px 0 0 0">
+        <div class="rtabs" id="sdTabs" style="padding: 0 17px">
           <button class="rtab on" data-target="sd-fin">💰 Итоги</button>
           <button class="rtab" data-target="sd-sales">🧾 Чеки</button>
           <button class="rtab" data-target="sd-ops">🔄 Операции</button>
         </div>
         
-        <div class="sd-content on" id="sd-fin" style="padding-top:15px">
-          <h4>Финансовый итог</h4>
-          <table class="table-sm">
-            <thead><tr><th>Кошелёк</th><th>На начало</th><th>На конец</th></tr></thead>
-            <tbody>
-              ${ST.wallets.filter(w => w.is_pos).map(w => {
-                const sB = shift.start_balances[w.id] || 0;
-                const eB = shift.end_balances[w.id] || 0;
-                return `<tr><td>${esc(w.name)}</td><td class="mono">${fmtN(sB)}</td><td class="mono"><b>${fmtN(eB)}</b></td></tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-          <p style="margin-top:15px"><b>Выручка за смену (инкассо):</b> <span class="tg fw7">${fmtN(shift.revenue_kgs)} KGS</span></p>
-        </div>
-        
-        <div class="sd-content" id="sd-sales" style="padding-top:15px; display:none">
-          <h4>Продажи и чеки</h4>
-          <div class="tw"><table class="table-sm">
-            <thead><tr><th>ID Чека</th><th>Товар</th><th>Сумма</th></tr></thead>
-            <tbody>
-              ${data.sales.map(s => `<tr><td>${esc(s.receipt_id)}</td><td>${esc(s.product_name)}</td><td class="mono">${fmtN(s.total)}</td></tr>`).join('') || '<tr><td colspan="3">Нет продаж</td></tr>'}
-            </tbody>
-          </table></div>
-        </div>
-        
-        <div class="sd-content" id="sd-ops" style="padding-top:15px; display:none">
-          <h4>Движение средств</h4>
-          <div class="tw"><table class="table-sm">
-            <thead><tr><th>Тип</th><th>Категория</th><th>Сумма</th><th>Комментарий</th></tr></thead>
-            <tbody>
-              ${data.ops.map(o => {
-                const inc = o.op_type === 'Приход';
-                return `<tr><td><span class="badge ${inc?'bg':'br'}">${o.op_type}</span></td><td>${esc(o.cat_name)}</td><td class="mono">${fmtN(o.amount)}</td><td>${esc(o.comment)}</td></tr>`;
-              }).join('') || '<tr><td colspan="4">Нет операций</td></tr>'}
-            </tbody>
-          </table></div>
+        <div class="sd-container" style="background: var(--surf); padding: 20px; min-height: 350px">
+          <div class="sd-content on" id="sd-fin">
+            <h4 style="margin-bottom:15px; font-size:0.9rem">📊 Движение по кошелькам</h4>
+            <div class="tw">
+              <table class="table-sm">
+                <thead><tr><th>Кошелёк</th><th>Начало</th><th>Текущий/Конец</th><th>Разница</th></tr></thead>
+                <tbody>
+                  ${ST.wallets.filter(w => w.is_pos).map(w => {
+                    const sB = shift.start_balances[w.id] || 0;
+                    const eB = isClosed ? (shift.end_balances[w.id] || 0) : (w.balance || 0);
+                    const diff = eB - sB;
+                    return `
+                      <tr>
+                        <td><b>${esc(w.icon)} ${esc(w.name)}</b></td>
+                        <td class="mono">${fmtN(sB)}</td>
+                        <td class="mono">${fmtN(eB)}</td>
+                        <td class="mono ${diff > 0 ? 'tg' : (diff < 0 ? 'tr' : '')}">
+                          ${diff > 0 ? '+' : ''}${fmtN(diff)}
+                        </td>
+                      </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+            <div style="margin-top:20px; padding:15px; background:var(--acbg); border-radius:var(--r); display:flex; justify-content:space-between; align-items:center">
+               <span style="font-weight:700; color:var(--ac)">💵 Справочно: Выручка за смену (KGS)</span>
+               <span style="font-size:1.4rem; font-weight:900; color:var(--ac)">${fmtN(shift.revenue_kgs || 0)}</span>
+            </div>
+          </div>
+          
+          <div class="sd-content" id="sd-sales" style="display:none">
+            <h4 style="margin-bottom:15px; font-size:0.9rem">🧾 Список продаж за смену</h4>
+            <div class="tw">
+              <table class="table-sm">
+                <thead><tr><th>ID Чека</th><th>Товар</th><th>Сумма</th><th style="width:40px"></th></tr></thead>
+                <tbody>
+                  ${data.sales.map(s => `
+                    <tr>
+                      <td><code class="imeic">${esc(s.receipt_id)}</code></td>
+                      <td>${esc(s.product_name)}</td>
+                      <td class="mono fw7">${fmtN(s.total)}</td>
+                      <td><button class="btn btn-g btn-xs" onclick="printReceiptById('${s.receipt_id}')">🖨️</button></td>
+                    </tr>`).join('') || '<tr><td colspan="4" class="empty">Нет продаж в этой смене</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div class="sd-content" id="sd-ops" style="display:none">
+            <h4 style="margin-bottom:15px; font-size:0.9rem">🔄 Прочие движения средств</h4>
+            <div class="tw">
+              <table class="table-sm">
+                <thead><tr><th>Тип</th><th>Категория</th><th>Сумма</th><th>Комментарий</th></tr></thead>
+                <tbody>
+                  ${data.ops.map(o => {
+                    const inc = o.op_type === 'Приход';
+                    return `
+                      <tr>
+                        <td><span class="badge ${inc?'bg':'br'}">${inc ? '↑ ' : '↓ '}${o.op_type}</span></td>
+                        <td>${esc(o.cat_name)}</td>
+                        <td class="mono fw7 ${inc?'tg':'tr'}">${fmtN(o.amount)}</td>
+                        <td style="font-size:0.75rem; opacity:0.8">${esc(o.comment || '—')}</td>
+                      </tr>`;
+                  }).join('') || '<tr><td colspan="4" class="empty">Других операций не зафиксировано</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="m-f"><button class="btn btn-g" onclick="closeM('${mId}')">Закрыть</button></div>
+      <div class="m-f">
+        <button class="btn btn-g" onclick="closeM('${mId}')">Закрыть</button>
+      </div>
     </div>
   `;
   
@@ -131,6 +169,7 @@ async function showShiftDetails(id) {
   if (!div) { div = document.createElement('div'); div.id = mId; div.className = 'ov'; document.body.appendChild(div); }
   div.innerHTML = html;
   div.classList.add('open');
+  document.body.classList.add('locked');
   
   // Логика табов
   div.querySelectorAll('.rtab').forEach(btn => {

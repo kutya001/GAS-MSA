@@ -79,7 +79,7 @@ var SCHEMA = {
   },
   // ── Кошельки: +current_balance, +total_in, +total_out ───────────────
   'Кошельки': {
-    headers: ['id','name','currency_id','icon','start_balance','current_balance','total_in','total_out','note','is_pos','created_at','updated_at'],
+    headers: ['id','name','currency_id','icon','start_balance','current_balance','total_in','total_out','note','created_at','is_pos','updated_at'],
     color: '#FFF3E0', tabColor: '#F57C00',
     widths: [50,220,80,60,130,130,110,110,220,80,140,140],
     note: 'Кошельки. current_balance обновляется атомарно при каждой операции (Materialized)',
@@ -390,13 +390,12 @@ function _seedData(ss) {
     [6,2,'Автомобильные аксессуары',''],
     [7,2,'Периферия',''],
   ]);
-  // ── Кошельки (с пустыми materialized-полями — заполнит rebuildMaterialized)
   _seedSheet(ss, 'Кошельки', [
-    ['id','name','currency_id','icon','start_balance','current_balance','total_in','total_out','note','is_pos','created_at','updated_at'],
-    [1,'Основная касса (KGS)',1,'💰',500000,500000,0,0,'Главная касса','TRUE','2025-01-01',''],
-    [2,'Валютная касса (USD)',2,'💵',2000,2000,0,0,'Долларовая касса','TRUE','2025-01-01',''],
-    [3,'Карта Mbank',1,'💳',100000,100000,0,0,'Корпоративная карта','TRUE','2025-01-01',''],
-    [4,'Карта Optima',1,'🏦',50000,50000,0,0,'Резервная карта','FALSE','2025-01-01',''],
+    ['id','name','currency_id','icon','start_balance','current_balance','total_in','total_out','note','created_at','is_pos','updated_at'],
+    [1,'Основная касса (KGS)',1,'💰',500000,500000,0,0,'Главная касса','2025-01-01','TRUE',''],
+    [2,'Валютная касса (USD)',2,'💵',2000,2000,0,0,'Долларовая касса','2025-01-01','TRUE',''],
+    [3,'Карта Mbank',1,'💳',100000,100000,0,0,'Корпоративная карта','2025-01-01','TRUE',''],
+    [4,'Карта Optima',1,'🏦',50000,50000,0,0,'Резервная карта','2025-01-01','FALSE',''],
   ]);
 
   // ── Склады (с пустыми materialized-полями)

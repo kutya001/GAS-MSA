@@ -98,8 +98,8 @@
   Focus: Visual Hierarchy, Depth, and High Contrast
 */
 .pos-layout { 
-  display: flex; gap: 24px; height: calc(100vh - 120px); padding: 15px; 
-  background: var(--bg-page); /* Контрастный фон для подложки */
+  display: flex; gap: 24px; height: calc(100vh - 120px); padding: 20px; 
+  background: #f1f5f9; /* Нормализованный светло-голубой фон страницы */
 }
 
 /* Каталог */
@@ -226,6 +226,13 @@ async function loadPOS() {
   if (!CURRENT_SHIFT) {
     toast('🔐 Откройте смену для работы', 'w');
     nav('shifts'); return;
+  }
+  
+  // Защита: если глобальные данные еще не загружены (или сброшен кэш)
+  if (!ST || !ST.wallets || !ST.refs) {
+    showLoading(true);
+    ST = await api('getAllData');
+    showLoading(false);
   }
   
   // 1. Отрисовка фильтров классов
