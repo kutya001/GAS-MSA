@@ -28,6 +28,8 @@ function getPOSCatalog() {
             wh_id: item.wh_id,
             wh_name: item.wh_name,
             class_name: item.class_name,
+            type_name: item.type_name,
+            template_id: item.template_id,
             price: item.cost_kgs * 1.2, // Заглушка цены (в реальности берем из прайса)
             has_imei: item.has_imei,
             total_qty: 0,

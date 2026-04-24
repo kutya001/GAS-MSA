@@ -16,6 +16,7 @@
       <div class="pos-navigation">
         <div class="chip-group" id="posClasses"></div>
         <div class="chip-group sub-chips" id="posTypes" style="margin-top:10px"></div>
+        <div class="chip-group sub-chips" id="posTemplates" style="margin-top:10px"></div>
       </div>
       
       <div class="pos-grid" id="posGrid"></div>
@@ -103,7 +104,7 @@
 }
 
 /* Каталог */
-.pos-catalog { flex: 7; display: flex; flex-direction: column; overflow: hidden; }
+.pos-catalog { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .pos-header-actions { display: flex; gap: 12px; margin-bottom: 25px; }
 
 .pos-search-container { 
@@ -158,7 +159,7 @@
 
 /* Сайдбар */
 .pos-sidebar { 
-  flex: 3; background: white; border-radius: 24px; display: flex; flex-direction: column; 
+  width: 420px; flex-shrink: 0; background: white; border-radius: 24px; display: flex; flex-direction: column; 
   border: 1px solid rgba(0,0,0,0.06); box-shadow: -10px 0 40px rgba(0,0,0,0.04); overflow: hidden;
 }
 .sidebar-header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
@@ -196,7 +197,9 @@
 .pay-btn { height: 64px; font-size: 1.1rem; font-weight: 800; letter-spacing: 1px; border-radius: 16px; margin-top: 15px; box-shadow: 0 12px 30px rgba(var(--p-main-rgb), 0.3); }
 
 .change-section { margin: 20px 0; }
-.change-row.highlight { background: #000; color: #fff; padding: 18px; border-radius: 15px; border: none; box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
+.change-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.change-row label { font-weight: 700; color: #555; }
+.change-row.highlight { background: #000; color: #fff; padding: 18px; border-radius: 15px; border: none; box-shadow: 0 10px 20px rgba(0,0,0,0.15); margin-bottom: 0; }
 .change-row.highlight .amount-val { color: #00FF19; font-size: 1.6rem; }
 .change-row.highlight label { color: #aaa; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
 
@@ -217,6 +220,7 @@ var POS_RAW_DATA = [];
 var CART = [];
 var SEL_CLASS_ID = 0;
 var SEL_TYPE_ID = 0;
+var SEL_TEMPLATE_ID = 0;
 var SEL_WALLET_ID = 0;
 
 /**
@@ -287,9 +291,9 @@ function handlePosSearch() {
   const val = document.getElementById('posSearch').value;
   // Авто-добавление по IMEI (15 цифр)
   if (val.length === 15 && /^\d+$/.test(val)) {
-    const item = POS_RAW_DATA.find(x => x.variants && x.variants.some(v => v.imei === val));
+    const item = POS_RAW_DATA.find(x => x.variants && x.variants.some(v => v.imei && String(v.imei) === val));
     if (item) {
-      const variant = item.variants.find(v => v.imei === val);
+      const variant = item.variants.find(v => v.imei && String(v.imei) === val);
       addToCartFinal({
         purchase_id: variant.purchase_id,
         name: item.product_name + ' (IMEI: ' + variant.imei + ')',
@@ -307,17 +311,20 @@ function filterCatalog() {
   const q = document.getElementById('posSearch').value.toLowerCase();
   let items = POS_RAW_DATA;
   if (SEL_CLASS_ID) items = items.filter(x => ST.refs.classes.find(c => c.id == SEL_CLASS_ID)?.name === x.class_name);
-  if (SEL_TYPE_ID) items = items.filter(x => x.product_name.includes(ST.refs.prod_types.find(t => t.id == SEL_TYPE_ID)?.name));
-  if (q) items = items.filter(x => x.product_name.toLowerCase().includes(q) || (x.variants && x.variants.some(v => v.imei.includes(q))));
+  if (SEL_TYPE_ID) items = items.filter(x => ST.refs.prod_types.find(t => t.id == SEL_TYPE_ID)?.name === x.type_name);
+  if (SEL_TEMPLATE_ID) items = items.filter(x => x.template_id == SEL_TEMPLATE_ID);
+  if (q) items = items.filter(x => x.product_name.toLowerCase().includes(q) || (x.variants && x.variants.some(v => v.imei && String(v.imei).includes(q))));
   renderPOSGrid(items);
 }
 
 function filterClass(id, btn) {
   document.querySelectorAll('#posClasses .chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
-  SEL_CLASS_ID = id; SEL_TYPE_ID = 0;
+  SEL_CLASS_ID = id; SEL_TYPE_ID = 0; SEL_TEMPLATE_ID = 0;
   
   const typeBox = document.getElementById('posTypes');
+  const tplBox = document.getElementById('posTemplates');
+  tplBox.innerHTML = '';
   if (id === 0) typeBox.innerHTML = '';
   else {
     typeBox.innerHTML = `<div class="chip active" onclick="filterType(0, this)">Все типы</div>` + 
@@ -329,7 +336,27 @@ function filterClass(id, btn) {
 function filterType(id, btn) {
   document.querySelectorAll('#posTypes .chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
-  SEL_TYPE_ID = id; filterCatalog();
+  SEL_TYPE_ID = id; SEL_TEMPLATE_ID = 0;
+  
+  const tplBox = document.getElementById('posTemplates');
+  if (id === 0) tplBox.innerHTML = '';
+  else {
+    const tpls = (ST.mdm && ST.mdm.templates) ? ST.mdm.templates.filter(t => t.class_id == SEL_CLASS_ID && t.type_id == id) : [];
+    if (tpls.length > 0) {
+      tplBox.innerHTML = `<div class="chip active" onclick="filterTemplate(0, this)">Все назначения</div>` + 
+        tpls.map(t => `<div class="chip" onclick="filterTemplate(${t.id}, this)">${esc(t.name)}</div>`).join('');
+    } else {
+      tplBox.innerHTML = '';
+    }
+  }
+  filterCatalog();
+}
+
+function filterTemplate(id, btn) {
+  document.querySelectorAll('#posTemplates .chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  SEL_TEMPLATE_ID = id;
+  filterCatalog();
 }
 
 /**
@@ -444,15 +471,18 @@ async function payOrder() {
     initial_payment: initialAmt
   };
 
-  // 1. Оптимистичная печать
+  // 1. Оптимистичная печать - показываем модалку
   const printData = {
     receipt_id: 'PRELOAD-' + Date.now(),
     buyer: saleParams.buyer || 'Розничный покупатель',
     items: saleParams.cart.map(c => ({ product_name: c.name, qty: c.qty, price: c.price })),
-    totalAmount: total, saleDate: today(),
+    totalAmount: total, 
+    received: received > total ? received : total,
+    change: received > total ? received - total : 0,
+    saleDate: new Date().toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'}),
     managerName: ST.refs.managers.find(m => m.id == CURRENT_SHIFT.manager_id)?.name || 'Менеджер'
   };
-  window.open(WEBAPP_URL + '?p=receipt&local=' + encodeURIComponent(JSON.stringify(printData)), 'POSPrint', 'width=400,height=600');
+  showInlineReceiptModal(printData);
 
   // 2. Сброс UI
   CART = []; renderCart();
@@ -476,5 +506,78 @@ function toggleCartMobile() { document.getElementById('posCartPanel').classList.
 function openReturnDialog() { 
   if (typeof showReturnModalPos === 'function') showReturnModalPos();
   else toast('Функция поиска чеков загружается...', 'i');
+}
+
+function showInlineReceiptModal(data) {
+  let modal = document.getElementById('inlineReceiptModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'inlineReceiptModal';
+    modal.className = 'modal-overlay';
+    modal.style.display = 'none';
+    modal.style.position = 'fixed';
+    modal.style.top = '0'; modal.style.left = '0'; modal.style.width = '100%'; modal.style.height = '100%';
+    modal.style.background = 'rgba(0,0,0,0.5)';
+    modal.style.zIndex = '9999';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    document.body.appendChild(modal);
+  }
+  
+  const itemsHtml = data.items.map(i => `<tr><td class="item-name" style="padding:4px 0; border-bottom:1px dashed #eee;">${i.product_name}</td><td class="item-qty" style="text-align:center; padding:4px 0; border-bottom:1px dashed #eee;">${i.qty}</td><td class="item-total" style="text-align:right; padding:4px 0; border-bottom:1px dashed #eee;">${fmtN(i.price * i.qty)}</td></tr>`).join('');
+  
+  modal.innerHTML = `
+    <div class="modal" style="max-width:400px; background:white; border-radius:12px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.3);">
+      <div class="modal-header" style="background:#f5f5f5; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd;">
+        <span class="modal-title" style="font-weight:bold; font-size:1.1rem;">Чек</span>
+        <button class="modal-close" style="background:none; border:none; font-size:1.2rem; cursor:pointer;" onclick="document.getElementById('inlineReceiptModal').style.display='none'">✕</button>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <div class="receipt" id="receiptContent" style="font-family:'Courier New', Courier, monospace; font-size:14px; color:#000;">
+          <div class="receipt-header" style="text-align:center; margin-bottom:15px;">
+            <h3 style="margin:0 0 5px 0; font-size:1.2rem;">📱 МобайлШоп</h3>
+            <div>Кассовый чек</div>
+            <div style="font-size:11px;color:#666;margin-top:3px;">${data.saleDate} | Чек ${data.receipt_id}</div>
+            <div style="font-size:11px;color:#666;">Кассир: ${data.managerName}</div>
+          </div>
+          <div class="receipt-divider" style="border-top:2px dashed #000; margin:10px 0;"></div>
+          <div class="receipt-items">
+            <table style="width:100%; border-collapse:collapse;">
+              <tbody>${itemsHtml}</tbody>
+            </table>
+          </div>
+          <div class="receipt-divider" style="border-top:2px dashed #000; margin:10px 0;"></div>
+          <div class="receipt-totals">
+            <div class="row grand" style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.1rem; margin-bottom:5px;"><span>ИТОГО:</span><span>${fmtN(data.totalAmount)}</span></div>
+            ${data.received ? `<div class="row" style="display:flex; justify-content:space-between; font-size:0.9rem;"><span>Оплата (нал.):</span><span>${fmtN(data.received)}</span></div>` : ''}
+            ${data.change ? `<div class="row" style="display:flex; justify-content:space-between; font-size:0.9rem;"><span>Сдача:</span><span>${fmtN(data.change)}</span></div>` : ''}
+          </div>
+          <div class="receipt-divider" style="border-top:2px dashed #000; margin:10px 0;"></div>
+          <div class="receipt-footer" style="text-align:center; font-size:12px;">
+            <div>Спасибо за покупку!</div>
+          </div>
+        </div>
+        <div class="receipt-actions" style="margin-top:20px; display:flex; gap:10px;">
+          <button class="btn btn-secondary" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ddd; background:#f9f9f9; cursor:pointer;" onclick="document.getElementById('inlineReceiptModal').style.display='none'">Закрыть</button>
+          <button class="btn btn-primary" style="flex:1; padding:10px; border-radius:8px; border:none; background:#1a1a1a; color:white; cursor:pointer; font-weight:bold;" onclick="printInlineReceipt()">🖨 Печать</button>
+        </div>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+}
+
+function printInlineReceipt() {
+  const content = document.getElementById('receiptContent').innerHTML;
+  const printWindow = window.open('', '', 'width=400,height=600');
+  printWindow.document.write('<html><head><title>Печать чека</title><style>body{font-family:"Courier New", Courier, monospace; margin:0; padding:10px; width:300px;}</style></head><body>');
+  printWindow.document.write(content);
+  printWindow.document.write('</body></html>');
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+    printWindow.close();
+  }, 500);
 }
 </script>

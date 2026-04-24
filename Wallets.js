@@ -26,7 +26,7 @@ function getWallets() {
         total_in:      parseFloat(r.total_in) || 0,
         total_out:     parseFloat(r.total_out) || 0,
         note:          r.note || '',
-        is_pos:        r.is_pos === 'TRUE',
+        is_pos:        r.is_pos === true || String(r.is_pos).toUpperCase() === 'TRUE',
         created_at:    r.created_at
       };
     });
