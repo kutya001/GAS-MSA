@@ -46,13 +46,13 @@
     --t: .15s;
 }
 
-#page-pos { font-family: var(--fn); background: var(--bg); color: var(--tx); height: 100vh; overflow: hidden; user-select: none; }
+#page-pos { font-family: var(--fn); background: var(--bg); color: var(--tx); height: calc(100dvh - var(--barh)); overflow: hidden; user-select: none; }
 
 #page-pos ::-webkit-scrollbar { width: 6px; }
 #page-pos ::-webkit-scrollbar-track { background: transparent; }
 #page-pos ::-webkit-scrollbar-thumb { background: var(--bdr); border-radius: 3px; }
 
-.app { width: 100%; display: grid; grid-template-columns: 240px 1fr 380px; grid-template-rows: var(--barh) 1fr; height: 100vh; overflow: hidden; }
+.app { width: 100%; display: grid; grid-template-columns: 1fr 240px minmax(320px, 380px); grid-template-rows: var(--barh) 1fr; height: 100%; overflow: hidden; }
 
 /* Header — фиксированная высота, не расширяется */
 .header {
@@ -180,13 +180,13 @@
   gap: 10px;
   align-items: center;
   flex-shrink: 0;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   min-height: 38px;
 }
 
 .search-box {
   flex: 1;
-  min-width: 180px;
+  min-width: 200px;
   position: relative;
 }
 
@@ -224,8 +224,10 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 2px;
-  max-width: 60%;
-}
+  flex: 1; max-width: 100%;
+ scrollbar-width: thin; padding-bottom: 6px; }
+.categories::-webkit-scrollbar { height: 4px; }
+.categories::-webkit-scrollbar-thumb { background: var(--bdr); border-radius: 4px; }
 
 .cat-btn {
   padding: 7px 14px;
@@ -437,13 +439,12 @@
 }
 
 .qty-btn {
-  width: 26px;
-  height: 26px;
+  width: 32px; height: 32px;
   border-radius: var(--r1);
   border: 1px solid var(--bdr);
   background: var(--surf2);
   color: var(--tx);
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -475,7 +476,7 @@
   border: none;
   color: var(--tx3);
   cursor: pointer;
-  padding: 3px;
+  padding: 8px; margin: -5px;
   border-radius: var(--r1);
   transition: all var(--t);
   display: flex;
@@ -741,7 +742,7 @@
   font-family: var(--fn);
   cursor: pointer;
   transition: all var(--t);
-}
+ position: sticky; bottom: -20px; margin-top: 15px; z-index: 10; box-shadow: 0 -10px 15px var(--surf); }
 
 .confirm-pay-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: var(--s2); }
 .confirm-pay-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
@@ -838,7 +839,7 @@
   border-radius: var(--r);
   font-family: var(--mo);
   font-size: 11px;
-  max-height: 55vh;
+  max-height: calc(80vh - 100px);
   overflow-y: auto;
   border: 1px solid var(--bdr);
 }
@@ -1169,10 +1170,12 @@
 
 /* Responsive */
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: var(--barh) 1fr; }
-  .cart-panel { display: none; }
-  .products-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-  .categories { max-width: 50%; }
+  .app { grid-template-columns: 1fr; grid-template-rows: var(--barh) 1fr 40vh; }
+  .tree-panel { display: none; }
+  .main-content { grid-column: 1 / -1; grid-row: 2 / 3; }
+  .cart-panel { display: flex; grid-column: 1 / -1; grid-row: 3 / 4; border-left: none; border-top: 2px solid var(--bdr); }
+  .products-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  .categories { max-width: 100%; }
   .cashier-name { display: none; }
 }
 
@@ -1187,10 +1190,10 @@
 mark { background: var(--acbg); color: var(--ac); padding: 0 2px; border-radius: 2px; }
 
 
-.tree-panel { grid-column: 1 / 2; grid-row: 2 / 3; background: var(--surf); border-right: 1px solid var(--bdr); display: flex; flex-direction: column; overflow: hidden; }
+.tree-panel { grid-column: 2 / 3; grid-row: 2 / 3; background: var(--surf); border-left: 1px solid var(--bdr); display: flex; flex-direction: column; overflow: hidden; }
 .tree-header { padding: 14px 18px; font-weight: 600; font-size: 14px; border-bottom: 1px solid var(--bdr); color: var(--tx2); background: var(--surf2); }
 .tree-content { flex: 1; overflow-y: auto; padding: 10px; }
-.main-content { grid-column: 2 / 3; grid-row: 2 / 3; display: flex; flex-direction: column; overflow: hidden; min-width: 0; padding: 16px; gap: 12px; }
+.main-content { grid-column: 1 / 2; grid-row: 2 / 3; display: flex; flex-direction: column; overflow: hidden; min-width: 0; padding: 16px; gap: 12px; }
 .tree-node { margin-bottom: 2px; }
 .tree-label { display: flex; align-items: center; padding: 6px 8px; border-radius: var(--r1); cursor: pointer; font-size: 13px; color: var(--tx); transition: background 0.2s; user-select: none; }
 .tree-label:hover { background: var(--surf2); }
@@ -1696,7 +1699,7 @@ function updateCart() {
     '<div class="cart-item">' +
       '<div class="cart-item-icon">📦</div>' +
       '<div class="cart-item-info">' +
-        '<div class="cart-item-name" style="white-space:normal; overflow:visible;">' + esc(item.name) + '</div>' +
+        '<div class="cart-item-name" title="' + esc(item.name) + '">' + esc(item.name) + '</div>' +
         '<div class="cart-item-price">' + fmtN(item.price) + ' × ' + item.qty + '</div>' +
       '</div>' +
       '<div class="cart-item-qty">' +
@@ -1784,20 +1787,27 @@ function numpadBackspace() {
 }
 
 async function processPayment() {
+  const btn = document.getElementById('confirmPayBtn');
+  btn.disabled = true;
+  btn.textContent = 'Обработка...';
+
   const total = getGrandTotal();
   const isInst = document.getElementById('checkInstallment').checked;
   const received = parseFloat(document.getElementById('cashReceived').value) || 0;
   const initialAmt = isInst ? received : total;
   
   if (isInst && (!document.getElementById('posBuyer').value || !document.getElementById('posPhone').value)) {
+    btn.disabled = false; btn.textContent = '✓ Подтвердить оплату';
     return toast('👤 Заполните данные покупателя для рассрочки', 'w');
   }
   
   if (!SEL_WALLET_ID && (!isInst || initialAmt > 0)) {
+    btn.disabled = false; btn.textContent = '✓ Подтвердить оплату';
     return toast('💳 Выберите кошелек оплаты', 'w');
   }
   
   if (!isInst && received < total && received > 0) {
+    btn.disabled = false; btn.textContent = '✓ Подтвердить оплату';
     return toast('Недостаточная сумма!', 'w');
   }
 
@@ -1835,6 +1845,9 @@ async function processPayment() {
     loadPOS(); 
   } catch (e) {
     toast('❌ Ошибка сохранения: ' + e.message, 'e');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✓ Подтвердить оплату';
   }
 }
 
